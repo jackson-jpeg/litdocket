@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // User documents - only authenticated users can upload to their own folders
+    match /documents/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 50 * 1024 * 1024  // Max 50MB
+                   && request.resource.contentType.matches('application/pdf');  // Only PDFs
+    }
+  }
+}
