@@ -34,11 +34,22 @@ class Deadline(Base):
     rule_citation = Column(Text)  # Full rule text
     calculation_basis = Column(Text)  # How deadline was calculated
 
-    # Status and priority
-    priority = Column(String(20), default="medium")  # low, medium, high, critical
+    # Status and priority (CompuLaw-inspired)
+    priority = Column(String(20), default="standard")  # informational, standard, important, critical, fatal
     status = Column(String(50), default="pending")  # pending, completed, cancelled
     reminder_sent = Column(Boolean, default=False)
     created_via_chat = Column(Boolean, default=False)  # Was this created via chatbot?
+
+    # Trigger-based architecture (CompuLaw-inspired)
+    is_calculated = Column(Boolean, default=False)  # Auto-calculated from rules engine
+    is_dependent = Column(Boolean, default=False)  # Depends on another deadline (trigger)
+    parent_deadline_id = Column(String(36), ForeignKey("deadlines.id", ondelete="CASCADE"))  # Trigger deadline
+    auto_recalculate = Column(Boolean, default=True)  # Recalculate if trigger changes
+
+    # Audit trail
+    modified_by = Column(String(255))  # User who last modified
+    modification_reason = Column(Text)  # Why was this changed?
+    original_deadline_date = Column(Date)  # Original calculated date (for audit)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
