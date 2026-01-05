@@ -136,6 +136,12 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-4">
               <button
+                onClick={() => router.push('/cases')}
+                className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors font-medium"
+              >
+                All Cases
+              </button>
+              <button
                 onClick={() => router.push('/')}
                 className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors font-medium"
               >

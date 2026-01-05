@@ -26,11 +26,11 @@ class DashboardService:
         """
 
         # Get all user's cases
-        cases = db.query(Case).filter(Case.userId == user_id).all()
+        cases = db.query(Case).filter(Case.user_id == user_id).all()
         total_cases = len(cases)
 
         # Get all deadlines
-        all_deadlines = db.query(Deadline).filter(Deadline.userId == user_id).all()
+        all_deadlines = db.query(Deadline).filter(Deadline.user_id == user_id).all()
 
         # Calculate deadline alerts
         deadline_alerts = self._calculate_deadline_alerts(all_deadlines)
@@ -105,12 +105,12 @@ class DashboardService:
 
         # Count documents
         total_documents = db.query(func.count(Document.id)).filter(
-            Document.userId == cases[0].userId if cases else None
+            Document.user_id == cases[0].user_id if cases else None
         ).scalar() or 0
 
         # Count pending deadlines
         total_pending_deadlines = db.query(func.count(Deadline.id)).filter(
-            Deadline.userId == cases[0].userId if cases else None,
+            Deadline.user_id == cases[0].user_id if cases else None,
             Deadline.status == 'pending'
         ).scalar() or 0
 
@@ -144,19 +144,19 @@ class DashboardService:
         """Get recent activity across all cases"""
 
         recent_documents = db.query(Document).filter(
-            Document.userId == user_id
+            Document.user_id == user_id
         ).order_by(desc(Document.created_at)).limit(limit).all()
 
         activities = []
 
         for doc in recent_documents:
             # Get case info
-            case = db.query(Case).filter(Case.id == doc.caseId).first()
+            case = db.query(Case).filter(Case.id == doc.case_id).first()
 
             activities.append({
                 "type": "document_uploaded",
                 "timestamp": doc.created_at.isoformat(),
-                "case_id": doc.caseId,
+                "case_id": doc.case_id,
                 "case_number": case.case_number if case else "Unknown",
                 "description": f"Uploaded: {doc.file_name}",
                 "document_type": doc.document_type,
@@ -181,7 +181,7 @@ class DashboardService:
 
         for case in cases:
             # Get case deadlines
-            case_deadlines = [d for d in all_deadlines if d.caseId == case.id and d.status == 'pending']
+            case_deadlines = [d for d in all_deadlines if d.case_id == case.id and d.status == 'pending']
 
             if not case_deadlines:
                 continue
@@ -245,7 +245,7 @@ class DashboardService:
 
         return {
             "id": deadline.id,
-            "case_id": deadline.caseId,
+            "case_id": deadline.case_id,
             "title": deadline.title,
             "deadline_date": deadline.deadline_date.isoformat() if deadline.deadline_date else None,
             "deadline_time": deadline.deadline_time.isoformat() if deadline.deadline_time else None,
