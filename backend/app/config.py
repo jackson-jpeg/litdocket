@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     S3_BUCKET_NAME: str = "docketassist-documents"
 
+    # Email (SendGrid)
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "")
+    EMAIL_FROM_ADDRESS: str = os.getenv("EMAIL_FROM_ADDRESS", "alerts@litdocket.com")
+    EMAIL_FROM_NAME: str = os.getenv("EMAIL_FROM_NAME", "LitDocket Alerts")
+    EMAIL_ENABLED: bool = bool(os.getenv("SENDGRID_API_KEY", ""))
+
     class Config:
         env_file = ".env"
         case_sensitive = True

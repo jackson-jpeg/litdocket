@@ -2,7 +2,10 @@ from anthropic import Anthropic
 from typing import Dict, List, Optional
 import json
 import re
+import logging
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AIService:
@@ -248,10 +251,12 @@ Be conversational but professional."""
         if json_match:
             try:
                 return json.loads(json_match.group())
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                # Log the parse failure but continue to fallback
+                logger.warning(f"JSON parse failed on matched text: {e}. Matched: {json_match.group()[:200]}...")
 
-        # Fallback
+        # Fallback - return raw text with parse_error flag
+        logger.debug(f"Returning raw text fallback for unparseable response: {text[:100]}...")
         return {'raw_text': text, 'parse_error': True}
 
     def _extract_rule_citations(self, text: str) -> List[str]:

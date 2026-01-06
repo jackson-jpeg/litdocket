@@ -19,6 +19,9 @@ from app.models.deadline_template import DeadlineTemplate
 from app.models.case_access import CaseAccess
 from app.models.active_session import ActiveSession
 
+# Notification System
+from app.models.notification import Notification, NotificationPreferences
+
 __all__ = [
     "Base",
     "User",
@@ -38,4 +41,7 @@ __all__ = [
     # Phase 3 Models
     "CaseAccess",
     "ActiveSession",
+    # Notifications
+    "Notification",
+    "NotificationPreferences",
 ]

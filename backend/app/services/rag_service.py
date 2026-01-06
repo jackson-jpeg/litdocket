@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import json
 import numpy as np
 from anthropic import Anthropic
+import logging
 
 from app.models.document import Document
 from app.models.document_embedding import DocumentEmbedding
@@ -14,19 +15,46 @@ from app.models.deadline import Deadline
 from app.models.case import Case
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
+# Try to import OpenAI, but make it optional
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    logger.warning("OpenAI not installed. Using fallback embeddings.")
+
 
 class RAGService:
     """
     RAG (Retrieval Augmented Generation) Service
 
     Provides semantic search over case documents and intelligent context retrieval
-    for the AI chat assistant
+    for the AI chat assistant.
+
+    Uses OpenAI text-embedding-3-small for production embeddings,
+    with fallback to simple TF-IDF-style embeddings if OpenAI is not available.
     """
 
     def __init__(self):
         self.anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.chunk_size = 1000  # Characters per chunk
         self.chunk_overlap = 200  # Overlap between chunks
+
+        # Initialize OpenAI client if available and configured
+        self.openai_client = None
+        self.use_openai_embeddings = False
+
+        if OPENAI_AVAILABLE and settings.OPENAI_API_KEY:
+            try:
+                self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                self.use_openai_embeddings = True
+                logger.info("OpenAI embeddings enabled (text-embedding-3-small)")
+            except Exception as e:
+                logger.warning(f"Failed to initialize OpenAI client: {e}")
+        else:
+            logger.info("Using fallback embeddings (OpenAI not configured)")
 
     def chunk_document(self, text: str, document_id: str, document_type: str = None) -> List[Dict]:
         """
@@ -82,10 +110,10 @@ class RAGService:
 
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
-        Generate embeddings for text chunks using Claude
+        Generate embeddings for text chunks.
 
-        Note: Currently returns dummy embeddings as Claude doesn't have a dedicated
-        embeddings API. In production, use OpenAI text-embedding-3-small or similar.
+        Uses OpenAI text-embedding-3-small when configured (1536 dimensions),
+        falls back to simple hash-based embeddings otherwise (768 dimensions).
 
         Args:
             texts: List of text strings to embed
@@ -93,13 +121,54 @@ class RAGService:
         Returns:
             List of embedding vectors (as lists of floats)
         """
-        # TODO: Replace with actual embedding service (OpenAI, Cohere, etc.)
-        # For now, using a simple TF-IDF style approach as placeholder
+        if self.use_openai_embeddings and self.openai_client:
+            return self._generate_openai_embeddings(texts)
+        else:
+            return self._generate_fallback_embeddings(texts)
 
+    def _generate_openai_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generate embeddings using OpenAI text-embedding-3-small model.
+
+        This is the production-quality embedding method.
+        Model: text-embedding-3-small (1536 dimensions, high quality, low cost)
+        """
+        embeddings = []
+
+        # Process in batches to avoid rate limits (max 8191 tokens per request)
+        batch_size = 100
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+
+            try:
+                response = self.openai_client.embeddings.create(
+                    model="text-embedding-3-small",
+                    input=batch,
+                    encoding_format="float"
+                )
+
+                for item in response.data:
+                    embeddings.append(item.embedding)
+
+                logger.debug(f"Generated {len(batch)} embeddings via OpenAI")
+
+            except Exception as e:
+                logger.error(f"OpenAI embedding error: {e}")
+                # Fallback to simple embeddings for this batch
+                fallback = self._generate_fallback_embeddings(batch)
+                embeddings.extend(fallback)
+
+        return embeddings
+
+    def _generate_fallback_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generate simple hash-based embeddings as fallback.
+
+        This is a placeholder for when OpenAI is not available.
+        Uses a simple word-hashing approach (768 dimensions).
+        """
         embeddings = []
         for text in texts:
-            # Simple word-based embedding (placeholder)
-            # In production, use: openai.embeddings.create(input=text, model="text-embedding-3-small")
             words = text.lower().split()
 
             # Create a simple 768-dimensional embedding based on text features
@@ -190,6 +259,9 @@ class RAGService:
         """
         Perform semantic search over case documents
 
+        Uses pgvector's native similarity search when available (O(log n) with HNSW index),
+        falls back to manual cosine similarity calculation (O(n)) for SQLite/non-pgvector.
+
         Args:
             query: Search query
             case_id: Case ID to search within
@@ -203,6 +275,75 @@ class RAGService:
         query_embeddings = self.generate_embeddings([query])
         query_embedding = query_embeddings[0]
 
+        # Check if pgvector is available for optimized search
+        if DocumentEmbedding.using_pgvector():
+            return await self._pgvector_semantic_search(query_embedding, case_id, db, top_k)
+        else:
+            return await self._fallback_semantic_search(query_embedding, case_id, db, top_k)
+
+    async def _pgvector_semantic_search(
+        self,
+        query_embedding: List[float],
+        case_id: str,
+        db: Session,
+        top_k: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Optimized semantic search using pgvector's native operators.
+
+        Uses the <=> operator for cosine distance (1 - cosine_similarity).
+        With HNSW index, this is O(log n) complexity.
+        """
+        from sqlalchemy import text
+
+        # pgvector uses cosine distance (<=>), we convert to similarity
+        # similarity = 1 - distance
+        query = text("""
+            SELECT
+                id,
+                chunk_text,
+                chunk_index,
+                document_id,
+                chunk_metadata,
+                1 - (embedding <=> :query_embedding::vector) as similarity
+            FROM document_embeddings
+            WHERE case_id = :case_id
+            ORDER BY embedding <=> :query_embedding::vector
+            LIMIT :top_k
+        """)
+
+        result = db.execute(query, {
+            "query_embedding": str(query_embedding),
+            "case_id": case_id,
+            "top_k": top_k
+        })
+
+        results = []
+        for row in result:
+            results.append({
+                'chunk_text': row.chunk_text,
+                'chunk_index': row.chunk_index,
+                'document_id': row.document_id,
+                'similarity': float(row.similarity),
+                'metadata': row.chunk_metadata
+            })
+
+        logger.debug(f"pgvector search returned {len(results)} results for case {case_id}")
+        return results
+
+    async def _fallback_semantic_search(
+        self,
+        query_embedding: List[float],
+        case_id: str,
+        db: Session,
+        top_k: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Fallback semantic search using manual cosine similarity.
+
+        Used when pgvector is not available (SQLite, PostgreSQL without pgvector).
+        O(n) complexity - fine for < 100k embeddings per case.
+        """
         # Get all embeddings for this case
         embeddings = db.query(DocumentEmbedding).filter(
             DocumentEmbedding.case_id == case_id
@@ -211,7 +352,7 @@ class RAGService:
         if not embeddings:
             return []
 
-        # Calculate similarities
+        # Calculate similarities manually
         results = []
         for emb in embeddings:
             if not emb.embedding:

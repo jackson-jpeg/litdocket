@@ -471,7 +471,8 @@ class RulesEngine:
                     ext_days = get_service_extension_days(rule_template.jurisdiction, service_method)
                     if ext_days > 0:
                         short_explanation += f" + {ext_days} ({service_method})"
-                except:
+                except (ValueError, KeyError) as e:
+                    # Service method not recognized - skip extension info in explanation
                     pass
 
             if is_before_trigger:

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, documents, cases, deadlines, chat, dashboard, triggers, search, insights, verification
+from app.api.v1 import auth, documents, cases, deadlines, chat, dashboard, triggers, search, insights, verification, notifications
 
 api_router = APIRouter()
 
@@ -15,5 +15,6 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(triggers.router, prefix="/triggers", tags=["triggers"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(insights.router, prefix="/insights", tags=["insights"])
+api_router.include_router(notifications.router, tags=["notifications"])
 # Case OS: Verification gate
 api_router.include_router(verification.router, prefix="/verification", tags=["verification"])

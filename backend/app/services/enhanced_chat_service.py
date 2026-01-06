@@ -498,9 +498,9 @@ Be helpful, accurate, and proactive. You're their docketing expert!"""
                     urgent_matters.append(f"🔴 CRITICAL: {deadline['title']} due in {days_until} days ({deadline['date']})")
                 elif days_until <= 7:
                     urgent_matters.append(f"🟠 URGENT: {deadline['title']} due in {days_until} days ({deadline['date']})")
-            except Exception as e:
-                print(f"Error processing deadline date: {e}")
-                pass
+            except (ValueError, TypeError, KeyError) as e:
+                # Skip deadlines with invalid date formats - not critical for summary
+                continue
 
         # Check for missing critical elements
         if not trigger_events:
@@ -538,8 +538,9 @@ Be helpful, accurate, and proactive. You're their docketing expert!"""
                     else:
                         dt = datetime.combine(date_val, datetime.min.time())
                     deadline_dates.append(dt.replace(tzinfo=None))
-                except:
-                    pass
+                except (ValueError, TypeError, AttributeError):
+                    # Skip deadlines with unparseable dates for density analysis
+                    continue
 
             if deadline_dates:
                 deadline_dates.sort()

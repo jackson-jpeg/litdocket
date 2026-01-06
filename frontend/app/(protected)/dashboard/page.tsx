@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import {
   Upload, FileText, AlertTriangle, Clock, CheckCircle, TrendingUp,
-  Calendar, Folder, Scale, Loader2, AlertCircle, ChevronRight, Bell, Search, BarChart3, RefreshCw, LogOut
+  Calendar, Folder, Scale, Loader2, AlertCircle, ChevronRight, Search, BarChart3, RefreshCw, LogOut, Settings
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import MorningReport from '@/components/MorningReport';
@@ -14,6 +14,7 @@ import MatterHealthCards from '@/components/MatterHealthCards';
 import DashboardCharts from '@/components/DashboardCharts';
 import ActivityFeed from '@/components/ActivityFeed';
 import GlobalSearch from '@/components/GlobalSearch';
+import NotificationCenter from '@/components/NotificationCenter';
 import { useAuth } from '@/lib/auth/auth-context';
 
 interface DashboardData {
@@ -236,11 +237,13 @@ export default function DashboardPage() {
                 <Calendar className="w-4 h-4" />
                 <span className="text-sm">Calendar</span>
               </button>
-              <button className="p-2 hover:bg-slate-100 rounded-lg relative">
-                <Bell className="w-5 h-5 text-slate-600" />
-                {dashboardData && (dashboardData.deadline_alerts.overdue.count + dashboardData.deadline_alerts.urgent.count) > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                )}
+              <NotificationCenter />
+              <button
+                onClick={() => router.push('/settings')}
+                className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
               </button>
               <div className="h-6 w-px bg-slate-300" />
               <button
