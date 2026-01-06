@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
+import logging
 
 from app.database import get_db
 from app.models.user import User
@@ -10,8 +11,41 @@ from app.models.chat_message import ChatMessage
 from app.services.chat_service import ChatService
 from app.services.enhanced_chat_service import enhanced_chat_service
 from app.utils.auth import get_current_user  # Real JWT authentication
+from app.config import settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/health")
+async def chat_health_check():
+    """
+    Chat service health check.
+
+    Verifies:
+    - Service is running
+    - Anthropic API key is configured
+    - AI model is set
+
+    Returns health status without making actual API calls.
+    """
+    health_status = {
+        "status": "healthy",
+        "service": "chat",
+        "model": settings.DEFAULT_AI_MODEL,
+        "api_configured": bool(settings.ANTHROPIC_API_KEY),
+        "features": {
+            "rag_enabled": True,
+            "tool_calling": True,
+            "retry_enabled": True
+        }
+    }
+
+    if not settings.ANTHROPIC_API_KEY:
+        health_status["status"] = "degraded"
+        health_status["warning"] = "Anthropic API key not configured"
+
+    return health_status
 
 
 class ChatMessageRequest(BaseModel):
@@ -43,6 +77,7 @@ async def send_message(
     - Explain deadline calculations
     - Provide procedural guidance
     """
+    logger.info(f"Chat request from user {current_user.id} for case {request.case_id}")
 
     # Verify case belongs to user
     case = db.query(Case).filter(
@@ -51,20 +86,46 @@ async def send_message(
     ).first()
 
     if not case:
+        logger.warning(f"Case {request.case_id} not found for user {current_user.id}")
         raise HTTPException(status_code=404, detail="Case not found")
 
-    # Process message with enhanced RAG-powered chat service
-    result = await enhanced_chat_service.process_message(
-        user_message=request.message,
-        case_id=request.case_id,
-        user_id=str(current_user.id),
-        db=db
-    )
+    try:
+        # Process message with enhanced RAG-powered chat service
+        result = await enhanced_chat_service.process_message(
+            user_message=request.message,
+            case_id=request.case_id,
+            user_id=str(current_user.id),
+            db=db
+        )
 
-    if 'error' in result:
-        raise HTTPException(status_code=500, detail=result['error'])
+        # Check for error in result (graceful errors from service)
+        if 'error' in result and result.get('response'):
+            # Service returned an error but with a user-friendly message
+            # Return the response to the user rather than throwing
+            logger.warning(f"Chat service error (graceful): {result.get('error')}")
+            return ChatMessageResponse(
+                response=result.get('response', 'An error occurred'),
+                actions_taken=result.get('actions_taken', []),
+                citations=result.get('citations', []),
+                message_id=result.get('message_id', ''),
+                tokens_used=result.get('tokens_used', 0)
+            )
+        elif 'error' in result:
+            # Hard error without graceful message
+            logger.error(f"Chat service hard error: {result.get('error')}")
+            raise HTTPException(status_code=500, detail=result['error'])
 
-    return ChatMessageResponse(**result)
+        logger.info(f"Chat response generated successfully for case {request.case_id}")
+        return ChatMessageResponse(**result)
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger.error(f"Unexpected error in chat endpoint: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred. Please try again."
+        )
 
 
 @router.get("/case/{case_id}/history")

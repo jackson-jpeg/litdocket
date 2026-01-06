@@ -1,18 +1,33 @@
 """
 Enhanced Chat Service - Ultimate RAG-powered docketing assistant
 Uses Claude with tool calling, RAG context, and comprehensive case awareness
+
+Production-hardened with:
+- Explicit API timeouts (120s default)
+- Retry logic with exponential backoff
+- Graceful degradation on RAG failures
+- Comprehensive error handling and logging
 """
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
-from anthropic import Anthropic
+from anthropic import Anthropic, APITimeoutError, APIConnectionError, RateLimitError, APIStatusError
 import json
+import logging
+import time
 
 from app.services.rag_service import rag_service
 from app.services.chat_tools import CHAT_TOOLS, ChatToolExecutor
 from app.models.case import Case
 from app.models.chat_message import ChatMessage
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Configuration constants
+MAX_RETRIES = 3
+INITIAL_RETRY_DELAY = 1  # seconds
+API_TIMEOUT = 120  # seconds
 
 
 class EnhancedChatService:
@@ -28,8 +43,77 @@ class EnhancedChatService:
     """
 
     def __init__(self):
-        self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self.client = Anthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+            timeout=API_TIMEOUT
+        )
         self.model = settings.DEFAULT_AI_MODEL
+        logger.info(f"EnhancedChatService initialized with model: {self.model}")
+
+    def _call_claude_with_retry(
+        self,
+        system: str,
+        messages: List[Dict],
+        tools: List[Dict],
+        max_tokens: int = 4096
+    ) -> Any:
+        """
+        Call Claude API with retry logic and exponential backoff.
+
+        Handles:
+        - Timeouts (retry with longer timeout)
+        - Connection errors (retry)
+        - Rate limits (wait and retry)
+        - Other API errors (fail fast)
+        """
+        last_error = None
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                logger.debug(f"Claude API call attempt {attempt + 1}/{MAX_RETRIES}")
+
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=messages,
+                    tools=tools
+                )
+
+                return response
+
+            except APITimeoutError as e:
+                last_error = e
+                logger.warning(f"Claude API timeout (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(INITIAL_RETRY_DELAY * (2 ** attempt))
+
+            except APIConnectionError as e:
+                last_error = e
+                logger.warning(f"Claude API connection error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(INITIAL_RETRY_DELAY * (2 ** attempt))
+
+            except RateLimitError as e:
+                last_error = e
+                logger.warning(f"Claude API rate limited (attempt {attempt + 1}): {e}")
+                # Rate limits need longer waits
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(5 * (2 ** attempt))  # 5s, 10s, 20s
+
+            except APIStatusError as e:
+                # Don't retry 4xx errors (client errors)
+                if 400 <= e.status_code < 500:
+                    logger.error(f"Claude API client error (no retry): {e}")
+                    raise
+                last_error = e
+                logger.warning(f"Claude API server error (attempt {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(INITIAL_RETRY_DELAY * (2 ** attempt))
+
+        # All retries exhausted
+        logger.error(f"Claude API call failed after {MAX_RETRIES} attempts: {last_error}")
+        raise last_error
 
     async def process_message(
         self,
@@ -51,23 +135,47 @@ class EnhancedChatService:
             }
         """
 
+        logger.info(f"Processing chat message for case {case_id}: {user_message[:50]}...")
+
         # Get case
         case = db.query(Case).filter(Case.id == case_id).first()
         if not case:
+            logger.warning(f"Case not found: {case_id}")
             return {'error': 'Case not found'}
 
         # Get conversation history (last 10 messages for context)
-        history = db.query(ChatMessage).filter(
-            ChatMessage.case_id == case_id
-        ).order_by(ChatMessage.created_at.desc()).limit(10).all()
-        history.reverse()  # Chronological order
+        try:
+            history = db.query(ChatMessage).filter(
+                ChatMessage.case_id == case_id
+            ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+            history.reverse()  # Chronological order
+        except Exception as e:
+            logger.error(f"Failed to load chat history: {e}")
+            history = []  # Continue without history
 
-        # Get comprehensive case context using RAG
-        case_context = await rag_service.get_case_context(
-            case_id=case_id,
-            user_query=user_message,
-            db=db
-        )
+        # Get comprehensive case context using RAG (graceful degradation)
+        try:
+            case_context = await rag_service.get_case_context(
+                case_id=case_id,
+                user_query=user_message,
+                db=db
+            )
+        except Exception as e:
+            logger.error(f"RAG context failed, using minimal context: {e}")
+            # Graceful degradation - continue with minimal context
+            case_context = {
+                'case': {
+                    'case_number': case.case_number,
+                    'title': case.title,
+                    'court': case.court,
+                    'judge': case.judge,
+                    'case_type': case.case_type,
+                    'jurisdiction': case.jurisdiction
+                },
+                'documents': [],
+                'deadlines': {'upcoming': [], 'trigger_events': []},
+                'relevant_excerpts': []
+            }
 
         # Build system prompt
         system_prompt = self._build_system_prompt(case, case_context)
@@ -84,19 +192,22 @@ class EnhancedChatService:
         total_tokens = 0
 
         try:
-            # Initial API call with tools
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=4096,
+            # Initial API call with tools (using retry logic)
+            response = self._call_claude_with_retry(
                 system=system_prompt,
                 messages=messages,
                 tools=CHAT_TOOLS
             )
 
             total_tokens += response.usage.input_tokens + response.usage.output_tokens
+            tool_call_count = 0
+            max_tool_calls = 10  # Prevent infinite tool loops
 
             # Process response - may include tool calls
-            while response.stop_reason == "tool_use":
+            while response.stop_reason == "tool_use" and tool_call_count < max_tool_calls:
+                tool_call_count += 1
+                logger.debug(f"Processing tool call {tool_call_count}")
+
                 # Extract text content
                 for block in response.content:
                     if block.type == "text":
@@ -106,11 +217,17 @@ class EnhancedChatService:
                 tool_results = []
                 for block in response.content:
                     if block.type == "tool_use":
-                        # Execute tool
-                        result = tool_executor.execute_tool(
-                            tool_name=block.name,
-                            tool_input=block.input
-                        )
+                        logger.info(f"Executing tool: {block.name}")
+
+                        # Execute tool with error handling
+                        try:
+                            result = tool_executor.execute_tool(
+                                tool_name=block.name,
+                                tool_input=block.input
+                            )
+                        except Exception as tool_error:
+                            logger.error(f"Tool execution failed: {tool_error}")
+                            result = {"success": False, "error": str(tool_error)}
 
                         actions_taken.append({
                             'tool': block.name,
@@ -118,11 +235,17 @@ class EnhancedChatService:
                             'result': result
                         })
 
-                        # Add tool result to conversation
+                        # Add tool result to conversation (safely serialize)
+                        try:
+                            result_json = json.dumps(result, default=str)
+                        except (TypeError, ValueError) as e:
+                            logger.warning(f"Tool result serialization failed: {e}")
+                            result_json = json.dumps({"success": False, "error": "Serialization failed"})
+
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
-                            "content": json.dumps(result)
+                            "content": result_json
                         })
 
                 # Continue conversation with tool results
@@ -136,10 +259,8 @@ class EnhancedChatService:
                     "content": tool_results
                 })
 
-                # Get next response
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=4096,
+                # Get next response (using retry logic)
+                response = self._call_claude_with_retry(
                     system=system_prompt,
                     messages=messages,
                     tools=CHAT_TOOLS
@@ -147,17 +268,46 @@ class EnhancedChatService:
 
                 total_tokens += response.usage.input_tokens + response.usage.output_tokens
 
+            if tool_call_count >= max_tool_calls:
+                logger.warning(f"Hit max tool call limit ({max_tool_calls})")
+
             # Final response text
             for block in response.content:
                 if block.type == "text":
                     response_text += block.text
 
-        except Exception as e:
+            logger.info(f"Chat response generated successfully. Tokens: {total_tokens}, Tools: {len(actions_taken)}")
+
+        except (APITimeoutError, APIConnectionError) as e:
+            logger.error(f"AI service unavailable after retries: {e}")
             return {
-                'error': f'AI processing failed: {str(e)}',
-                'response': "I encountered an error processing your request. Please try again.",
+                'error': 'AI service temporarily unavailable',
+                'response': "I'm experiencing connectivity issues with my AI service. Please try again in a moment.",
                 'actions_taken': [],
                 'citations': [],
+                'message_id': '',
+                'tokens_used': 0
+            }
+
+        except RateLimitError as e:
+            logger.error(f"AI rate limited: {e}")
+            return {
+                'error': 'AI service rate limited',
+                'response': "I'm receiving too many requests right now. Please wait a moment and try again.",
+                'actions_taken': [],
+                'citations': [],
+                'message_id': '',
+                'tokens_used': 0
+            }
+
+        except Exception as e:
+            logger.error(f"Unexpected AI error: {e}", exc_info=True)
+            return {
+                'error': f'AI processing failed: {str(e)}',
+                'response': "I encountered an unexpected error. Please try again or contact support if this persists.",
+                'actions_taken': [],
+                'citations': [],
+                'message_id': '',
                 'tokens_used': 0
             }
 
@@ -179,33 +329,43 @@ class EnhancedChatService:
                     'result': str(action.get('result', {}))
                 })
 
-        # Save messages to database
-        user_msg = ChatMessage(
-            case_id=case_id,
-            user_id=user_id,
-            role='user',
-            content=user_message
-        )
-        db.add(user_msg)
+        # Save messages to database (with error handling)
+        message_id = ""
+        try:
+            user_msg = ChatMessage(
+                case_id=case_id,
+                user_id=user_id,
+                role='user',
+                content=user_message
+            )
+            db.add(user_msg)
 
-        assistant_msg = ChatMessage(
-            case_id=case_id,
-            user_id=user_id,
-            role='assistant',
-            content=response_text,
-            context_rules=citations,
-            tokens_used=total_tokens,
-            model_used=self.model
-        )
-        db.add(assistant_msg)
-        db.commit()
-        db.refresh(assistant_msg)
+            assistant_msg = ChatMessage(
+                case_id=case_id,
+                user_id=user_id,
+                role='assistant',
+                content=response_text,
+                context_rules=citations,
+                tokens_used=total_tokens,
+                model_used=self.model
+            )
+            db.add(assistant_msg)
+            db.commit()
+            db.refresh(assistant_msg)
+            message_id = str(assistant_msg.id)
+            logger.debug(f"Chat messages saved. Message ID: {message_id}")
+
+        except Exception as db_error:
+            logger.error(f"Failed to save chat messages: {db_error}")
+            db.rollback()
+            # Generate a temporary ID since DB save failed
+            message_id = f"temp-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
         return {
             'response': response_text,
             'actions_taken': sanitized_actions,  # Use sanitized version
             'citations': citations,
-            'message_id': str(assistant_msg.id),
+            'message_id': message_id,
             'tokens_used': total_tokens
         }
 
