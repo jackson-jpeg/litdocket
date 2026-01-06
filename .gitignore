@@ -17,6 +17,8 @@ build/
 # Firebase credentials (NEVER commit these!)
 **/firebase-service-account.json
 firebase-service-account.json
+**/firebase-credentials.json
+firebase-credentials.json
 .firebaserc
 
 # Environment variables
