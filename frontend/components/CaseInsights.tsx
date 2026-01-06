@@ -60,7 +60,7 @@ export default function CaseInsights({ caseId }: CaseInsightsProps) {
     try {
       setLoading(true);
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:8000/api/v1/insights/case/${caseId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/insights/case/${caseId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

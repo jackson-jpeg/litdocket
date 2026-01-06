@@ -52,7 +52,7 @@ export default function EnhancedChat({ caseId, caseNumber, onActionTaken }: Enha
   const loadChatHistory = async () => {
     try {
       const token = localStorage.getItem('accessToken')
-      const response = await fetch(`http://localhost:8000/api/v1/chat/case/${caseId}/history?limit=50`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/chat/case/${caseId}/history?limit=50`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -104,7 +104,7 @@ export default function EnhancedChat({ caseId, caseNumber, onActionTaken }: Enha
 
     try {
       const token = localStorage.getItem('accessToken')
-      const response = await fetch('http://localhost:8000/api/v1/chat/message', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/chat/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
