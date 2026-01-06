@@ -5,7 +5,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.user import User
@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 class UserRegister(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     full_name: str
     firm_name: str | None = None
