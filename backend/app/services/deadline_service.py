@@ -103,8 +103,11 @@ class DeadlineService:
             rules_section = self._get_florida_state_rules_guidance()
 
         # Get service info from metadata
-        service_date = filing_date  # Default to filing date if no service date
-        service_method = 'electronic'  # Default assumption
+        # CRITICAL: For response deadlines, use SERVICE date, NOT filing date
+        # Per Florida Rule 2.514: "exclude the day of the act" - the ACT is service, not filing
+        # Filing date and service date are often different (typically service is 1+ days after filing)
+        service_date = None  # Must extract from Certificate of Service
+        service_method = 'electronic'  # Default assumption for e-filed documents
 
         prompt = f"""You are an expert Florida legal docketing assistant following Jackson's comprehensive methodology.
 
@@ -118,8 +121,16 @@ DOCUMENT ANALYSIS:
 Document Type: {document_type}
 Jurisdiction: {jurisdiction}
 Court: {court}
-Filing/Service Date: {filing_date or 'MUST extract from document text'}
-Service Method: {service_method or 'MUST extract from certificate of service'}
+Filing Date: {filing_date or 'Extract from document header'}
+Service Date: MUST EXTRACT FROM CERTIFICATE OF SERVICE - This is DIFFERENT from filing date!
+Service Method: {service_method or 'Extract from certificate of service'}
+
+CRITICAL - FILING DATE vs SERVICE DATE:
+- FILING DATE: When document was filed with the court (appears in document header/footer)
+- SERVICE DATE: When document was SERVED on opposing party (appears in Certificate of Service)
+- For calculating response deadlines, ALWAYS use SERVICE DATE, never filing date
+- These dates are typically 1-2 days apart - using the wrong date causes off-by-one errors
+- Look for: "I HEREBY CERTIFY that on [DATE], I served..." or similar language
 
 CRITICAL FOR DISCOVERY DOCUMENTS (MOST COMMON):
 - Request for Production → 30 days to respond (Fla. R. Civ. P. 1.350) [HIGH PRIORITY]
@@ -182,16 +193,21 @@ CRITICAL CALCULATION INSTRUCTIONS:
 - Count calendar days, adjust if deadline falls on weekend/holiday
 - Show complete calculation: "30 days from [service date] = [calculated date], plus 5 days for mail service = [final date]"
 
-DATE EXTRACTION INSTRUCTIONS (CRITICAL):
-1. Check "Certificate of Service" at the end of document - this is THE authoritative date
-2. Check document header/caption for "Filed:" or "Served:" date
-3. Check footer or signature block for dates
+DATE EXTRACTION INSTRUCTIONS (CRITICAL - READ CAREFULLY):
+1. FIRST: Check "Certificate of Service" at the END of document - this contains the SERVICE DATE
+   - Look for: "I HEREBY CERTIFY that on [DATE]..." or "CERTIFICATE OF SERVICE"
+   - The SERVICE DATE is what triggers response deadlines, NOT the filing date
+2. SECOND: If no Certificate of Service, check document header for "Served:" date
+3. THIRD: Only if no service date found, check "Filed:" date in header/footer
 4. Common date formats to recognize:
    - "12/31/2024", "December 31, 2024", "Dec. 31, 2024"
    - "Filed: January 5, 2025", "Served: 1/5/25"
    - In certificate: "I HEREBY CERTIFY that on January 5, 2025..."
-5. If multiple dates appear, use the SERVICE date (not filing date) for calculating response deadlines
-6. If document says "filed" but no service info, assume service same day for electronic filing
+5. CRITICAL: For response deadlines, use SERVICE DATE. Filing date ≠ Service date!
+   - Filing date: when filed with court clerk (document header)
+   - Service date: when served on opposing party (Certificate of Service)
+   - These are typically 1-2 days apart - using filing date causes off-by-one errors!
+6. If document says "filed" but no service info, assume electronic service same day
 7. NEVER use today's date - extract actual dates from the document text
 8. If truly no date found, set deadline_date to null and is_estimated to true
 
@@ -200,9 +216,9 @@ Return as JSON array with this structure:
   {{
     "party_role": "Defendant, John Doe",
     "action": "file and serve answer to Complaint",
-    "deadline_date": "2025-01-15",
+    "deadline_date": "2025-01-20",
     "deadline_type": "responsive pleading",
-    "calculation_basis": "Deadline to file and serve Answer to Complaint (triggered 20 calendar days after service date 12/25/2024 plus 5 days for U.S. Mail service = 01/19/2025, moved to 01/20/2025 next business day) [per 12/20/2024 Summons and Complaint; via 12/25/2024 Certificate of Service]",
+    "calculation_basis": "Deadline to file and serve Answer to Complaint (SERVICE DATE 12/25/2024 + 20 calendar days = 01/14/2025, + 5 days for U.S. Mail service = 01/19/2025 (Sunday), rolled to 01/20/2025 (Monday) per FL R. Jud. Admin. 2.514(a)) [per 12/20/2024 Summons and Complaint; via 12/25/2024 Certificate of Service]",
     "description": "Deadline to file and serve Answer to Complaint",
     "trigger_event": "service of complaint",
     "trigger_date": "2024-12-25",
@@ -213,6 +229,14 @@ Return as JSON array with this structure:
     "is_estimated": false
   }}
 ]
+
+CRITICAL DATE CALCULATION VERIFICATION:
+Before returning ANY deadline, verify your math:
+1. Start with SERVICE date (NOT filing date)
+2. Add base period days: service_date + N days
+3. Add service extension if applicable (mail = +5 days FL, +3 days Federal)
+4. If result falls on weekend/holiday, roll to NEXT business day
+5. The deadline_date field MUST match your calculation_basis explanation
 
 PROFESSIONAL FORMATTING EXAMPLES:
 
@@ -812,11 +836,13 @@ LOCAL RULES: Always check district-specific local rules for variations!
 
         if trigger_event:
             # Try to extract trigger date from analysis
-            trigger_date_str = document_analysis.get('filing_date') or document_analysis.get('service_date')
+            # CRITICAL: For response deadlines, SERVICE DATE takes precedence over filing date
+            # Per Florida Rule 2.514: counting begins from the day of SERVICE, not filing
+            trigger_date_str = document_analysis.get('service_date') or document_analysis.get('filing_date')
             trigger_date = self._parse_date_to_object(trigger_date_str) if trigger_date_str else None
 
             if not trigger_date:
-                trigger_date = datetime.now().date()  # Fallback to today
+                trigger_date = datetime.now().date()  # Fallback to today (last resort)
 
             return {
                 'trigger_event': trigger_event,

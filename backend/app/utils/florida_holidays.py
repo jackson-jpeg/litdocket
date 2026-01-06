@@ -255,35 +255,45 @@ def add_calendar_days_with_service_extension(
     jurisdiction: str = "state"
 ) -> date:
     """
-    Calculate deadline with service method extensions (Phase 3 - Service Math)
+    Calculate deadline with service method extensions per Florida Rule 2.514.
 
-    Uses authoritative legal rules for service extensions:
+    FLORIDA RULE OF JUDICIAL ADMINISTRATION 2.514 - COMPUTING TIME:
+    (a)(1) EXCLUDE the day of the act that triggers the period (service date)
+    (a)(2) COUNT every day of the period, including weekends and holidays
+    (a)(3) INCLUDE the last day, but if it falls on weekend/holiday, extend to next business day
+
+    This function implements: trigger_date + total_days
+    Where total_days = base_days + service_extension
+
+    Since Python's timedelta(days=N) adds N days and the trigger date itself is NOT
+    included in the resulting date (June 1 + 20 days = June 21, not June 20), this
+    correctly implements Rule 2.514(a)(1) - excluding the trigger day.
+
+    CRITICAL: trigger_date MUST be the SERVICE DATE, not the filing date!
+    Filing date and service date are typically 1-2 days apart.
+
+    Service Extensions:
     - Florida State: Mail adds 5 days (FL R. Jud. Admin. 2.514(b))
     - Federal: Mail/Electronic adds 3 days (FRCP 6(d))
 
-    CRITICAL: This function now uses jurisdiction-specific rules from legal_rules.py
-    to ensure accurate deadline calculations for both state and federal courts.
+    Examples (using SERVICE date, not filing date):
+        - Served June 1, 20 days to respond, e-service, Florida state:
+          → June 1 + 20 = June 21 (no extension for email since 2019)
 
-    This is THE critical function for accurate deadline calculation.
-
-    Examples:
-        - Document filed on June 1, 20 days to respond, e-service, Florida state:
-          → June 1 + 20 calendar days = June 21 (no extension for email since 2019)
-
-        - Document filed on June 1, 20 days to respond, mail service, Florida state:
+        - Served June 1, 20 days to respond, mail service, Florida state:
           → June 1 + 20 + 5 = June 26 (then adjust for weekends/holidays)
 
-        - Document filed on June 1, 21 days to respond, mail service, Federal:
+        - Served June 1, 21 days to respond, mail service, Federal:
           → June 1 + 21 + 3 = June 25 (then adjust for weekends/holidays)
 
     Args:
-        trigger_date: Date of service/filing
-        base_days: Base response period (e.g., 20 days per FRCP)
+        trigger_date: Date of SERVICE (NOT filing date!) - this is critical
+        base_days: Base response period (e.g., 20 days for answer to complaint)
         service_method: "electronic", "mail", or "hand_delivery"
         jurisdiction: "state" for Florida state courts, "federal" for federal courts
 
     Returns:
-        Final deadline date (adjusted for business days if needed)
+        Final deadline date (adjusted for business days per Rule 2.514(a)(3))
     """
     from datetime import timedelta
     from app.constants.legal_rules import get_service_extension_days
