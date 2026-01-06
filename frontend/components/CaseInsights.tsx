@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { TrendingUp, AlertTriangle, Lightbulb, Target, Activity, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { API_URL } from '@/lib/config';
 
 interface CaseInsightsProps {
   caseId: string;
@@ -60,7 +61,7 @@ export default function CaseInsights({ caseId }: CaseInsightsProps) {
     try {
       setLoading(true);
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/insights/case/${caseId}`, {
+      const response = await fetch(`${API_URL}/api/v1/insights/case/${caseId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -18,6 +18,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from './firebase-config';
+import { API_URL } from '@/lib/config';
 
 interface User {
   id: string;
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Get backend JWT token from Firebase ID token
   const getBackendToken = async (firebaseIdToken: string): Promise<string> => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login/firebase`, {
+    const response = await fetch(`${API_URL}/api/v1/auth/login/firebase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_token: firebaseIdToken })
@@ -67,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch user data from backend
   const fetchUserData = async (token: string): Promise<User> => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/me`, {
+    const response = await fetch(`${API_URL}/api/v1/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -181,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const idToken = await firebaseUser.getIdToken();
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/signup/complete`, {
+    const response = await fetch(`${API_URL}/api/v1/auth/signup/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

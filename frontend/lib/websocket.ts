@@ -240,13 +240,14 @@ export class WebSocketClient {
   }
 }
 
+import { WS_HOST } from './config';
+
 /**
  * Create WebSocket client for a case room
  */
 export function createCaseWebSocket(caseId: string, token: string): WebSocketClient {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsHost = process.env.NEXT_PUBLIC_WS_URL || 'localhost:8000';
-  const wsUrl = `${wsProtocol}//${wsHost}/ws/cases/${caseId}`;
+  const wsUrl = `${wsProtocol}//${WS_HOST}/ws/cases/${caseId}`;
 
   // Ensure token exists, use a demo token if not
   const validToken = token || 'demo-token-for-websocket-connection';

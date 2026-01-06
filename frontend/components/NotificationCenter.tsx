@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, X, Check, CheckCheck, AlertTriangle, FileText, Calendar, Lightbulb, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/config';
 
 interface NotificationData {
   id: string;
@@ -42,7 +43,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
       const token = localStorage.getItem('accessToken');
       if (!token) return;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications?limit=20`, {
+      const response = await fetch(`${API_URL}/api/v1/notifications?limit=20`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -67,7 +68,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
       const token = localStorage.getItem('accessToken');
       if (!token) return;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/unread-count`, {
+      const response = await fetch(`${API_URL}/api/v1/notifications/unread-count`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -86,7 +87,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
   const markAsRead = async (notificationId: string) => {
     try {
       const token = localStorage.getItem('accessToken');
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/${notificationId}/read`, {
+      await fetch(`${API_URL}/api/v1/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -107,7 +108,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
   const markAllAsRead = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/mark-all-read`, {
+      await fetch(`${API_URL}/api/v1/notifications/mark-all-read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -127,7 +128,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
     e.stopPropagation();
     try {
       const token = localStorage.getItem('accessToken');
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/${notificationId}/dismiss`, {
+      await fetch(`${API_URL}/api/v1/notifications/${notificationId}/dismiss`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

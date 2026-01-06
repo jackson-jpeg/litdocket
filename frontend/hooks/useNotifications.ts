@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { API_URL } from '@/lib/config';
 
 interface Notification {
   id: string;
@@ -69,7 +70,7 @@ export function useNotifications(): UseNotificationsReturn {
     };
   }, []);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = API_URL;
 
   const fetchNotifications = useCallback(async () => {
     try {
