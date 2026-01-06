@@ -222,6 +222,44 @@ class RulesEngine:
         )
         self.rule_templates[trial_rule.rule_id] = trial_rule
 
+        # Hearing Scheduled Trigger - generates dependent deadlines before hearing
+        hearing_rule = RuleTemplate(
+            rule_id="FL_CIV_HEARING",
+            name="Hearing Dependencies",
+            description="Deadlines calculated from scheduled hearing date",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.HEARING_SCHEDULED,
+            citation="Fla. R. Civ. P. 1.200",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Memorandum of Law Due",
+                    description="File memorandum of law in support of position",
+                    days_from_trigger=-5,  # 5 days BEFORE hearing
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File memorandum of law or brief",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules (varies by district)",
+                    notes="Check local rules - some courts require 7 or 10 days"
+                ),
+                DependentDeadline(
+                    name="Hearing Exhibits Due",
+                    description="Exchange exhibits for hearing",
+                    days_from_trigger=-3,  # 3 days BEFORE hearing
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="Exchange hearing exhibits",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="Check local rules for specific requirements"
+                ),
+            ]
+        )
+        self.rule_templates[hearing_rule.rule_id] = hearing_rule
+
     def _load_federal_civil_rules(self):
         """Load Federal Rules of Civil Procedure templates"""
 
@@ -276,6 +314,44 @@ class RulesEngine:
             ]
         )
         self.rule_templates[fed_discovery_rule.rule_id] = fed_discovery_rule
+
+        # Federal Hearing Scheduled Trigger
+        fed_hearing_rule = RuleTemplate(
+            rule_id="FED_CIV_HEARING",
+            name="Federal Hearing Dependencies",
+            description="Deadlines calculated from scheduled hearing date (Federal)",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.HEARING_SCHEDULED,
+            citation="FRCP 1 and Local Rules",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Memorandum of Law Due (Federal)",
+                    description="File memorandum of law in support of position",
+                    days_from_trigger=-7,  # 7 days BEFORE hearing (Federal typically requires more notice)
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File memorandum of law or brief",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules (varies by district)",
+                    notes="Check local rules - some districts require 14 days"
+                ),
+                DependentDeadline(
+                    name="Hearing Exhibits Due (Federal)",
+                    description="Exchange exhibits for hearing",
+                    days_from_trigger=-5,  # 5 days BEFORE hearing
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="Exchange hearing exhibits",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="Check local rules for specific requirements"
+                ),
+            ]
+        )
+        self.rule_templates[fed_hearing_rule.rule_id] = fed_hearing_rule
 
     def get_applicable_rules(
         self,

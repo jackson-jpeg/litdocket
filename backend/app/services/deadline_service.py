@@ -646,6 +646,118 @@ LOCAL RULES: Always check district-specific local rules for variations!
 
         return generated_deadlines
 
+    def extract_trigger_events_from_analysis(
+        self,
+        document_analysis: Dict[str, Any],
+        court_info: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract ALL trigger events from AI document analysis.
+        Scans key_dates, deadlines_mentioned, and document type to find trigger events.
+
+        Args:
+            document_analysis: AI analysis containing key_dates, deadlines_mentioned, etc.
+            court_info: Court information string
+
+        Returns:
+            List of trigger event dicts (may be empty if none found)
+        """
+        trigger_events = []
+
+        # Identify jurisdiction
+        jurisdiction_info = identify_jurisdiction(court_info)
+        if jurisdiction_info.get("type") == "federal":
+            jurisdiction = "federal"
+        elif jurisdiction_info.get("type") in ["state_circuit", "state_county"]:
+            jurisdiction = "florida_state"
+        else:
+            jurisdiction = "florida_state"
+
+        court_type = "civil"  # Default assumption
+
+        # PHASE 1: Check key_dates from AI analysis for trigger events
+        key_dates = document_analysis.get('key_dates', [])
+        for key_date_item in key_dates:
+            date_str = key_date_item.get('date')
+            description = key_date_item.get('description', '').lower()
+
+            if not date_str:
+                continue
+
+            trigger_event = None
+
+            # Hearing dates
+            if any(word in description for word in ['hearing', 'hearing date', 'scheduled hearing']):
+                trigger_event = "hearing scheduled"
+
+            # Trial dates
+            elif any(word in description for word in ['trial', 'trial date', 'trial set']):
+                trigger_event = "trial date set"
+
+            # Mediation dates
+            elif any(word in description for word in ['mediation', 'mediation conference']):
+                trigger_event = "mediation scheduled"
+
+            # Deposition dates
+            elif any(word in description for word in ['deposition']):
+                trigger_event = "deposition scheduled"
+
+            # Case management conference
+            elif any(word in description for word in ['case management', 'status conference', 'scheduling conference']):
+                trigger_event = "case management conference"
+
+            if trigger_event:
+                trigger_date = self._parse_date_to_object(date_str)
+                if trigger_date:
+                    trigger_events.append({
+                        'trigger_event': trigger_event,
+                        'trigger_date': trigger_date,
+                        'jurisdiction': jurisdiction,
+                        'court_type': court_type,
+                        'jurisdiction_info': jurisdiction_info,
+                        'source': f"Key Date: {key_date_item.get('description')}"
+                    })
+
+        # PHASE 2: Check deadlines_mentioned for explicit trigger events
+        deadlines_mentioned = document_analysis.get('deadlines_mentioned', [])
+        for deadline_item in deadlines_mentioned:
+            deadline_type = deadline_item.get('deadline_type', '').lower()
+            deadline_date_str = deadline_item.get('date')
+
+            if not deadline_date_str:
+                continue
+
+            trigger_event = None
+
+            # Map deadline types to trigger events
+            if any(word in deadline_type for word in ['hearing', 'hearing date']):
+                trigger_event = "hearing scheduled"
+            elif any(word in deadline_type for word in ['trial', 'trial date']):
+                trigger_event = "trial date set"
+            elif any(word in deadline_type for word in ['mediation']):
+                trigger_event = "mediation scheduled"
+
+            if trigger_event:
+                trigger_date = self._parse_date_to_object(deadline_date_str)
+                if trigger_date:
+                    # Check if we already have this trigger (avoid duplicates)
+                    is_duplicate = any(
+                        t['trigger_event'] == trigger_event and t['trigger_date'] == trigger_date
+                        for t in trigger_events
+                    )
+
+                    if not is_duplicate:
+                        trigger_events.append({
+                            'trigger_event': trigger_event,
+                            'trigger_date': trigger_date,
+                            'jurisdiction': jurisdiction,
+                            'court_type': court_type,
+                            'jurisdiction_info': jurisdiction_info,
+                            'source': f"Deadline Mentioned: {deadline_item.get('description')}"
+                        })
+
+        return trigger_events
+
     def detect_trigger_from_document(
         self,
         document_type: str,
@@ -653,8 +765,12 @@ LOCAL RULES: Always check district-specific local rules for variations!
         court_info: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Detect if a document represents a trigger event
-        Returns trigger info if detected, None otherwise
+        Detect if a document represents a trigger event based on document type.
+        Returns trigger info if detected, None otherwise.
+
+        NOTE: This method only checks DOCUMENT TYPE.
+        Use extract_trigger_events_from_analysis() to get ALL trigger events including
+        hearing dates, trial dates, etc. from the AI analysis.
 
         Args:
             document_type: Type of document (e.g., "complaint", "summons")
@@ -708,7 +824,8 @@ LOCAL RULES: Always check district-specific local rules for variations!
                 'jurisdiction': jurisdiction,
                 'court_type': court_type,
                 'jurisdiction_info': jurisdiction_info,
-                'document_type': document_type
+                'document_type': document_type,
+                'source': f"Document Type: {document_type}"
             }
 
         return None

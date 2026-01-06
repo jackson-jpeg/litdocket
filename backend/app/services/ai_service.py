@@ -41,6 +41,10 @@ CRITICAL: Look carefully for dates in the document, especially:
 - Date at the top of the document
 - Date in certificate of service
 - Any dates mentioned in the heading or footer
+- **HEARING DATES** - Any date when a hearing, trial, mediation, or conference is scheduled
+- **TRIAL DATES** - Any date when trial is set or scheduled
+- **MEDIATION DATES** - Any scheduled mediation or settlement conference
+- **DEPOSITION DATES** - Any scheduled depositions
 
 Document Text:
 {text[:15000]}
@@ -50,7 +54,7 @@ Extract and return as valid JSON (no markdown formatting):
   "case_number": "string or null",
   "court": "string or null",
   "judge": "string or null",
-  "document_type": "string (motion, order, notice, complaint, answer, interrogatories, request for production, request for admissions, etc.)",
+  "document_type": "string (motion, order, notice, complaint, answer, interrogatories, request for production, request for admissions, notice of hearing, order setting hearing, etc.)",
   "filing_date": "YYYY-MM-DD (CRITICAL: Extract from document text - look for 'filed', date at top, or certificate of service)",
   "service_date": "YYYY-MM-DD or null (from certificate of service)",
   "service_method": "email|mail|personal|electronic|null (from certificate of service)",
@@ -62,7 +66,7 @@ Extract and return as valid JSON (no markdown formatting):
   "case_type": "civil|criminal|appellate|null",
   "summary": "brief 2-3 sentence summary of document",
   "key_dates": [
-    {{"date": "YYYY-MM-DD", "description": "string"}}
+    {{"date": "YYYY-MM-DD", "description": "CRITICAL: Be specific - use phrases like 'Hearing scheduled', 'Trial date set', 'Mediation conference', 'Deposition of John Doe', etc."}}
   ],
   "relief_sought": "string or null",
   "deadlines_mentioned": [
@@ -75,6 +79,8 @@ IMPORTANT:
 - Look in the certificate of service section for service date and method
 - Extract the service method (email, mail, personal delivery, electronic filing, etc.)
 - Be specific about document type (e.g., "Plaintiff's First Request for Production" not just "motion")
+- **CRITICAL**: If the document mentions a hearing date, trial date, mediation date, or any scheduled event,
+  you MUST include it in the "key_dates" array with a clear description (e.g., "Hearing scheduled", "Trial date set", "Mediation conference")
 
 Return ONLY the JSON object, no additional text."""
 
