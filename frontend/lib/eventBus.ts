@@ -13,6 +13,7 @@ export type AppEvent =
   | 'deadlines:bulk-updated'
   | 'document:uploaded'
   | 'document:analyzed'
+  | 'document:updated'
   | 'case:updated'
   | 'chat:message-sent'
   | 'chat:action-taken'
@@ -23,7 +24,8 @@ export type AppEvent =
   | 'ui:show-success'
   | 'ui:show-error'
   | 'ui:show-warning'
-  | 'ui:show-info';
+  | 'ui:show-info'
+  | 'toast:show';
 
 class EventBus {
   private events: Map<AppEvent, Set<EventCallback>> = new Map();

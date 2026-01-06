@@ -19,7 +19,7 @@ import CaseInsights from '@/components/CaseInsights';
 import { DeadlineCardSkeleton, DocumentCardSkeleton, ChatSkeleton, CaseSummarySkeleton } from '@/components/Skeleton';
 import { useCaseSync } from '@/hooks/useCaseSync';
 import { deadlineEvents, uiEvents } from '@/lib/eventBus';
-import type { Document, ChatMessage } from '@/hooks/useCaseData';
+import type { Document, ChatMessage } from '@/types';
 
 export default function CaseRoomPage() {
   const params = useParams();
@@ -126,8 +126,7 @@ export default function CaseRoomPage() {
         role: 'assistant',
         content: response.data.response,
         created_at: new Date().toISOString(),
-        context_rules: response.data.citations,
-        tokens_used: response.data.tokens_used
+        context_rules: response.data.citations
       };
 
       setChatMessages(prev => [...prev, assistantMsg]);

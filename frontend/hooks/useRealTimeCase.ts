@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketClient, createCaseWebSocket, WebSocketMessage } from '@/lib/websocket';
-import { emitEvent } from '@/lib/eventBus';
+import { eventBus } from '@/lib/eventBus';
 
 export interface UserPresence {
   user_id: string;
@@ -116,7 +116,7 @@ export function useRealTimeCase(caseId: string | null) {
         console.log('Deadline updated:', data.action, data.deadline_id);
 
         // Emit event to refresh deadline data
-        emitEvent('deadline:updated', {
+        eventBus.emit('deadline:updated', {
           caseId: data.case_id,
           deadlineId: data.deadline_id,
           action: data.action,
@@ -126,7 +126,7 @@ export function useRealTimeCase(caseId: string | null) {
         // Show toast notification if update from another user
         const currentUserId = localStorage.getItem('user_id');
         if (data.user_id !== currentUserId) {
-          emitEvent('toast:show', {
+          eventBus.emit('toast:show', {
             message: `${data.user_name} ${data.action} a deadline`,
             type: 'info',
           });
@@ -138,7 +138,7 @@ export function useRealTimeCase(caseId: string | null) {
         console.log('Document updated:', data.action, data.document_id);
 
         // Emit event to refresh document data
-        emitEvent('document:updated', {
+        eventBus.emit('document:updated', {
           caseId: data.case_id,
           documentId: data.document_id,
           action: data.action,
@@ -148,7 +148,7 @@ export function useRealTimeCase(caseId: string | null) {
         // Show toast notification
         const currentUserId = localStorage.getItem('user_id');
         if (data.user_id !== currentUserId) {
-          emitEvent('toast:show', {
+          eventBus.emit('toast:show', {
             message: `${data.user_name} ${data.action} a document`,
             type: 'info',
           });
@@ -178,7 +178,7 @@ export function useRealTimeCase(caseId: string | null) {
       // Error
       client.on('error', (data: any) => {
         console.error('WebSocket error event:', data);
-        emitEvent('toast:show', {
+        eventBus.emit('toast:show', {
           message: data.error || 'WebSocket error occurred',
           type: 'error',
         });

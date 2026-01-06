@@ -12,7 +12,7 @@ interface Deadline {
   title: string;
   deadline_date: string;
   priority: string;
-  case_id: string;
+  case_id?: string;
   status: string;
   description?: string;
   applicable_rule?: string;
@@ -60,7 +60,8 @@ export default function CalendarPage() {
     setSelectedDeadline(deadline);
   };
 
-  const getCaseInfo = (caseId: string) => {
+  const getCaseInfo = (caseId?: string) => {
+    if (!caseId) return null;
     return cases.find(c => c.id === caseId);
   };
 

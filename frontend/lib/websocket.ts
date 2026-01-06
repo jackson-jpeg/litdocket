@@ -31,7 +31,7 @@ export interface WebSocketConfig {
 
 export class WebSocketClient {
   private ws: WebSocket | null = null;
-  private config: WebSocketConfig;
+  public config: WebSocketConfig;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // Start with 1 second

@@ -371,7 +371,7 @@ export default function EnhancedChat({ caseId, caseNumber, onActionTaken }: Enha
             }}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || isLoading}
             className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium"
           >
@@ -436,8 +436,9 @@ function MessageBubble({ message }: { message: Message }) {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  code({ node, inline, className, children, ...props }) {
+                  code({ node, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '')
+                    const inline = !match
                     return !inline && match ? (
                       <SyntaxHighlighter
                         style={vscDarkPlus}

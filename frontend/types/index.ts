@@ -18,12 +18,13 @@ export interface Case {
 
 export interface Document {
   id: string;
-  case_id: string;
+  case_id?: string;
   file_name: string;
   document_type?: string;
   filing_date?: string;
   ai_summary?: string;
   extracted_metadata?: any;
+  storage_url?: string;
   created_at: string;
 }
 
