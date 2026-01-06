@@ -49,7 +49,7 @@ class FirebaseService:
 
             # Initialize Firebase app
             firebase_admin.initialize_app(cred, {
-                'storageBucket': 'florida-docket-assist.firebasestorage.app'
+                'storageBucket': 'litdocket.appspot.com'
             })
 
             FirebaseService._db = firestore.client()
