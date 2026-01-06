@@ -29,7 +29,11 @@ class Settings(BaseSettings):
         origins_str = os.getenv("ALLOWED_ORIGINS", "")
         if origins_str:
             return [o.strip() for o in origins_str.split(",")]
+        # Default origins include production and development
         return [
+            "https://www.litdocket.com",
+            "https://litdocket.com",
+            "https://litdocket.vercel.app",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
         ]

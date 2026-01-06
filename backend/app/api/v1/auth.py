@@ -31,8 +31,14 @@ class UserRegister(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    name: str | None = None
     full_name: str | None = None  # Optional - may be None for auto-created users
     firm_name: str | None = None
+    role: str | None = None
+    jurisdictions: list[str] | None = None
+
+    class Config:
+        from_attributes = True
 
 
 class Token(BaseModel):
@@ -224,11 +230,109 @@ async def login(
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current authenticated user information
-    
+
     Args:
         current_user: Current authenticated user from JWT token
-    
+
     Returns:
         User data (without password)
     """
     return current_user
+
+
+class CompleteSignupRequest(BaseModel):
+    id_token: str
+    full_name: str | None = None
+    firm_name: str | None = None
+    jurisdictions: list[str] | None = None
+
+
+class CompleteSignupResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+
+@router.post("/signup/complete", response_model=CompleteSignupResponse)
+async def complete_signup(
+    request: CompleteSignupRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Complete user signup with additional profile information
+
+    This endpoint is called after Firebase authentication to update the user profile
+    with additional information like firm name and jurisdictions.
+
+    Args:
+        request: Profile completion data with Firebase ID token
+        db: Database session
+
+    Returns:
+        JWT token and updated user data
+    """
+    try:
+        from firebase_admin import auth as firebase_auth
+        from app.services.firebase_service import firebase_service
+        from jose import jwt as jose_jwt
+
+        # Decode token to get email
+        if settings.DEBUG:
+            try:
+                unverified_payload = jose_jwt.decode(request.id_token, options={"verify_signature": False})
+                email = unverified_payload.get('email') or 'dev@docketassist.com'
+            except Exception:
+                email = 'dev@docketassist.com'
+        else:
+            firebase_service._initialize_firebase()
+            decoded_token = firebase_auth.verify_id_token(request.id_token)
+            email = decoded_token.get('email')
+
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not found in token"
+            )
+
+        # Find user
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        # Update user profile
+        if request.full_name:
+            user.full_name = request.full_name
+        if request.firm_name:
+            user.firm_name = request.firm_name
+        if request.jurisdictions:
+            user.jurisdictions = request.jurisdictions
+
+        db.commit()
+        db.refresh(user)
+
+        # Create new access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": str(user.id)},
+            expires_delta=access_token_expires
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Complete signup error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to complete signup: {str(e)}"
+        )
