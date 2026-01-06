@@ -161,10 +161,18 @@ EXTRACT ALL DEADLINES INCLUDING:
 - Court-ordered compliance deadlines
 
 For EACH deadline, provide:
-1. WHO the obligation applies to (Plaintiff, Defendant, All Parties, specific party names in Title Case)
-2. WHAT action is required (be specific)
+1. WHO the obligation applies to - MUST use professional format:
+   - "Plaintiff, [Full Name]" NOT "plaintiff" or "Plaintiff" alone
+   - "Defendant, [Full Name]" NOT "defendant" or "Defendant" alone
+   - "Plaintiffs, [Name 1] and [Name 2]" for multiple parties
+   - "All Parties" when obligation applies to everyone (BOTH words capitalized)
+   Examples: "Plaintiff, Robert Becker", "Defendant, Jane Doe", "All Parties"
+2. WHAT action is required (be specific, use professional terminology)
 3. WHEN it's due (CALCULATE THE ACTUAL DATE - do not return null unless absolutely unavoidable)
-4. HOW you calculated it (trigger event + time period + applicable rule + service additions)
+4. HOW you calculated it - Professional format with full formula:
+   - Show complete calculation: "triggered 1 Court Day plus 30 Days after service date"
+   - Include all rule citations in full: "Fla. R. Civ. P. 1.350(a)" not just "RCP 1.350"
+   - Source attribution: [per MM/DD/YYYY Document Type; via MM/DD/YYYY ECR]
 5. SOURCE document with date and service method
 
 CRITICAL CALCULATION INSTRUCTIONS:
@@ -194,7 +202,8 @@ Return as JSON array with this structure:
     "action": "file and serve answer to Complaint",
     "deadline_date": "2025-01-15",
     "deadline_type": "responsive pleading",
-    "calculation_basis": "20 days after service on 12/25/2024 (Fla. R. Civ. P. 1.140(a)(1)) + 5 days for mail service = 01/19/2025, adjusted to 01/20/2025 (Monday)",
+    "calculation_basis": "Deadline to file and serve Answer to Complaint (triggered 20 calendar days after service date 12/25/2024 plus 5 days for U.S. Mail service = 01/19/2025, moved to 01/20/2025 next business day) [per 12/20/2024 Summons and Complaint; via 12/25/2024 Certificate of Service]",
+    "description": "Deadline to file and serve Answer to Complaint",
     "trigger_event": "service of complaint",
     "trigger_date": "2024-12-25",
     "applicable_rule": "Fla. R. Civ. P. 1.140(a)(1)",
@@ -205,16 +214,49 @@ Return as JSON array with this structure:
   }}
 ]
 
-EXAMPLE for Request for Production served on 12/01/2024 via email:
+PROFESSIONAL FORMATTING EXAMPLES:
+
+Example 1 - Discovery Response:
 {{
-  "party_role": "Defendant",
-  "action": "respond to Plaintiff's First Request for Production",
+  "party_role": "Defendant, Jane Smith",
+  "action": "respond to Plaintiff's First Request for Production of Documents",
   "deadline_date": "2024-12-31",
-  "deadline_type": "discovery response",
-  "calculation_basis": "30 days from service on 12/01/2024 (Fla. R. Civ. P. 1.350(a)) = 12/31/2024. No additional days for electronic service.",
+  "deadline_type": "Deadline",
+  "calculation_basis": "Deadline to respond to Plaintiff's First Request for Production of Documents (triggered 30 calendar days from service on 12/01/2024 per Fla. R. Civ. P. 1.350(a), no extension for electronic service = 12/31/2024) [per 12/01/2024 Plaintiff's First Request for Production; via 12/01/2024 E-Portal]",
+  "description": "Deadline to respond to Plaintiff's First Request for Production of Documents",
   "trigger_event": "service of request for production",
   "trigger_date": "2024-12-01",
   "applicable_rule": "Fla. R. Civ. P. 1.350(a)",
+  "service_method": "electronic",
+  "priority": "high"
+}}
+
+Example 2 - Multiple Parties (use "Plaintiffs" or "Defendants" when multiple):
+{{
+  "party_role": "Plaintiffs, Robert Becker and Alycia Alford",
+  "action": "notify court that parties cannot agree on a mediator",
+  "deadline_date": "2025-09-02",
+  "deadline_type": "Deadline",
+  "calculation_basis": "Plaintiffs, Robert Becker and Alycia Alford to notify court that parties cannot agree on a mediator (triggered 1 Court Day plus 19 Days after Order/Referral to Mediation) [per 08/12/2025 Order/Referral to Mediation; via 10/27/2025 ECR]",
+  "description": "Plaintiffs, Robert Becker and Alycia Alford to notify court that parties cannot agree on a mediator",
+  "trigger_event": "date of order/referral to mediation",
+  "trigger_date": "2025-08-12",
+  "applicable_rule": "RCP 1.720(j)(2)",
+  "service_method": "electronic",
+  "priority": "standard"
+}}
+
+Example 3 - All Parties (BOTH words capitalized):
+{{
+  "party_role": "All Parties",
+  "action": "complete fact and expert discovery",
+  "deadline_date": "2026-06-01",
+  "deadline_type": "Deadline",
+  "calculation_basis": "Deadline for All Parties to complete fact and expert discovery (Calculated: fixed date provided in Case Management Plan, 05/31/26, moved to next business day) [per 08/12/2025 Court Ordered Case Management Plan General; via 10/27/2025 ECR]",
+  "description": "Deadline for All Parties to complete fact and expert discovery",
+  "trigger_event": "court ordered case management plan",
+  "trigger_date": "2025-08-12",
+  "applicable_rule": "Set by Court Order",
   "service_method": "electronic",
   "priority": "high"
 }}
