@@ -7,6 +7,7 @@ python-multipart==0.0.9
 sqlalchemy>=2.0.36  # Version 2.0.36+ supports Python 3.13
 psycopg2-binary==2.9.9  # PostgreSQL adapter for production
 alembic==1.13.1
+pgvector==0.2.5  # PostgreSQL vector extension for RAG embeddings
 
 # Data validation
 pydantic==2.6.0

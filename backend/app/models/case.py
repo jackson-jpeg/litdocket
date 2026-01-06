@@ -32,6 +32,14 @@ class Case(Base):
     chat_messages = relationship("ChatMessage", back_populates="case", cascade="all, delete-orphan")
     calendar_events = relationship("CalendarEvent", back_populates="case", cascade="all, delete-orphan")
 
+    # V3.0 Enhancements - RAG and dependency tracking
+    document_embeddings = relationship("DocumentEmbedding", back_populates="case", cascade="all, delete-orphan")
+    deadline_chains = relationship("DeadlineChain", back_populates="case", cascade="all, delete-orphan")
+    ai_feedback = relationship("AIExtractionFeedback", back_populates="case", cascade="all, delete-orphan")
+
+    # Phase 3 - Multi-user collaboration
+    access_grants = relationship("CaseAccess", back_populates="case", cascade="all, delete-orphan")
+
     # Unique constraint on user_id + case_number
     __table_args__ = (
         UniqueConstraint('user_id', 'case_number', name='uq_user_case_number'),

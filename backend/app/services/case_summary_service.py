@@ -133,7 +133,9 @@ Return as JSON with structure:
         # Documents
         context_parts.append(f"\n{len(documents)} document(s) filed:")
         for doc in documents[:10]:  # Most recent 10
-            doc_info = f"  - {doc.created_at.strftime('%Y-%m-%d')}: {doc.file_name}"
+            # Use filing_date if available, otherwise fall back to created_at
+            doc_date = doc.filing_date if doc.filing_date else doc.created_at.date()
+            doc_info = f"  - {doc_date.strftime('%Y-%m-%d')}: {doc.file_name}"
             if doc.document_type:
                 doc_info += f" ({doc.document_type})"
             if doc.ai_summary:
@@ -170,7 +172,7 @@ Return as JSON with structure:
             "overview": f"Case {case.case_number} in {case.court or 'court'}. {len(documents)} documents filed, {len(upcoming_deadlines)} upcoming deadlines.",
             "current_status": f"Active case with {len(documents)} document(s) and {len(upcoming_deadlines)} pending deadline(s).",
             "key_documents": [
-                f"{doc.created_at.strftime('%Y-%m-%d')}: {doc.file_name}"
+                f"{(doc.filing_date if doc.filing_date else doc.created_at.date()).strftime('%Y-%m-%d')}: {doc.file_name}"
                 for doc in documents[:5]
             ],
             "critical_deadlines": [
@@ -178,7 +180,7 @@ Return as JSON with structure:
                 for d in upcoming_deadlines[:5]
             ],
             "timeline": [
-                f"{doc.created_at.strftime('%Y-%m-%d')}: {doc.file_name} filed"
+                f"{(doc.filing_date if doc.filing_date else doc.created_at.date()).strftime('%Y-%m-%d')}: {doc.file_name} filed"
                 for doc in documents[:10]
             ],
             "action_items": [

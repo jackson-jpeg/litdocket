@@ -7,6 +7,8 @@ from app.config import settings
 from app.database import engine
 from app.models import Base
 from app.api.v1.router import api_router
+# WebSocket disabled for MVP - can re-enable for production
+# from app.websocket.routes import websocket_endpoint
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="Florida Docketing Assistant API",
+    title="LitDocket API",
     description="Legal docketing and case management with AI-powered analysis",
     version="1.0.0",
     docs_url="/api/docs",
@@ -46,14 +48,14 @@ async def health_check():
     return {
         "status": "healthy",
         "version": "1.0.0",
-        "service": "Florida Docketing Assistant API"
+        "service": "LitDocket API"
     }
 
 # Root endpoint
 @app.get("/")
 async def root():
     return {
-        "message": "Florida Docketing Assistant API",
+        "message": "LitDocket API",
         "docs": "/api/docs",
         "health": "/health"
     }
@@ -61,10 +63,21 @@ async def root():
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
 
+# WebSocket routes - DISABLED FOR MVP
+# Re-enable when deploying with proper WebSocket infrastructure
+# @app.websocket("/ws/cases/{case_id}")
+# async def websocket_case_room(websocket: WebSocket, case_id: str, token: str):
+#     """
+#     WebSocket endpoint for case room real-time communication.
+#
+#     Connect with: ws://localhost:8000/ws/cases/{case_id}?token={jwt_token}
+#     """
+#     await websocket_endpoint(websocket, case_id, token)
+
 # Create database tables on startup
 @app.on_event("startup")
 async def startup():
-    logger.info("Starting Florida Docketing Assistant API...")
+    logger.info("Starting LitDocket API...")
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
     logger.info("Application startup complete")

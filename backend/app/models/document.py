@@ -30,3 +30,6 @@ class Document(Base):
     case = relationship("Case", back_populates="documents")
     user = relationship("User", back_populates="documents")
     deadlines = relationship("Deadline", back_populates="document")
+
+    # V3.0 Enhancements - RAG
+    embeddings = relationship("DocumentEmbedding", back_populates="document", cascade="all, delete-orphan")

@@ -35,6 +35,13 @@ Analyze legal documents with precision and extract all relevant case information
 
         user_prompt = f"""Analyze this legal document and extract structured information.
 
+CRITICAL: Look carefully for dates in the document, especially:
+- Filing date (when this document was filed with the court)
+- Service date (when this document was served on parties)
+- Date at the top of the document
+- Date in certificate of service
+- Any dates mentioned in the heading or footer
+
 Document Text:
 {text[:15000]}
 
@@ -43,8 +50,10 @@ Extract and return as valid JSON (no markdown formatting):
   "case_number": "string or null",
   "court": "string or null",
   "judge": "string or null",
-  "document_type": "string (motion, order, notice, complaint, answer, etc.)",
-  "filing_date": "YYYY-MM-DD or null",
+  "document_type": "string (motion, order, notice, complaint, answer, interrogatories, request for production, request for admissions, etc.)",
+  "filing_date": "YYYY-MM-DD (CRITICAL: Extract from document text - look for 'filed', date at top, or certificate of service)",
+  "service_date": "YYYY-MM-DD or null (from certificate of service)",
+  "service_method": "email|mail|personal|electronic|null (from certificate of service)",
   "parties": [
     {{"name": "string", "role": "plaintiff|defendant|appellant|appellee|etc"}}
   ],
@@ -60,6 +69,12 @@ Extract and return as valid JSON (no markdown formatting):
     {{"deadline_type": "string", "date": "YYYY-MM-DD or null", "description": "string"}}
   ]
 }}
+
+IMPORTANT:
+- If you see ANY date in the document, try to determine if it's the filing date or service date
+- Look in the certificate of service section for service date and method
+- Extract the service method (email, mail, personal delivery, electronic filing, etc.)
+- Be specific about document type (e.g., "Plaintiff's First Request for Production" not just "motion")
 
 Return ONLY the JSON object, no additional text."""
 

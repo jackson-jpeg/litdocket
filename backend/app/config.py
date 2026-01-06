@@ -1,18 +1,27 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List
 import os
 
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "Florida Docketing Assistant"
-    DEBUG: bool = True
+    APP_NAME: str = "LitDocket"
+    DEBUG: bool = Field(default=False, env="DEBUG")  # Default to False for security
     API_V1_PREFIX: str = "/api/v1"
+    PORT: int = 8000
 
-    # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    # Security - REQUIRED from environment
+    SECRET_KEY: str = Field(..., env="SECRET_KEY")  # Required - use secrets.token_urlsafe(64)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     ALGORITHM: str = "HS256"
+
+    # JWT - REQUIRED from environment
+    JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")  # Required - use secrets.token_urlsafe(64)
+
+    # Firebase
+    FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
+    FIREBASE_STORAGE_BUCKET: str = ""
 
     # CORS - Auto-detect production
     @property
@@ -28,11 +37,11 @@ class Settings(BaseSettings):
     # Database - Auto-detect production (Railway provides DATABASE_URL env var)
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "sqlite:///./docketassist.db"  # Fallback to SQLite for local dev
+        "sqlite:///./docket_assist.db"  # Fallback to SQLite for local dev
     )
 
-    # AI Services
-    ANTHROPIC_API_KEY: str = "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"
+    # AI Services - REQUIRED from environment
+    ANTHROPIC_API_KEY: str = Field(..., env="ANTHROPIC_API_KEY")  # Required - NEVER hardcode
     DEFAULT_AI_MODEL: str = "claude-sonnet-4-20250514"
 
     # OpenAI (for embeddings)
@@ -51,6 +60,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "allow"  # Allow extra fields from .env
 
 
 settings = Settings()

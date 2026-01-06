@@ -10,28 +10,9 @@ from app.services.case_summary_service import CaseSummaryService
 from app.models.user import User
 from app.models.case import Case
 from app.models.deadline import Deadline
+from app.utils.auth import get_current_user  # Real JWT authentication
 
 router = APIRouter()
-
-
-# Temporary: Mock user for development (replace with Firebase Auth later)
-def get_current_user(db: Session = Depends(get_db)) -> User:
-    """Get or create demo user for development"""
-    demo_email = "demo@docketassist.com"
-    user = db.query(User).filter(User.email == demo_email).first()
-
-    if not user:
-        user = User(
-            email=demo_email,
-            password_hash="demo_hash_placeholder",  # Will use Firebase Auth later
-            full_name="Demo User",
-            firm_name="Demo Law Firm"
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    return user
 
 
 @router.post("/upload")
@@ -53,27 +34,36 @@ async def upload_document(
     6. If case doesn't exist, create new case and route to new "Case Room"
     """
 
-    # Validate file type
-    if not file.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
-
-    # Read file bytes
     try:
-        pdf_bytes = await file.read()
+        # Validate file type
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+
+        # Read file bytes
+        try:
+            pdf_bytes = await file.read()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+
+        # Analyze document
+        doc_service = DocumentService(db)
+        analysis_result = await doc_service.analyze_document(
+            pdf_bytes=pdf_bytes,
+            file_name=file.filename,
+            user_id=str(current_user.id),
+            case_id=case_id
+        )
+
+        if not analysis_result.get('success'):
+            raise HTTPException(status_code=500, detail=analysis_result.get('error', 'Analysis failed'))
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
-
-    # Analyze document
-    doc_service = DocumentService(db)
-    analysis_result = await doc_service.analyze_document(
-        pdf_bytes=pdf_bytes,
-        file_name=file.filename,
-        user_id=str(current_user.id),
-        case_id=case_id
-    )
-
-    if not analysis_result.get('success'):
-        raise HTTPException(status_code=500, detail=analysis_result.get('error', 'Analysis failed'))
+        # Catch any unexpected errors
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
     # For MVP, store files locally (replace with S3 later)
     storage_dir = f"/tmp/docketassist/{current_user.id}"

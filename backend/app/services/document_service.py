@@ -6,6 +6,7 @@ from datetime import datetime
 from app.services.ai_service import AIService
 from app.services.firebase_service import firebase_service
 from app.services.deadline_service import DeadlineService
+from app.services.confidence_scoring import confidence_scorer
 from app.utils.pdf_parser import extract_text_from_pdf, get_pdf_metadata
 from app.models.document import Document
 from app.models.case import Case
@@ -77,18 +78,40 @@ class DocumentService:
         case_created = False
         case_number = analysis.get('case_number')
 
-        if not case_id and case_number:
-            # Check if case exists
-            existing_case = self.db.query(Case).filter(
-                Case.user_id == user_id,
-                Case.case_number == case_number
-            ).first()
+        if not case_id:
+            # No case_id provided, need to find or create a case
+            if case_number:
+                # Check if case exists
+                existing_case = self.db.query(Case).filter(
+                    Case.user_id == user_id,
+                    Case.case_number == case_number
+                ).first()
 
-            if existing_case:
-                target_case_id = str(existing_case.id)
+                if existing_case:
+                    target_case_id = str(existing_case.id)
+                else:
+                    # Create new case from analysis
+                    new_case = self.create_case_from_analysis(user_id, analysis)
+                    self.db.add(new_case)
+                    self.db.commit()
+                    self.db.refresh(new_case)
+                    target_case_id = str(new_case.id)
+                    case_created = True
             else:
-                # Create new case
-                new_case = self.create_case_from_analysis(user_id, analysis)
+                # No case_number detected - create a new case with placeholder info
+                # This ensures we always have a case_id to attach the document to
+                new_case = Case(
+                    user_id=user_id,
+                    case_number=f"NEW-{uuid.uuid4().hex[:8].upper()}",  # Placeholder
+                    title=f"New Case - {file_name}",
+                    court=analysis.get('court'),
+                    judge=analysis.get('judge'),
+                    case_type=analysis.get('case_type', 'Unknown'),
+                    jurisdiction=analysis.get('jurisdiction'),
+                    district=analysis.get('district'),
+                    parties=analysis.get('parties', []),
+                    case_metadata=analysis
+                )
                 self.db.add(new_case)
                 self.db.commit()
                 self.db.refresh(new_case)
@@ -181,7 +204,7 @@ class DocumentService:
     ) -> List[Deadline]:
         """
         Extract deadlines from document and save to database
-        Implements Jackson's comprehensive methodology
+        Implements comprehensive methodology with trigger detection
         """
 
         # Build document metadata for deadline extraction
@@ -189,12 +212,15 @@ class DocumentService:
             'document_type': document.document_type,
             'jurisdiction': analysis.get('jurisdiction', 'state'),
             'court': analysis.get('court', ''),
-            'filing_date': analysis.get('filing_date'),
+            'filing_date': analysis.get('filing_date') or document.filing_date.isoformat() if document.filing_date else None,
             'service_method': analysis.get('service_method'),  # From certificate of service
-            'service_date': analysis.get('service_date')
+            'service_date': analysis.get('service_date'),
+            'parties': analysis.get('parties', [])
         }
 
-        # Extract deadlines using Claude AI
+        all_deadlines = []
+
+        # PHASE 1: Extract deadlines using Claude AI (existing method)
         try:
             deadline_data_list = await self.deadline_service.extract_deadlines_from_document(
                 document_text=extracted_text,
@@ -204,11 +230,29 @@ class DocumentService:
             )
         except Exception as e:
             print(f"Error extracting deadlines: {e}")
-            return []
+            deadline_data_list = []
 
-        # Save deadlines to database
-        deadlines = []
+        # Save AI-extracted deadlines to database with confidence scoring
         for deadline_data in deadline_data_list:
+            # Calculate confidence score for this extraction
+            rule_match = None
+            if deadline_data.get('applicable_rule'):
+                # Create rule match object for confidence scoring
+                rule_match = {
+                    'citation': deadline_data.get('applicable_rule'),
+                    'confidence': 'high' if deadline_data.get('calculation_basis') else 'medium'
+                }
+
+            # Calculate confidence score
+            source_text = deadline_data.get('calculation_basis', '') + ' ' + deadline_data.get('description', '')
+            confidence_result = confidence_scorer.calculate_confidence(
+                extraction=deadline_data,
+                source_text=source_text,
+                rule_match=rule_match,
+                document_type=document.document_type
+            )
+
+            # Create deadline with confidence metadata
             deadline = Deadline(
                 case_id=deadline_data['case_id'],
                 user_id=deadline_data['user_id'],
@@ -227,17 +271,114 @@ class DocumentService:
                 trigger_event=deadline_data.get('trigger_event'),
                 trigger_date=deadline_data.get('trigger_date'),
                 is_estimated=deadline_data.get('is_estimated', False),
+                is_calculated=False,  # AI-extracted, not rules-engine calculated
                 source_document=deadline_data.get('source_document'),
-                service_method=deadline_data.get('service_method')
+                service_method=deadline_data.get('service_method'),
+                # Case OS: Confidence scoring
+                confidence_score=confidence_result['confidence_score'],
+                confidence_level=confidence_result['confidence_level'],
+                confidence_factors=confidence_result['factors'],
+                # Case OS: Verification gate (all AI extractions require approval)
+                verification_status='pending',
+                # Case OS: Extraction quality
+                extraction_method='ai',
+                extraction_quality_score=min(10, confidence_result['confidence_score'] // 10),
+                # Case OS: Source attribution (text snippet from calculation basis)
+                source_text=source_text[:500]  # Limit to 500 chars
             )
 
             self.db.add(deadline)
-            deadlines.append(deadline)
+            all_deadlines.append(deadline)
+
+        # PHASE 2: Check if document is a TRIGGER event (V2.0 Feature!)
+        # Generate deadline chains using rules engine
+        trigger_info = self.deadline_service.detect_trigger_from_document(
+            document_type=document.document_type or "",
+            document_analysis=analysis,
+            court_info=analysis.get('court', '')
+        )
+
+        if trigger_info:
+            print(f"✨ TRIGGER DETECTED: {trigger_info['trigger_event']} on {trigger_info['trigger_date']}")
+
+            # Get service method from analysis or metadata
+            service_method = analysis.get('service_method', 'electronic')
+
+            # Generate deadline chains using rules engine
+            try:
+                chain_deadlines = await self.deadline_service.generate_deadline_chains(
+                    trigger_event=trigger_info['trigger_event'],
+                    trigger_date=trigger_info['trigger_date'],
+                    jurisdiction=trigger_info['jurisdiction'],
+                    court_type=trigger_info['court_type'],
+                    case_id=document.case_id,
+                    user_id=document.user_id,
+                    service_method=service_method
+                )
+
+                print(f"✨ Generated {len(chain_deadlines)} deadline(s) from trigger")
+
+                # Save rules-engine generated deadlines with high confidence
+                for chain_deadline in chain_deadlines:
+                    # Calculate confidence for rules-engine deadlines (typically higher)
+                    rule_match = {
+                        'citation': chain_deadline.get('rule_citation', 'Rules Engine'),
+                        'confidence': 'high'  # Rules-based calculations are highly confident
+                    }
+
+                    source_text = chain_deadline.get('calculation_basis', '') + ' ' + chain_deadline.get('description', '')
+                    confidence_result = confidence_scorer.calculate_confidence(
+                        extraction=chain_deadline,
+                        source_text=source_text,
+                        rule_match=rule_match,
+                        document_type=document.document_type
+                    )
+
+                    deadline = Deadline(
+                        case_id=chain_deadline['case_id'],
+                        user_id=chain_deadline['user_id'],
+                        document_id=str(document.id),
+                        title=chain_deadline['title'],
+                        description=chain_deadline['description'],
+                        deadline_date=chain_deadline.get('deadline_date'),
+                        deadline_type=chain_deadline.get('deadline_type', 'general'),
+                        applicable_rule=chain_deadline.get('rule_citation'),
+                        rule_citation=chain_deadline.get('rule_citation'),
+                        calculation_basis=chain_deadline.get('calculation_basis'),
+                        priority=chain_deadline.get('priority', 'medium'),
+                        status='pending',
+                        party_role=chain_deadline.get('party_role'),
+                        action_required=chain_deadline.get('action_required'),
+                        trigger_event=chain_deadline.get('trigger_event'),
+                        trigger_date=chain_deadline.get('trigger_date'),
+                        is_estimated=False,
+                        is_calculated=True,  # Rules-engine calculated!
+                        is_dependent=chain_deadline.get('is_dependent', False),
+                        source_document=f"{document.document_type} (trigger)",
+                        service_method=service_method,
+                        # Case OS: Confidence scoring (typically higher for rules-based)
+                        confidence_score=confidence_result['confidence_score'],
+                        confidence_level=confidence_result['confidence_level'],
+                        confidence_factors=confidence_result['factors'],
+                        # Case OS: Verification gate (rules-based still need approval)
+                        verification_status='pending',
+                        # Case OS: Extraction quality (higher for rules-based)
+                        extraction_method='rule-based',
+                        extraction_quality_score=min(10, confidence_result['confidence_score'] // 10),
+                        # Case OS: Source attribution
+                        source_text=source_text[:500]
+                    )
+
+                    self.db.add(deadline)
+                    all_deadlines.append(deadline)
+
+            except Exception as e:
+                print(f"Error generating deadline chains: {e}")
 
         self.db.commit()
 
         # Refresh all deadlines to get database IDs
-        for deadline in deadlines:
+        for deadline in all_deadlines:
             self.db.refresh(deadline)
 
-        return deadlines
+        return all_deadlines

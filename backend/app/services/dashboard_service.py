@@ -47,6 +47,12 @@ class DashboardService:
         # Get upcoming deadlines (next 30 days)
         upcoming_deadlines = self._get_upcoming_deadlines(all_deadlines, days=30)
 
+        # MODULE 1: Deadline Heat Map (Fatality x Urgency matrix)
+        heat_map = self._generate_heat_map(all_deadlines)
+
+        # MODULE 1: Matter Health Cards
+        matter_health_cards = self._generate_matter_health_cards(cases, all_deadlines, db)
+
         return {
             "case_statistics": case_stats,
             "deadline_alerts": deadline_alerts,
@@ -54,6 +60,9 @@ class DashboardService:
             "critical_cases": critical_cases,
             "upcoming_deadlines": upcoming_deadlines,
             "total_cases": total_cases,
+            # MODULE 1: War Room enhancements
+            "heat_map": heat_map,
+            "matter_health_cards": matter_health_cards,
             "generated_at": datetime.now().isoformat()
         }
 
@@ -276,6 +285,191 @@ class DashboardService:
             return "upcoming-month"
         else:
             return "future"
+
+    def _generate_heat_map(self, deadlines: List[Deadline]) -> Dict[str, Any]:
+        """
+        MODULE 1: Generate Deadline Heat Map
+
+        Visual matrix categorizing deadlines by:
+        - Fatality (Red: Fatal; Orange: Critical; Yellow: Important; Green: Standard)
+        - Urgency (Today, 3-Day, 7-Day, 30-Day)
+
+        This provides instant visual triage for attorneys
+        """
+        today = date.today()
+
+        # Initialize matrix
+        heat_map = {
+            'fatal': {'today': [], '3_day': [], '7_day': [], '30_day': []},
+            'critical': {'today': [], '3_day': [], '7_day': [], '30_day': []},
+            'important': {'today': [], '3_day': [], '7_day': [], '30_day': []},
+            'standard': {'today': [], '3_day': [], '7_day': [], '30_day': []},
+            'informational': {'today': [], '3_day': [], '7_day': [], '30_day': []}
+        }
+
+        # Categorize pending deadlines
+        pending = [d for d in deadlines if d.status == 'pending' and d.deadline_date]
+
+        for deadline in pending:
+            days_until = (deadline.deadline_date - today).days
+
+            # Determine urgency bucket
+            if days_until < 0 or days_until == 0:
+                urgency_bucket = 'today'
+            elif days_until <= 3:
+                urgency_bucket = '3_day'
+            elif days_until <= 7:
+                urgency_bucket = '7_day'
+            elif days_until <= 30:
+                urgency_bucket = '30_day'
+            else:
+                continue  # Beyond 30 days, not on heat map
+
+            # Determine fatality level
+            fatality = deadline.priority or 'standard'
+            if fatality not in heat_map:
+                fatality = 'standard'
+
+            # Add to matrix
+            heat_map[fatality][urgency_bucket].append({
+                'id': str(deadline.id),
+                'case_id': str(deadline.case_id),
+                'title': deadline.title,
+                'deadline_date': deadline.deadline_date.isoformat(),
+                'days_until': days_until,
+                'action_required': deadline.action_required,
+                'case_title': deadline.case.title if deadline.case else "Unknown"
+            })
+
+        # Calculate totals for each cell
+        summary = {
+            'total_deadlines': sum(len(v) for row in heat_map.values() for v in row.values()),
+            'by_fatality': {
+                'fatal': sum(len(v) for v in heat_map['fatal'].values()),
+                'critical': sum(len(v) for v in heat_map['critical'].values()),
+                'important': sum(len(v) for v in heat_map['important'].values()),
+                'standard': sum(len(v) for v in heat_map['standard'].values()),
+                'informational': sum(len(v) for v in heat_map['informational'].values())
+            },
+            'by_urgency': {
+                'today': sum(len(heat_map[f]['today']) for f in heat_map.keys()),
+                '3_day': sum(len(heat_map[f]['3_day']) for f in heat_map.keys()),
+                '7_day': sum(len(heat_map[f]['7_day']) for f in heat_map.keys()),
+                '30_day': sum(len(heat_map[f]['30_day']) for f in heat_map.keys())
+            }
+        }
+
+        return {
+            'matrix': heat_map,
+            'summary': summary
+        }
+
+    def _generate_matter_health_cards(
+        self,
+        cases: List[Case],
+        all_deadlines: List[Deadline],
+        db: Session
+    ) -> List[Dict]:
+        """
+        MODULE 1: Generate Matter Health Cards
+
+        "Loose view" of all cases showing:
+        - Progress bar (completed vs pending tasks)
+        - Judge name
+        - Next deadline
+        - Overall health status
+        """
+        health_cards = []
+        today = date.today()
+
+        for case in cases:
+            if case.status != 'active':
+                continue
+
+            # Get case deadlines
+            case_deadlines = [d for d in all_deadlines if d.case_id == case.id]
+
+            if not case_deadlines:
+                continue
+
+            # Calculate progress
+            total_deadlines = len(case_deadlines)
+            completed_deadlines = len([d for d in case_deadlines if d.status == 'completed'])
+            pending_deadlines = len([d for d in case_deadlines if d.status == 'pending'])
+
+            progress_percentage = int((completed_deadlines / total_deadlines * 100)) if total_deadlines > 0 else 0
+
+            # Find next deadline
+            upcoming = [
+                d for d in case_deadlines
+                if d.status == 'pending' and d.deadline_date and d.deadline_date >= today
+            ]
+            upcoming.sort(key=lambda x: x.deadline_date)
+
+            next_deadline = None
+            next_deadline_urgency = 'normal'
+            if upcoming:
+                next_dl = upcoming[0]
+                days_until = (next_dl.deadline_date - today).days
+
+                next_deadline = {
+                    'title': next_dl.title,
+                    'date': next_dl.deadline_date.isoformat(),
+                    'days_until': days_until,
+                    'priority': next_dl.priority
+                }
+
+                # Determine urgency
+                if days_until <= 1 or next_dl.priority == 'fatal':
+                    next_deadline_urgency = 'critical'
+                elif days_until <= 3 or next_dl.priority == 'critical':
+                    next_deadline_urgency = 'urgent'
+                elif days_until <= 7:
+                    next_deadline_urgency = 'attention'
+
+            # Overall health status
+            health_status = 'healthy'
+            if next_deadline_urgency == 'critical':
+                health_status = 'critical'
+            elif next_deadline_urgency == 'urgent':
+                health_status = 'needs_attention'
+            elif pending_deadlines > completed_deadlines:
+                health_status = 'busy'
+
+            # Count documents
+            doc_count = db.query(func.count(Document.id)).filter(
+                Document.case_id == case.id
+            ).scalar() or 0
+
+            health_cards.append({
+                'case_id': str(case.id),
+                'case_number': case.case_number,
+                'title': case.title,
+                'court': case.court or 'Unknown Court',
+                'judge': case.judge or 'Unassigned',
+                'jurisdiction': case.jurisdiction,
+                'case_type': case.case_type,
+                'progress': {
+                    'completed': completed_deadlines,
+                    'pending': pending_deadlines,
+                    'total': total_deadlines,
+                    'percentage': progress_percentage
+                },
+                'next_deadline': next_deadline,
+                'next_deadline_urgency': next_deadline_urgency,
+                'health_status': health_status,
+                'document_count': doc_count,
+                'filing_date': case.filing_date.isoformat() if case.filing_date else None
+            })
+
+        # Sort by health status priority (critical first, then urgent, etc.)
+        status_order = {'critical': 0, 'needs_attention': 1, 'busy': 2, 'healthy': 3}
+        health_cards.sort(key=lambda x: (
+            status_order.get(x['health_status'], 99),
+            (x.get('next_deadline') or {}).get('days_until', 999)
+        ))
+
+        return health_cards
 
 
 # Singleton instance

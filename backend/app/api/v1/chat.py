@@ -8,7 +8,8 @@ from app.models.user import User
 from app.models.case import Case
 from app.models.chat_message import ChatMessage
 from app.services.chat_service import ChatService
-from app.api.v1.documents import get_current_user
+from app.services.enhanced_chat_service import enhanced_chat_service
+from app.utils.auth import get_current_user  # Real JWT authentication
 
 router = APIRouter()
 
@@ -52,9 +53,8 @@ async def send_message(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
-    # Process message
-    chat_service = ChatService()
-    result = await chat_service.process_message(
+    # Process message with enhanced RAG-powered chat service
+    result = await enhanced_chat_service.process_message(
         user_message=request.message,
         case_id=request.case_id,
         user_id=str(current_user.id),

@@ -8,7 +8,7 @@ from app.models.case import Case
 from app.models.document import Document
 from app.models.deadline import Deadline
 from app.services.case_summary_service import CaseSummaryService
-from app.api.v1.documents import get_current_user
+from app.utils.auth import get_current_user  # Real JWT authentication
 
 router = APIRouter()
 
@@ -92,6 +92,8 @@ async def get_case_documents(
         Document.case_id == case_id
     ).order_by(Document.created_at.desc()).all()
 
+    from app.services.firebase_service import firebase_service
+
     return [
         {
             'id': str(doc.id),
@@ -99,6 +101,7 @@ async def get_case_documents(
             'document_type': doc.document_type,
             'filing_date': doc.filing_date.isoformat() if doc.filing_date else None,
             'ai_summary': doc.ai_summary,
+            'storage_url': firebase_service.get_download_url(doc.storage_path) if doc.storage_path else None,
             'created_at': doc.created_at.isoformat()
         }
         for doc in documents

@@ -63,11 +63,15 @@ class FirebaseService:
     @property
     def db(self):
         """Get Firestore database client"""
+        if not FirebaseService._initialized:
+            self._initialize_firebase()
         return FirebaseService._db
 
     @property
     def bucket(self):
         """Get Cloud Storage bucket"""
+        if not FirebaseService._initialized:
+            self._initialize_firebase()
         return FirebaseService._bucket
 
     # ====================
@@ -185,9 +189,6 @@ class FirebaseService:
         Upload PDF to Firebase Storage
         Returns: (storage_path, public_url)
         """
-        # Initialize Firebase if not already done
-        self._initialize_firebase()
-
         # Create a unique path: documents/{userId}/{timestamp}_{filename}
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         storage_path = f"documents/{user_id}/{timestamp}_{file_name}"

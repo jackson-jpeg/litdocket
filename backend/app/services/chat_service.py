@@ -11,10 +11,12 @@ import re
 from app.services.ai_service import AIService
 from app.services.deadline_service import DeadlineService
 from app.services.case_summary_service import CaseSummaryService
+from app.services.rules_engine import rules_engine, TriggerType
 from app.models.case import Case
 from app.models.document import Document
 from app.models.deadline import Deadline
 from app.models.chat_message import ChatMessage
+from datetime import date as date_type
 
 
 class ChatService:
@@ -76,6 +78,15 @@ class ChatService:
             action_result = await self._create_deadline_from_chat(
                 intent['details'],
                 case_id,
+                user_id,
+                db
+            )
+            actions_taken.append(action_result)
+
+        elif intent['type'] == 'create_trigger':
+            action_result = await self._create_trigger_from_chat(
+                intent['details'],
+                case,
                 user_id,
                 db
             )
@@ -147,6 +158,13 @@ class ChatService:
             Deadline.case_id == case.id
         ).order_by(Deadline.deadline_date.asc().nullslast()).all()
 
+        # Get trigger events (non-dependent deadlines with trigger_event set)
+        triggers = db.query(Deadline).filter(
+            Deadline.case_id == case.id,
+            Deadline.is_dependent == False,
+            Deadline.trigger_event.isnot(None)
+        ).all()
+
         # Separate upcoming and past deadlines
         today = datetime.now().date()
         upcoming_deadlines = [
@@ -198,8 +216,21 @@ class ChatService:
                 }
                 for d in past_deadlines[:5]  # Last 5 past deadlines
             ],
+            'trigger_events': [
+                {
+                    'id': str(t.id),
+                    'trigger_type': t.trigger_event,
+                    'trigger_date': t.deadline_date.isoformat() if t.deadline_date else None,
+                    'title': t.title,
+                    'dependent_count': db.query(Deadline).filter(
+                        Deadline.parent_deadline_id == str(t.id)
+                    ).count()
+                }
+                for t in triggers
+            ],
             'document_count': len(documents),
-            'deadline_count': len(upcoming_deadlines)
+            'deadline_count': len(upcoming_deadlines),
+            'trigger_count': len(triggers)
         }
 
     async def _analyze_intent(self, user_message: str, context: Dict) -> Dict:
@@ -213,18 +244,37 @@ class ChatService:
 User message: "{user_message}"
 
 Case context: {context.get('case_number')} in {context.get('court')}
+Existing triggers: {len(context.get('trigger_events', []))} trigger events set
 
 Determine if the user wants to:
-1. create_deadline - Add a new deadline
-2. update_deadline - Modify an existing deadline
-3. delete_deadline - Remove a deadline
-4. query_information - Just asking a question (no action)
-5. search_documents - Search through documents
-6. explain_rule - Explain a court rule or calculation
+1. create_trigger - Set a trigger event (trial date, service date, complaint filed, etc.) that will auto-generate dependent deadlines
+2. query_trigger - Ask about existing trigger events or when a trigger date is
+3. create_deadline - Add a single manual deadline
+4. update_deadline - Modify an existing deadline
+5. delete_deadline - Remove a deadline
+6. query_information - Just asking a question (no action)
+7. search_documents - Search through documents
+8. explain_rule - Explain a court rule or calculation
 
-If creating a deadline, extract:
+TRIGGER EVENT DETECTION:
+If the user mentions setting/creating any of these events, it's a "create_trigger" intent:
+- Trial date
+- Hearing date
+- Service of complaint
+- Service of process
+- Answer deadline triggering event
+- Motion filed date
+- Discovery deadline triggering event
+
+If creating a trigger, extract:
+- trigger_type: "trial_date", "service_completed", "case_filed", "motion_filed", "answer_filed", "discovery_deadline"
+- trigger_date: When did/will the trigger event occur? (YYYY-MM-DD format)
+- service_method: "email", "mail", "personal" (default: email)
+- notes: Any additional context
+
+If creating a manual deadline, extract:
 - title: What is the deadline for?
-- deadline_date: When is it due? (YYYY-MM-DD format, or calculate from context)
+- deadline_date: When is it due? (YYYY-MM-DD format)
 - party_role: Who must take action?
 - action_required: What action is needed?
 - priority: low/medium/high
@@ -232,7 +282,7 @@ If creating a deadline, extract:
 
 Return as JSON:
 {{
-  "type": "create_deadline|update_deadline|delete_deadline|query_information|search_documents|explain_rule",
+  "type": "create_trigger|query_trigger|create_deadline|update_deadline|delete_deadline|query_information|search_documents|explain_rule",
   "confidence": 0.0-1.0,
   "details": {{
     // Extracted information based on intent type
@@ -298,6 +348,132 @@ Return as JSON:
         except Exception as e:
             return {
                 'action': 'create_deadline',
+                'success': False,
+                'error': str(e)
+            }
+
+    async def _create_trigger_from_chat(
+        self,
+        details: Dict,
+        case: Case,
+        user_id: str,
+        db: Session
+    ) -> Dict:
+        """Create a trigger event from chat conversation"""
+
+        try:
+            # Parse trigger type
+            trigger_type_str = details.get('trigger_type', 'trial_date')
+            try:
+                trigger_enum = TriggerType(trigger_type_str)
+            except ValueError:
+                # Default to trial_date if invalid
+                trigger_enum = TriggerType.TRIAL_DATE
+
+            # Parse trigger date
+            trigger_date_str = details.get('trigger_date')
+            if not trigger_date_str:
+                return {
+                    'action': 'create_trigger',
+                    'success': False,
+                    'error': 'No trigger date provided'
+                }
+
+            trigger_date = date_type.fromisoformat(trigger_date_str)
+
+            # Get service method
+            service_method = details.get('service_method', 'email')
+
+            # Get applicable rule templates
+            jurisdiction = case.jurisdiction or 'florida_state'
+            court_type = case.case_type or 'civil'
+
+            templates = rules_engine.get_applicable_rules(
+                jurisdiction=jurisdiction,
+                court_type=court_type,
+                trigger_type=trigger_enum
+            )
+
+            if not templates:
+                return {
+                    'action': 'create_trigger',
+                    'success': False,
+                    'error': f'No rule templates found for {jurisdiction} {court_type} {trigger_type_str}'
+                }
+
+            # Create the trigger deadline (the "parent")
+            trigger_deadline = Deadline(
+                case_id=case.id,
+                user_id=user_id,
+                title=f"{trigger_type_str.replace('_', ' ').title()}",
+                description=f"Trigger event: {trigger_type_str}",
+                deadline_date=trigger_date,
+                trigger_event=trigger_type_str,
+                trigger_date=trigger_date,
+                is_calculated=False,
+                is_dependent=False,
+                priority="important",
+                status="completed",  # Trigger already happened
+                notes=details.get('notes'),
+                created_via_chat=True
+            )
+
+            db.add(trigger_deadline)
+            db.flush()  # Get ID for parent reference
+
+            # Generate all dependent deadlines
+            all_dependent_deadlines = []
+
+            for template in templates:
+                dependent_deadlines = rules_engine.calculate_dependent_deadlines(
+                    trigger_date=trigger_date,
+                    rule_template=template,
+                    service_method=service_method
+                )
+
+                # Create deadline records
+                for deadline_data in dependent_deadlines:
+                    deadline = Deadline(
+                        case_id=case.id,
+                        user_id=user_id,
+                        parent_deadline_id=str(trigger_deadline.id),
+                        title=deadline_data['title'],
+                        description=deadline_data['description'],
+                        deadline_date=deadline_data['deadline_date'],
+                        priority=deadline_data['priority'],
+                        party_role=deadline_data['party_role'],
+                        action_required=deadline_data['action_required'],
+                        applicable_rule=deadline_data['rule_citation'],
+                        calculation_basis=deadline_data['calculation_basis'],
+                        trigger_event=deadline_data['trigger_event'],
+                        trigger_date=deadline_data['trigger_date'],
+                        is_calculated=True,
+                        is_dependent=True,
+                        auto_recalculate=True,
+                        original_deadline_date=deadline_data['deadline_date'],
+                        service_method=service_method,
+                        created_via_chat=True
+                    )
+
+                    db.add(deadline)
+                    all_dependent_deadlines.append(deadline)
+
+            db.commit()
+            db.refresh(trigger_deadline)
+
+            return {
+                'action': 'create_trigger',
+                'success': True,
+                'trigger_id': str(trigger_deadline.id),
+                'trigger_type': trigger_type_str,
+                'trigger_date': trigger_date.isoformat(),
+                'dependent_deadlines_created': len(all_dependent_deadlines)
+            }
+
+        except Exception as e:
+            db.rollback()
+            return {
+                'action': 'create_trigger',
                 'success': False,
                 'error': str(e)
             }
@@ -389,9 +565,16 @@ Return as JSON:
 Your role is to:
 1. Answer questions about cases, deadlines, and court rules
 2. Explain deadline calculations with rule citations
-3. Help users manage their case docket
+3. Help users manage their case docket with trigger-based automation
 4. Provide procedural guidance
 5. Be proactive - suggest actions and warn about upcoming deadlines
+
+TRIGGER-BASED DEADLINE GENERATION:
+- You can create "trigger events" that auto-generate ALL dependent deadlines
+- Example: Set trial date → automatically generates 5+ deadlines (pretrial motions, witness lists, etc.)
+- Example: Set service date → automatically calculates answer deadline based on service method
+- When users mention trial dates, service dates, or other key events, suggest creating a trigger
+- This is MUCH better than manually adding individual deadlines
 
 CRITICAL PRINCIPLES (Jackson's Methodology):
 - COMPREHENSIVE OVER SELECTIVE - Mention ALL relevant deadlines and considerations
@@ -424,6 +607,9 @@ Type: {case_context['case_type']} ({case_context['jurisdiction']})
 
 Parties:
 {self._format_parties(case_context['parties'])}
+
+Trigger Events ({case_context['trigger_count']} total):
+{self._format_triggers(case_context['trigger_events'])}
 
 Documents ({case_context['document_count']} total):
 {self._format_documents(case_context['documents'][:5])}
@@ -466,6 +652,18 @@ Recent Actions:
             return "  (No parties listed)"
         return "\n".join([f"  - {p.get('role', 'Unknown')}: {p.get('name', 'Unknown')}" for p in parties])
 
+    def _format_triggers(self, triggers: List[Dict]) -> str:
+        """Format trigger events for context"""
+        if not triggers:
+            return "  (No trigger events set - suggest creating one for automatic deadline generation!)"
+        formatted = []
+        for t in triggers:
+            line = f"  ⚡ {t['title']}: {t.get('trigger_date', 'TBD')}"
+            if t.get('dependent_count'):
+                line += f" (generated {t['dependent_count']} dependent deadlines)"
+            formatted.append(line)
+        return "\n".join(formatted)
+
     def _format_documents(self, documents: List[Dict]) -> str:
         """Format documents for context"""
         if not documents:
@@ -497,7 +695,10 @@ Recent Actions:
         formatted = []
         for action in actions:
             if action['success']:
-                formatted.append(f"  ✓ {action['action']}: {action.get('deadline_title', 'Success')}")
+                if action['action'] == 'create_trigger':
+                    formatted.append(f"  ⚡ Created trigger event: {action.get('trigger_type')} on {action.get('trigger_date')} (generated {action.get('dependent_deadlines_created')} deadlines)")
+                else:
+                    formatted.append(f"  ✓ {action['action']}: {action.get('deadline_title', 'Success')}")
             else:
                 formatted.append(f"  ✗ {action['action']}: Failed - {action.get('error', 'Unknown error')}")
         return "\n".join(formatted)

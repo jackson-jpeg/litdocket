@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToastProvider } from "@/components/Toast";
+import { AuthProvider } from "@/lib/auth/auth-context";
 
 export const metadata: Metadata = {
-  title: "Florida Docketing Assistant",
-  description: "AI-powered legal docketing and case management for Florida courts",
+  title: "LitDocket - AI Legal Docketing",
+  description: "AI-powered legal docketing and case management system",
 };
 
 export default function RootLayout({
@@ -13,7 +15,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }

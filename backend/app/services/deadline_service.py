@@ -7,6 +7,9 @@ from datetime import datetime, timedelta, date
 import re
 
 from app.services.ai_service import AIService
+from app.utils.florida_holidays import is_business_day, adjust_to_business_day, get_all_court_holidays
+from app.utils.florida_jurisdictions import identify_jurisdiction, get_applicable_rules
+from app.services.rules_engine import rules_engine, TriggerType
 
 
 class DeadlineService:
@@ -99,18 +102,47 @@ class DeadlineService:
         else:
             rules_section = self._get_florida_state_rules_guidance()
 
+        # Get service info from metadata
+        service_date = filing_date  # Default to filing date if no service date
+        service_method = 'electronic'  # Default assumption
+
         prompt = f"""You are an expert Florida legal docketing assistant following Jackson's comprehensive methodology.
 
 CRITICAL PRINCIPLES:
 1. COMPREHENSIVE OVER SELECTIVE - Capture EVERY potential deadline, obligation, or court-required action
 2. SHOW YOUR WORK - Always explain how you calculated each deadline with full rule citations
 3. ACCURACY THROUGH VERIFICATION - Cross-check calculations and verify applicable rules
+4. USE ACTUAL DATES FROM THE DOCUMENT - Don't assume today's date!
 
 DOCUMENT ANALYSIS:
 Document Type: {document_type}
 Jurisdiction: {jurisdiction}
 Court: {court}
-Filing Date: {filing_date or 'Not specified'}
+Filing/Service Date: {filing_date or 'MUST extract from document text'}
+Service Method: {service_method or 'MUST extract from certificate of service'}
+
+CRITICAL FOR DISCOVERY DOCUMENTS (MOST COMMON):
+- Request for Production → 30 days to respond (Fla. R. Civ. P. 1.350) [HIGH PRIORITY]
+- Interrogatories → 30 days to respond (Fla. R. Civ. P. 1.340) [HIGH PRIORITY]
+- Request for Admissions → 30 days to respond (Fla. R. Civ. P. 1.370) [CRITICAL - deemed admitted if not answered]
+- If served by mail → ADD 5 additional days to the deadline
+- If served by email/electronic → NO additional days (since Jan 1, 2019)
+
+MOTION PRACTICE:
+- Response to Motion for Summary Judgment → 20 days (HIGH PRIORITY)
+- Response to general motion → varies by local rules (typically 10-20 days)
+- Reply to response → typically 10 days
+
+PLEADING DEADLINES:
+- Answer to Complaint → 20 days after service (Fla. R. Civ. P. 1.140(a)) [CRITICAL]
+- Amended Answer → 20 days after amended complaint served
+- Counterclaim Answer → 20 days after counterclaim served
+
+TRIAL DEADLINES:
+- Pretrial Stipulation → typically 10-15 days before trial per local rules [HIGH]
+- Witness List → varies by local rules (often 30-45 days before trial)
+- Exhibit List → varies by local rules
+- Jury Instructions → typically 15 days before trial
 
 {rules_section}
 
@@ -131,9 +163,29 @@ EXTRACT ALL DEADLINES INCLUDING:
 For EACH deadline, provide:
 1. WHO the obligation applies to (Plaintiff, Defendant, All Parties, specific party names in Title Case)
 2. WHAT action is required (be specific)
-3. WHEN it's due (calculate if relative, state if fixed)
+3. WHEN it's due (CALCULATE THE ACTUAL DATE - do not return null unless absolutely unavoidable)
 4. HOW you calculated it (trigger event + time period + applicable rule + service additions)
 5. SOURCE document with date and service method
+
+CRITICAL CALCULATION INSTRUCTIONS:
+- If this is a Request for Production/Interrogatories/RFA: Response deadline = service date + 30 days + (5 days if mail)
+- ALWAYS extract the service/filing date from the document text if not provided above
+- Look in certificate of service, heading, footer, or anywhere dates appear
+- Count calendar days, adjust if deadline falls on weekend/holiday
+- Show complete calculation: "30 days from [service date] = [calculated date], plus 5 days for mail service = [final date]"
+
+DATE EXTRACTION INSTRUCTIONS (CRITICAL):
+1. Check "Certificate of Service" at the end of document - this is THE authoritative date
+2. Check document header/caption for "Filed:" or "Served:" date
+3. Check footer or signature block for dates
+4. Common date formats to recognize:
+   - "12/31/2024", "December 31, 2024", "Dec. 31, 2024"
+   - "Filed: January 5, 2025", "Served: 1/5/25"
+   - In certificate: "I HEREBY CERTIFY that on January 5, 2025..."
+5. If multiple dates appear, use the SERVICE date (not filing date) for calculating response deadlines
+6. If document says "filed" but no service info, assume service same day for electronic filing
+7. NEVER use today's date - extract actual dates from the document text
+8. If truly no date found, set deadline_date to null and is_estimated to true
 
 Return as JSON array with this structure:
 [
@@ -142,7 +194,7 @@ Return as JSON array with this structure:
     "action": "file and serve answer to Complaint",
     "deadline_date": "2025-01-15",
     "deadline_type": "responsive pleading",
-    "calculation_basis": "20 days after service on 12/25/2024 (Fla. R. Civ. P. 1.140(a)(1)) + 5 days for mail service",
+    "calculation_basis": "20 days after service on 12/25/2024 (Fla. R. Civ. P. 1.140(a)(1)) + 5 days for mail service = 01/19/2025, adjusted to 01/20/2025 (Monday)",
     "trigger_event": "service of complaint",
     "trigger_date": "2024-12-25",
     "applicable_rule": "Fla. R. Civ. P. 1.140(a)(1)",
@@ -152,6 +204,20 @@ Return as JSON array with this structure:
     "is_estimated": false
   }}
 ]
+
+EXAMPLE for Request for Production served on 12/01/2024 via email:
+{{
+  "party_role": "Defendant",
+  "action": "respond to Plaintiff's First Request for Production",
+  "deadline_date": "2024-12-31",
+  "deadline_type": "discovery response",
+  "calculation_basis": "30 days from service on 12/01/2024 (Fla. R. Civ. P. 1.350(a)) = 12/31/2024. No additional days for electronic service.",
+  "trigger_event": "service of request for production",
+  "trigger_date": "2024-12-01",
+  "applicable_rule": "Fla. R. Civ. P. 1.350(a)",
+  "service_method": "electronic",
+  "priority": "high"
+}}
 
 If information is incomplete, mark is_estimated: true and explain in calculation_basis.
 For TBD dates, set deadline_date to null but still capture the obligation.
@@ -207,6 +273,22 @@ COMMON FEDERAL DEADLINES:
 LOCAL RULES: Always check district-specific local rules for variations!
 """
 
+    def _parse_date_to_object(self, date_str: Optional[str]) -> Optional[date]:
+        """Parse date string to Python date object"""
+        if not date_str:
+            return None
+
+        try:
+            # Handle ISO format: YYYY-MM-DD
+            if isinstance(date_str, str):
+                return datetime.strptime(date_str, '%Y-%m-%d').date()
+            elif isinstance(date_str, date):
+                return date_str
+            else:
+                return None
+        except (ValueError, TypeError):
+            return None
+
     def _format_deadlines_jackson_style(
         self,
         raw_deadlines: List[Dict],
@@ -226,7 +308,9 @@ LOCAL RULES: Always check district-specific local rules for variations!
 
         for raw in raw_deadlines:
             # Line 1: Date and Action
-            deadline_date = raw.get('deadline_date')
+            deadline_date_str = raw.get('deadline_date')
+            deadline_date = self._parse_date_to_object(deadline_date_str)
+
             party = raw.get('party_role', 'Unknown Party')
             action = raw.get('action', 'Complete required action')
 
@@ -250,22 +334,35 @@ LOCAL RULES: Always check district-specific local rules for variations!
             # Combine into full description
             full_description = f"{description}\n\n{source_citation}"
 
+            # Parse trigger_date as well
+            trigger_date_str = raw.get('trigger_date')
+            trigger_date = self._parse_date_to_object(trigger_date_str)
+
+            # Smart priority assignment based on deadline type and keywords
+            raw_priority = raw.get('priority', 'medium')
+            priority = self._calculate_smart_priority(
+                deadline_type=raw.get('deadline_type', 'general'),
+                action=action,
+                raw_priority=raw_priority,
+                deadline_date=deadline_date
+            )
+
             formatted_deadline = {
                 'case_id': case_id,
                 'user_id': user_id,
                 'title': title,
                 'description': full_description,
-                'deadline_date': deadline_date,
+                'deadline_date': deadline_date,  # Now a date object
                 'deadline_type': raw.get('deadline_type', 'general'),
                 'applicable_rule': raw.get('applicable_rule'),
                 'rule_citation': raw.get('calculation_basis'),
                 'calculation_basis': raw.get('calculation_basis'),
-                'priority': raw.get('priority', 'medium'),
+                'priority': priority,  # Now uses smart calculation
                 'status': 'pending',
                 'party_role': party,
                 'action_required': action,
                 'trigger_event': raw.get('trigger_event'),
-                'trigger_date': raw.get('trigger_date'),
+                'trigger_date': trigger_date,  # Now a date object
                 'is_estimated': raw.get('is_estimated', False),
                 'source_document': source_doc,
                 'service_method': service_method
@@ -275,6 +372,86 @@ LOCAL RULES: Always check district-specific local rules for variations!
 
         return formatted_deadlines
 
+    def _calculate_smart_priority(
+        self,
+        deadline_type: str,
+        action: str,
+        raw_priority: str,
+        deadline_date: Optional[date]
+    ) -> str:
+        """
+        Calculate intelligent priority based on deadline characteristics
+
+        Priority levels (from highest to lowest):
+        - fatal: Missing this has case-ending consequences (RFA responses, dispositive motions)
+        - critical: High stakes but not case-ending (Answer, MSJ response)
+        - important: Significant impact (discovery responses, trial prep)
+        - standard: Normal deadlines (routine motions, non-critical filings)
+        - informational: Nice to know but flexible (status conferences, informal deadlines)
+        """
+
+        action_lower = action.lower()
+
+        # FATAL PRIORITY - Case-ending consequences
+        fatal_keywords = [
+            'request for admission', 'admission', 'deemed admitted',
+            'default', 'dismissal', 'summary judgment response',
+            'appeal deadline', 'notice of appeal'
+        ]
+        if any(keyword in action_lower for keyword in fatal_keywords):
+            return 'fatal'
+
+        # CRITICAL PRIORITY - Answer, responsive pleadings, MSJ
+        critical_keywords = [
+            'answer to complaint', 'answer complaint',
+            'respond to motion for summary judgment',
+            'opposition to motion for summary judgment',
+            'response to summary judgment',
+            'notice to appear', 'initial appearance'
+        ]
+        if any(keyword in action_lower for keyword in critical_keywords):
+            return 'critical'
+
+        # Check deadline type
+        if deadline_type in ['responsive pleading', 'answer']:
+            return 'critical'
+
+        # IMPORTANT PRIORITY - Discovery, significant motions
+        important_keywords = [
+            'discovery response', 'interrogator', 'request for production',
+            'respond to motion', 'reply to', 'pretrial',
+            'witness list', 'exhibit list', 'deposition'
+        ]
+        if any(keyword in action_lower for keyword in important_keywords):
+            return 'important'
+
+        if deadline_type in ['discovery response', 'motion response', 'pretrial']:
+            return 'important'
+
+        # Check if deadline is within 7 days - bump up priority
+        if deadline_date:
+            from datetime import datetime
+            days_until = (deadline_date - datetime.now().date()).days
+            if days_until <= 7 and raw_priority in ['medium', 'standard']:
+                return 'important'
+            elif days_until <= 3:
+                return 'critical'
+
+        # STANDARD PRIORITY - Routine matters
+        if deadline_type in ['hearing', 'status conference', 'case management']:
+            return 'standard'
+
+        # Default to raw priority or standard
+        priority_map = {
+            'low': 'informational',
+            'medium': 'standard',
+            'high': 'important',
+            'critical': 'critical',
+            'fatal': 'fatal'
+        }
+
+        return priority_map.get(raw_priority.lower(), 'standard')
+
     def calculate_florida_deadline(
         self,
         trigger_date: date,
@@ -283,7 +460,7 @@ LOCAL RULES: Always check district-specific local rules for variations!
         skip_weekends: bool = False
     ) -> date:
         """
-        Calculate deadline following Florida rules
+        Calculate deadline following Florida rules with proper holiday handling
 
         Args:
             trigger_date: The starting date
@@ -292,9 +469,9 @@ LOCAL RULES: Always check district-specific local rules for variations!
             skip_weekends: If True, skip weekends and holidays (for "business days")
         """
 
-        # Add service method days
+        # Add service method days (CRITICAL for Florida practice)
         if service_method.lower() in ['mail', 'u.s. mail', 'usps']:
-            days_to_add += 5
+            days_to_add += 5  # Add 5 days for mail service
         elif service_method.lower() in ['email', 'e-portal', 'electronic']:
             pass  # No additional days since Jan 1, 2019
 
@@ -302,20 +479,21 @@ LOCAL RULES: Always check district-specific local rules for variations!
         current = trigger_date
         days_counted = 0
 
+        # Count calendar days or business days
         while days_counted < days_to_add:
             current += timedelta(days=1)
 
-            # If skip_weekends, only count business days
-            if skip_weekends and current.weekday() >= 5:  # Saturday=5, Sunday=6
-                continue
+            # If skip_weekends mode, only count business days
+            if skip_weekends:
+                if is_business_day(current):
+                    days_counted += 1
+            else:
+                # Count all calendar days (Florida default)
+                days_counted += 1
 
-            days_counted += 1
-
-        # If deadline falls on weekend/holiday, extend to next business day
-        while current.weekday() >= 5:  # Weekend
-            current += timedelta(days=1)
-
-        # TODO: Check federal/state holidays and extend if needed
+        # CRITICAL: If deadline falls on weekend/holiday, extend to next business day
+        # This applies regardless of skip_weekends setting
+        current = adjust_to_business_day(current)
 
         return current
 
@@ -350,3 +528,145 @@ LOCAL RULES: Always check district-specific local rules for variations!
         }
 
         return deadline
+
+    async def generate_deadline_chains(
+        self,
+        trigger_event: str,
+        trigger_date: date,
+        jurisdiction: str,
+        court_type: str,
+        case_id: str,
+        user_id: str,
+        service_method: str = "electronic"
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate deadline chains using the rules engine
+        Automatic deadline generation from triggers
+
+        Args:
+            trigger_event: Type of trigger (e.g., "service of complaint", "trial date set")
+            trigger_date: Date of the trigger event
+            jurisdiction: "florida_state" or "federal"
+            court_type: "civil", "criminal", or "appellate"
+            case_id: Case ID
+            user_id: User ID
+            service_method: "electronic", "mail", or "personal"
+
+        Returns:
+            List of generated deadline dictionaries
+        """
+
+        # Map trigger event to TriggerType enum
+        trigger_mapping = {
+            "service of complaint": TriggerType.COMPLAINT_SERVED,
+            "complaint served": TriggerType.COMPLAINT_SERVED,
+            "trial date set": TriggerType.TRIAL_DATE,
+            "trial date": TriggerType.TRIAL_DATE,
+            "case filed": TriggerType.CASE_FILED,
+            "motion filed": TriggerType.MOTION_FILED,
+            "hearing scheduled": TriggerType.HEARING_SCHEDULED,
+        }
+
+        trigger_type = None
+        trigger_lower = trigger_event.lower()
+        for key, value in trigger_mapping.items():
+            if key in trigger_lower:
+                trigger_type = value
+                break
+
+        if not trigger_type:
+            # No matching rule template
+            return []
+
+        # Find applicable rules from rules engine
+        applicable_rules = rules_engine.get_applicable_rules(
+            jurisdiction=jurisdiction,
+            court_type=court_type,
+            trigger_type=trigger_type
+        )
+
+        generated_deadlines = []
+
+        for rule_template in applicable_rules:
+            # Calculate all dependent deadlines for this rule
+            deadlines = rules_engine.calculate_dependent_deadlines(
+                trigger_date=trigger_date,
+                rule_template=rule_template,
+                service_method=service_method
+            )
+
+            # Add case_id and user_id to each deadline
+            for deadline in deadlines:
+                deadline['case_id'] = case_id
+                deadline['user_id'] = user_id
+                deadline['deadline_type'] = rule_template.court_type
+                generated_deadlines.append(deadline)
+
+        return generated_deadlines
+
+    def detect_trigger_from_document(
+        self,
+        document_type: str,
+        document_analysis: Dict[str, Any],
+        court_info: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Detect if a document represents a trigger event
+        Returns trigger info if detected, None otherwise
+
+        Args:
+            document_type: Type of document (e.g., "complaint", "summons")
+            document_analysis: AI analysis of the document
+            court_info: Court information string
+
+        Returns:
+            Dict with trigger_event, trigger_date, jurisdiction info or None
+        """
+
+        # Identify jurisdiction
+        jurisdiction_info = identify_jurisdiction(court_info)
+
+        # Map to our jurisdiction format
+        if jurisdiction_info.get("type") == "federal":
+            jurisdiction = "federal"
+        elif jurisdiction_info.get("type") in ["state_circuit", "state_county"]:
+            jurisdiction = "florida_state"
+        else:
+            jurisdiction = "florida_state"  # Default
+
+        # Detect trigger events based on document type
+        doc_type_lower = document_type.lower() if document_type else ""
+
+        trigger_event = None
+        court_type = "civil"  # Default assumption
+
+        # Complaint/Summons triggers Answer deadline
+        if any(word in doc_type_lower for word in ["complaint", "summons", "petition"]):
+            trigger_event = "service of complaint"
+
+        # Trial Notice triggers trial prep deadlines
+        elif any(word in doc_type_lower for word in ["trial notice", "trial order", "notice of trial"]):
+            trigger_event = "trial date set"
+
+        # Motion triggers response deadline
+        elif "motion" in doc_type_lower and "response" not in doc_type_lower:
+            trigger_event = "motion filed"
+
+        if trigger_event:
+            # Try to extract trigger date from analysis
+            trigger_date_str = document_analysis.get('filing_date') or document_analysis.get('service_date')
+            trigger_date = self._parse_date_to_object(trigger_date_str) if trigger_date_str else None
+
+            if not trigger_date:
+                trigger_date = datetime.now().date()  # Fallback to today
+
+            return {
+                'trigger_event': trigger_event,
+                'trigger_date': trigger_date,
+                'jurisdiction': jurisdiction,
+                'court_type': court_type,
+                'jurisdiction_info': jurisdiction_info,
+                'document_type': document_type
+            }
+
+        return None

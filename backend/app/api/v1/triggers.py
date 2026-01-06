@@ -1,5 +1,5 @@
 """
-Trigger API - CompuLaw-inspired trigger-based deadline generation
+Trigger API - Trigger-based deadline generation
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.case import Case
 from app.models.deadline import Deadline
-from app.api.v1.documents import get_current_user
+from app.utils.auth import get_current_user
 from app.services.rules_engine import rules_engine, TriggerType
 from app.services.calendar_service import calendar_service
 
@@ -214,7 +214,7 @@ async def recalculate_dependent_deadlines(
     db: Session = Depends(get_db)
 ):
     """
-    Retroactive Recalculation - The CompuLaw magic!
+    Retroactive Recalculation - Automatic cascade updates
     If the trigger date changes, all 50+ dependent deadlines shift instantly
     """
 
@@ -312,11 +312,12 @@ async def get_case_triggers(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
-    # Get all trigger deadlines (non-dependent)
+    # Get all trigger deadlines (non-dependent, active only)
     triggers = db.query(Deadline).filter(
         Deadline.case_id == case_id,
         Deadline.is_dependent == False,
-        Deadline.trigger_event.isnot(None)
+        Deadline.trigger_event.isnot(None),
+        Deadline.status.notin_(['completed', 'cancelled'])
     ).all()
 
     result = []
@@ -331,6 +332,7 @@ async def get_case_triggers(
             'trigger_type': trigger.trigger_event,
             'trigger_date': trigger.deadline_date.isoformat() if trigger.deadline_date else None,
             'title': trigger.title,
+            'status': trigger.status,
             'dependent_deadlines_count': dependent_count,
             'created_at': trigger.created_at.isoformat()
         })

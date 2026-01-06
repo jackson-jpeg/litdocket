@@ -1,0 +1,15 @@
+/**
+ * Protected Layout
+ *
+ * All routes inside this layout require authentication.
+ */
+
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <ProtectedRoute>{children}</ProtectedRoute>;
+}
