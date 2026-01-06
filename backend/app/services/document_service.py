@@ -142,7 +142,8 @@ class DocumentService:
         if analysis.get('filing_date'):
             try:
                 case.filing_date = datetime.strptime(analysis['filing_date'], '%Y-%m-%d').date()
-            except:
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"⚠️  Could not parse filing date: {e}")
                 pass
 
         return case
@@ -177,7 +178,8 @@ class DocumentService:
         if analysis.get('filing_date'):
             try:
                 document.filing_date = datetime.strptime(analysis['filing_date'], '%Y-%m-%d').date()
-            except:
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"⚠️  Could not parse document filing date: {e}")
                 pass
 
         document.received_date = datetime.now().date()
