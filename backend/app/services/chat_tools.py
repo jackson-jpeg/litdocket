@@ -487,6 +487,140 @@ CHAT_TOOLS = [
             "properties": {},
             "required": []
         }
+    },
+    {
+        "name": "lookup_court_rule",
+        "description": "Look up a specific court rule by citation or keyword. Returns full rule details including deadlines, calculation methods, and citations. Use to answer questions like 'What does Rule 1.510 say?' or 'What are the discovery deadlines?'",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "rule_citation": {
+                    "type": "string",
+                    "description": "Rule citation to look up (e.g., '1.510', '1.140', 'Rule 12', 'FRCP 26')"
+                },
+                "keyword": {
+                    "type": "string",
+                    "description": "Keyword to search for in rules (e.g., 'summary judgment', 'discovery', 'answer')"
+                },
+                "jurisdiction": {
+                    "type": "string",
+                    "enum": ["florida_state", "federal"],
+                    "description": "Which jurisdiction's rules to search"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "calculate_deadline",
+        "description": "Calculate a deadline with full audit trail showing every step. Use for deadline verification or when user asks 'When is X due?' Returns the final date with complete calculation basis.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "trigger_date": {
+                    "type": "string",
+                    "description": "Starting date (SERVICE DATE) in YYYY-MM-DD format"
+                },
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days for the deadline (e.g., 20 for answer, 30 for discovery)"
+                },
+                "calculation_type": {
+                    "type": "string",
+                    "enum": ["calendar_days", "court_days", "business_days"],
+                    "description": "How to count days (most Florida deadlines use calendar_days)"
+                },
+                "service_method": {
+                    "type": "string",
+                    "enum": ["electronic", "email", "mail", "personal"],
+                    "description": "How document was served (mail adds 5 days FL state, 3 days federal)"
+                },
+                "jurisdiction": {
+                    "type": "string",
+                    "enum": ["state", "federal"],
+                    "description": "Florida state or federal court"
+                },
+                "rule_citation": {
+                    "type": "string",
+                    "description": "Optional rule citation to include in audit trail"
+                }
+            },
+            "required": ["trigger_date", "days", "calculation_type"]
+        }
+    },
+    {
+        "name": "move_deadline",
+        "description": "Move a deadline to a new date. This is a smart wrapper around update_deadline that handles cascade updates for triggers and adds proper audit trail.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "deadline_id": {
+                    "type": "string",
+                    "description": "ID of the deadline to move"
+                },
+                "new_date": {
+                    "type": "string",
+                    "description": "New date in YYYY-MM-DD format"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for moving (e.g., 'Court order', 'Stipulation', 'Continuance granted')"
+                },
+                "cascade_to_dependents": {
+                    "type": "boolean",
+                    "description": "If this is a trigger deadline, also move all dependent deadlines (default: true with preview)"
+                }
+            },
+            "required": ["deadline_id", "new_date"]
+        }
+    },
+    {
+        "name": "duplicate_deadline",
+        "description": "Duplicate an existing deadline with optional modifications. Useful for creating similar deadlines or copying to other cases.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source_deadline_id": {
+                    "type": "string",
+                    "description": "ID of the deadline to duplicate"
+                },
+                "new_title": {
+                    "type": "string",
+                    "description": "Optional new title (defaults to original + ' (Copy)')"
+                },
+                "new_date": {
+                    "type": "string",
+                    "description": "Optional new date in YYYY-MM-DD format"
+                },
+                "date_offset_days": {
+                    "type": "integer",
+                    "description": "Optional: shift date by this many days from original"
+                }
+            },
+            "required": ["source_deadline_id"]
+        }
+    },
+    {
+        "name": "link_deadlines",
+        "description": "Create a dependency link between two deadlines. Makes one deadline dependent on another so cascade updates work.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "parent_deadline_id": {
+                    "type": "string",
+                    "description": "ID of the parent (trigger) deadline"
+                },
+                "child_deadline_id": {
+                    "type": "string",
+                    "description": "ID of the child (dependent) deadline"
+                },
+                "days_offset": {
+                    "type": "integer",
+                    "description": "How many days the child is offset from parent (can be negative for 'X days before')"
+                }
+            },
+            "required": ["parent_deadline_id", "child_deadline_id", "days_offset"]
+        }
     }
 ]
 
@@ -553,6 +687,18 @@ class ChatToolExecutor:
             return self._apply_cascade_update(tool_input)
         elif tool_name == "get_dependency_tree":
             return self._get_dependency_tree(tool_input)
+
+        # New Docket Overseer tools
+        elif tool_name == "lookup_court_rule":
+            return self._lookup_court_rule(tool_input)
+        elif tool_name == "calculate_deadline":
+            return self._calculate_deadline(tool_input)
+        elif tool_name == "move_deadline":
+            return self._move_deadline(tool_input)
+        elif tool_name == "duplicate_deadline":
+            return self._duplicate_deadline(tool_input)
+        elif tool_name == "link_deadlines":
+            return self._link_deadlines(tool_input)
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -1572,4 +1718,376 @@ class ChatToolExecutor:
             }
 
         except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # ==================== DOCKET OVERSEER TOOLS ====================
+
+    def _lookup_court_rule(self, input_data: Dict) -> Dict:
+        """Look up a court rule by citation or keyword"""
+        try:
+            from app.constants.court_rules_knowledge import (
+                FLORIDA_CIVIL_PROCEDURE_RULES,
+                FLORIDA_JUDICIAL_ADMINISTRATION_RULES,
+                FEDERAL_CIVIL_PROCEDURE_RULES,
+                LOCAL_RULES_11TH_CIRCUIT,
+                LOCAL_RULES_17TH_CIRCUIT,
+                LOCAL_RULES_13TH_CIRCUIT,
+                LOCAL_RULES_9TH_CIRCUIT
+            )
+
+            rule_citation = input_data.get('rule_citation', '').lower().strip()
+            keyword = input_data.get('keyword', '').lower().strip()
+            jurisdiction = input_data.get('jurisdiction', 'florida_state')
+
+            matching_rules = []
+
+            # Determine which rule sets to search
+            if jurisdiction == 'florida_state':
+                rule_sets = [
+                    ("Florida Civil Procedure", FLORIDA_CIVIL_PROCEDURE_RULES),
+                    ("Florida Judicial Admin", FLORIDA_JUDICIAL_ADMINISTRATION_RULES),
+                    ("11th Circuit Local", LOCAL_RULES_11TH_CIRCUIT),
+                    ("17th Circuit Local", LOCAL_RULES_17TH_CIRCUIT),
+                    ("13th Circuit Local", LOCAL_RULES_13TH_CIRCUIT),
+                    ("9th Circuit Local", LOCAL_RULES_9TH_CIRCUIT),
+                ]
+            else:
+                rule_sets = [
+                    ("Federal Civil Procedure", FEDERAL_CIVIL_PROCEDURE_RULES),
+                ]
+
+            # Search by citation
+            if rule_citation:
+                for set_name, rules in rule_sets:
+                    for rule_id, rule in rules.items():
+                        if (rule_citation in rule_id.lower() or
+                            rule_citation in rule.get('citation', '').lower() or
+                            rule_citation.replace('.', '') in rule_id.lower().replace('.', '')):
+                            matching_rules.append({
+                                "source": set_name,
+                                "rule_id": rule_id,
+                                **rule
+                            })
+
+            # Search by keyword
+            if keyword:
+                for set_name, rules in rule_sets:
+                    for rule_id, rule in rules.items():
+                        rule_text = f"{rule.get('name', '')} {rule.get('description', '')}".lower()
+                        if keyword in rule_text and not any(m['rule_id'] == rule_id for m in matching_rules):
+                            matching_rules.append({
+                                "source": set_name,
+                                "rule_id": rule_id,
+                                **rule
+                            })
+
+            if not matching_rules:
+                return {
+                    "success": True,
+                    "count": 0,
+                    "rules": [],
+                    "message": f"No rules found matching '{rule_citation or keyword}'. Try a different search term."
+                }
+
+            # Format output
+            formatted_rules = []
+            for rule in matching_rules[:5]:  # Limit to 5 results
+                formatted = {
+                    "source": rule['source'],
+                    "rule_id": rule['rule_id'],
+                    "name": rule.get('name', 'Unknown'),
+                    "citation": rule.get('citation', ''),
+                    "description": rule.get('description', ''),
+                }
+                if 'deadlines' in rule:
+                    formatted['deadlines'] = rule['deadlines']
+                if 'calculation' in rule:
+                    formatted['calculation'] = rule['calculation']
+                formatted_rules.append(formatted)
+
+            return {
+                "success": True,
+                "count": len(matching_rules),
+                "rules": formatted_rules,
+                "message": f"Found {len(matching_rules)} matching rule(s)"
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _calculate_deadline(self, input_data: Dict) -> Dict:
+        """Calculate a deadline with full audit trail"""
+        try:
+            from app.utils.florida_holidays import (
+                add_calendar_days_with_service_extension,
+                add_court_days,
+                is_business_day,
+                adjust_to_business_day
+            )
+            from datetime import timedelta
+
+            trigger_date_str = input_data['trigger_date']
+            days = input_data['days']
+            calculation_type = input_data['calculation_type']
+            service_method = input_data.get('service_method', 'electronic')
+            jurisdiction = input_data.get('jurisdiction', 'state')
+            rule_citation = input_data.get('rule_citation', '')
+
+            # Parse trigger date
+            trigger_date = datetime.strptime(trigger_date_str, '%Y-%m-%d').date()
+
+            # Build audit trail
+            audit_trail = []
+            audit_trail.append(f"**Trigger Date (Service):** {trigger_date.strftime('%B %d, %Y')} ({trigger_date.strftime('%A')})")
+            audit_trail.append(f"**Base Period:** {days} {calculation_type.replace('_', ' ')}")
+
+            # Calculate based on type
+            if calculation_type == 'calendar_days':
+                # Use the official Florida Rule 2.514 calculation
+                final_date = add_calendar_days_with_service_extension(
+                    trigger_date=trigger_date,
+                    base_days=days,
+                    service_method=service_method,
+                    jurisdiction=jurisdiction
+                )
+
+                # Calculate intermediate date before weekend/holiday adjustment
+                from app.constants.legal_rules import get_service_extension_days
+                service_ext = get_service_extension_days(jurisdiction, service_method)
+                intermediate_date = trigger_date + timedelta(days=days + service_ext)
+
+                audit_trail.append(f"**Service Method:** {service_method}")
+                if service_ext > 0:
+                    audit_trail.append(f"**Service Extension:** +{service_ext} days (FL R. Jud. Admin. 2.514(b))")
+
+                audit_trail.append(f"**Raw Calculation:** {trigger_date} + {days} days" + (f" + {service_ext} days" if service_ext > 0 else "") + f" = {intermediate_date}")
+
+                if intermediate_date != final_date:
+                    audit_trail.append(f"**Weekend/Holiday Adjustment:** {intermediate_date} → {final_date}")
+                    audit_trail.append(f"*(Per FL R. Jud. Admin. 2.514(a)(3): deadline falls on non-business day)*")
+
+            elif calculation_type in ['court_days', 'business_days']:
+                final_date = add_court_days(trigger_date, days)
+                audit_trail.append(f"**Calculation:** {days} court/business days (skipping weekends & holidays)")
+
+            else:
+                return {"success": False, "error": f"Unknown calculation type: {calculation_type}"}
+
+            if rule_citation:
+                audit_trail.append(f"**Rule Citation:** {rule_citation}")
+
+            audit_trail.append(f"\n**FINAL DEADLINE: {final_date.strftime('%B %d, %Y')} ({final_date.strftime('%A')})**")
+
+            return {
+                "success": True,
+                "trigger_date": trigger_date.isoformat(),
+                "final_date": final_date.isoformat(),
+                "final_date_formatted": final_date.strftime('%B %d, %Y'),
+                "final_date_weekday": final_date.strftime('%A'),
+                "calculation_type": calculation_type,
+                "service_method": service_method,
+                "audit_trail": "\n".join(audit_trail),
+                "message": f"✓ Deadline calculated: {final_date.strftime('%B %d, %Y')} ({final_date.strftime('%A')})"
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _move_deadline(self, input_data: Dict) -> Dict:
+        """Move a deadline with smart cascade handling"""
+        try:
+            deadline = self.db.query(Deadline).filter(
+                Deadline.id == input_data['deadline_id'],
+                Deadline.case_id == self.case_id
+            ).first()
+
+            if not deadline:
+                return {"success": False, "error": "Deadline not found"}
+
+            old_date = deadline.deadline_date
+            new_date = datetime.strptime(input_data['new_date'], '%Y-%m-%d').date()
+            reason = input_data.get('reason', 'Date moved by user')
+            cascade = input_data.get('cascade_to_dependents', True)
+
+            # Check if this is a trigger deadline with dependents
+            has_dependents = self.db.query(Deadline).filter(
+                Deadline.parent_deadline_id == str(deadline.id)
+            ).count() > 0
+
+            if has_dependents and cascade:
+                # This needs a cascade update - return preview first
+                days_shift = (new_date - old_date).days
+
+                return {
+                    "success": True,
+                    "requires_cascade": True,
+                    "is_trigger": True,
+                    "deadline_title": deadline.title,
+                    "old_date": old_date.isoformat(),
+                    "new_date": new_date.isoformat(),
+                    "days_shift": days_shift,
+                    "message": f"⚠️ This is a trigger deadline with dependent deadlines. "
+                              f"Moving it {abs(days_shift)} days {'forward' if days_shift > 0 else 'backward'} "
+                              f"will affect dependent deadlines. Use `preview_cascade_update` to see the impact, "
+                              f"then `apply_cascade_update` to confirm."
+                }
+
+            # Simple deadline - just update it
+            deadline.deadline_date = new_date
+
+            # Track if this is a manual override of a calculated deadline
+            was_overridden = False
+            if deadline.is_calculated and not deadline.is_manually_overridden:
+                deadline.is_manually_overridden = True
+                deadline.override_timestamp = datetime.now()
+                deadline.override_user_id = self.user_id
+                deadline.override_reason = reason
+                deadline.auto_recalculate = False
+                if not deadline.original_deadline_date:
+                    deadline.original_deadline_date = old_date
+                was_overridden = True
+
+            deadline.modification_reason = reason
+            deadline.modified_by = self.user_id
+
+            self.db.commit()
+
+            message = f"✓ Moved deadline '{deadline.title}' from {old_date} to {new_date}"
+            if was_overridden:
+                message += "\n\n⚠️ This calculated deadline is now protected from auto-recalculation."
+
+            return {
+                "success": True,
+                "deadline_id": str(deadline.id),
+                "title": deadline.title,
+                "old_date": old_date.isoformat(),
+                "new_date": new_date.isoformat(),
+                "was_overridden": was_overridden,
+                "message": message
+            }
+
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "error": str(e)}
+
+    def _duplicate_deadline(self, input_data: Dict) -> Dict:
+        """Duplicate a deadline with optional modifications"""
+        try:
+            source = self.db.query(Deadline).filter(
+                Deadline.id == input_data['source_deadline_id'],
+                Deadline.case_id == self.case_id
+            ).first()
+
+            if not source:
+                return {"success": False, "error": "Source deadline not found"}
+
+            # Determine new title
+            new_title = input_data.get('new_title', f"{source.title} (Copy)")
+
+            # Determine new date
+            if 'new_date' in input_data:
+                new_date = datetime.strptime(input_data['new_date'], '%Y-%m-%d').date()
+            elif 'date_offset_days' in input_data and source.deadline_date:
+                from datetime import timedelta
+                new_date = source.deadline_date + timedelta(days=input_data['date_offset_days'])
+            else:
+                new_date = source.deadline_date
+
+            # Create duplicate
+            new_deadline = Deadline(
+                case_id=self.case_id,
+                user_id=self.user_id,
+                title=new_title,
+                description=source.description,
+                deadline_date=new_date,
+                priority=source.priority,
+                party_role=source.party_role,
+                action_required=source.action_required,
+                applicable_rule=source.applicable_rule,
+                status='pending',
+                created_via_chat=True,
+                is_calculated=False,  # Copies are manual deadlines
+                is_dependent=False,
+                extraction_method='manual',
+                confidence_score=95,
+                confidence_level='high',
+                confidence_factors={'duplicated_from': str(source.id)},
+                verification_status='approved',
+                extraction_quality_score=10
+            )
+
+            self.db.add(new_deadline)
+            self.db.commit()
+            self.db.refresh(new_deadline)
+
+            return {
+                "success": True,
+                "new_deadline_id": str(new_deadline.id),
+                "source_deadline_id": str(source.id),
+                "title": new_deadline.title,
+                "date": new_deadline.deadline_date.isoformat() if new_deadline.deadline_date else None,
+                "message": f"✓ Created duplicate deadline: '{new_deadline.title}' on {new_deadline.deadline_date}"
+            }
+
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "error": str(e)}
+
+    def _link_deadlines(self, input_data: Dict) -> Dict:
+        """Create a dependency link between two deadlines"""
+        try:
+            parent_id = input_data['parent_deadline_id']
+            child_id = input_data['child_deadline_id']
+            days_offset = input_data['days_offset']
+
+            # Get both deadlines
+            parent = self.db.query(Deadline).filter(
+                Deadline.id == parent_id,
+                Deadline.case_id == self.case_id
+            ).first()
+
+            child = self.db.query(Deadline).filter(
+                Deadline.id == child_id,
+                Deadline.case_id == self.case_id
+            ).first()
+
+            if not parent:
+                return {"success": False, "error": "Parent deadline not found"}
+            if not child:
+                return {"success": False, "error": "Child deadline not found"}
+
+            # Check for circular dependencies
+            if str(child.id) == str(parent.parent_deadline_id):
+                return {"success": False, "error": "Cannot create circular dependency"}
+
+            # Link the deadlines
+            child.parent_deadline_id = str(parent.id)
+            child.is_dependent = True
+            child.is_calculated = True
+            child.days_count = days_offset
+            child.calculation_type = 'calendar_days'
+
+            # If parent has a date, calculate child's expected date
+            if parent.deadline_date:
+                from datetime import timedelta
+                expected_date = parent.deadline_date + timedelta(days=days_offset)
+                child.calculation_basis = f"Linked to '{parent.title}' ({parent.deadline_date}) + {days_offset} days"
+
+            self.db.commit()
+
+            offset_desc = f"{abs(days_offset)} days {'after' if days_offset >= 0 else 'before'}"
+
+            return {
+                "success": True,
+                "parent_id": str(parent.id),
+                "child_id": str(child.id),
+                "parent_title": parent.title,
+                "child_title": child.title,
+                "days_offset": days_offset,
+                "message": f"✓ Linked '{child.title}' to '{parent.title}' ({offset_desc}). "
+                          f"Child deadline will now cascade when parent changes."
+            }
+
+        except Exception as e:
+            self.db.rollback()
             return {"success": False, "error": str(e)}
