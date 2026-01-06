@@ -68,6 +68,9 @@ class DocumentService:
                 pdf_bytes=pdf_bytes
             )
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"❌ Firebase upload error: {error_details}")
             return {
                 'error': f'File upload failed: {str(e)}',
                 'success': False
