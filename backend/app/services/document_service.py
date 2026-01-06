@@ -60,21 +60,10 @@ class DocumentService:
                 'success': False
             }
 
-        # Upload PDF to Firebase Storage
-        try:
-            storage_path, storage_url = firebase_service.upload_pdf(
-                user_id=user_id,
-                file_name=file_name,
-                pdf_bytes=pdf_bytes
-            )
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"❌ Firebase upload error: {error_details}")
-            return {
-                'error': f'File upload failed: {str(e)}',
-                'success': False
-            }
+        # Storage handled by API endpoint (local /tmp or S3)
+        # Firebase Storage not used in MVP - files stored locally
+        storage_path = f"pending/{user_id}/{file_name}"  # Placeholder, overwritten by endpoint
+        storage_url = None  # Not used in MVP
 
         # Determine case routing
         target_case_id = case_id
