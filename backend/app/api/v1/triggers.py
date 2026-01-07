@@ -90,6 +90,7 @@ async def create_trigger_event(
 
     This is the "magic" - enter one date, get 50+ deadlines auto-calculated
     """
+    logger.info(f"Creating trigger: type={request.trigger_type}, date={request.trigger_date}, case={request.case_id}")
 
     # Verify case belongs to user
     case = db.query(Case).filter(

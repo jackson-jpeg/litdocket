@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import logging
 import time
+import traceback
 
 from app.config import settings
 from app.database import engine
@@ -31,6 +33,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handler to ensure errors return proper CORS headers
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Catch all unhandled exceptions and return a proper JSON response with CORS headers.
+    This prevents CORS errors when the server has an internal error.
+    """
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    logger.error(traceback.format_exc())
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error": str(exc) if settings.DEBUG else "An unexpected error occurred"
+        }
+    )
+
 
 # Request timing middleware
 @app.middleware("http")
