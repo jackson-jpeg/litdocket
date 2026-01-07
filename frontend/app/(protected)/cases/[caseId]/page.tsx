@@ -25,6 +25,7 @@ import type { Document, ChatMessage } from '@/types';
 import DeadlineListPanel from '@/components/cases/deadlines/DeadlineListPanel';
 import TriggerEventsPanel from '@/components/cases/triggers/TriggerEventsPanel';
 import EditTriggerModal from '@/components/cases/triggers/EditTriggerModal';
+import AddTriggerModal from '@/components/cases/triggers/AddTriggerModal';
 
 export default function CaseRoomPage() {
   const params = useParams();
@@ -51,6 +52,7 @@ export default function CaseRoomPage() {
 
   // UI state
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
+  const [addTriggerModalOpen, setAddTriggerModalOpen] = useState(false);
   const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [mobileActiveTab, setMobileActiveTab] = useState<'documents' | 'deadlines' | 'chat'>('deadlines');
@@ -655,7 +657,7 @@ export default function CaseRoomPage() {
               triggers={triggers}
               deadlines={deadlines}
               caseId={caseId}
-              onAddTrigger={() => setTriggerModalOpen(true)}
+              onAddTrigger={() => setAddTriggerModalOpen(true)}
               onEditTrigger={(trigger) => setEditingTrigger(trigger)}
               onRefresh={() => {
                 refetch.deadlines();
@@ -737,6 +739,20 @@ export default function CaseRoomPage() {
           refetch.deadlines();
           refetch.triggers();
           setEditingTrigger(null);
+        }}
+      />
+
+      {/* Add Trigger Modal - New CompuLaw-style */}
+      <AddTriggerModal
+        isOpen={addTriggerModalOpen}
+        caseId={caseId}
+        jurisdiction={caseData?.jurisdiction || 'florida_state'}
+        courtType={caseData?.case_type || 'civil'}
+        onClose={() => setAddTriggerModalOpen(false)}
+        onSuccess={() => {
+          refetch.deadlines();
+          refetch.triggers();
+          refetch.caseSummary();
         }}
       />
     </div>
