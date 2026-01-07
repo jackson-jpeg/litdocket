@@ -1017,6 +1017,550 @@ FLORIDA_LOCAL_RULES = {
                 "direction": "before"
             }
         }
+    },
+
+    # 1st Circuit - Escambia, Okaloosa, Santa Rosa, Walton Counties (Pensacola)
+    "1st_circuit": {
+        "name": "First Judicial Circuit (Escambia, Okaloosa, Santa Rosa, Walton Counties - Pensacola)",
+        "website": "https://www.firstcircuit.org",
+        "counties": ["Escambia", "Okaloosa", "Santa Rosa", "Walton"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar Notice",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before",
+                "notes": "Per Local Rule 2.085"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 21,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "mediation": {
+                "description": "Mediation Completion",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before",
+                "notes": "Mediation required before trial in most civil cases"
+            }
+        }
+    },
+
+    # 3rd Circuit - Columbia, Dixie, Hamilton, Lafayette, Madison, Suwannee, Taylor Counties
+    "3rd_circuit": {
+        "name": "Third Judicial Circuit (North Central Florida - Lake City)",
+        "website": "https://www.jud3.flcourts.org",
+        "counties": ["Columbia", "Dixie", "Hamilton", "Lafayette", "Madison", "Suwannee", "Taylor"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 120,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar",
+                "notes": "Check with Judicial Assistant for calendar availability"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 5,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 5th Circuit - Citrus, Hernando, Lake, Marion, Sumter Counties (Ocala)
+    "5th_circuit": {
+        "name": "Fifth Judicial Circuit (Citrus, Hernando, Lake, Marion, Sumter Counties - Ocala)",
+        "website": "https://www.circuit5.org",
+        "counties": ["Citrus", "Hernando", "Lake", "Marion", "Sumter"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "at-issue date",
+                "notes": "Per Administrative Order 2023-05"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before",
+                "notes": "UMC varies by county - check local division"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "expert_disclosure": {
+                "description": "Expert Witness Disclosure",
+                "deadline_days": 60,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 8th Circuit - Alachua, Baker, Bradford, Gilchrist, Levy, Union Counties (Gainesville)
+    "8th_circuit": {
+        "name": "Eighth Judicial Circuit (Alachua, Baker, Bradford, Gilchrist, Levy, Union Counties - Gainesville)",
+        "website": "https://www.circuit8.org",
+        "counties": ["Alachua", "Baker", "Bradford", "Gilchrist", "Levy", "Union"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar Notice",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 21,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "jury_instructions": {
+                "description": "Proposed Jury Instructions",
+                "deadline_days": 7,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 10th Circuit - Hardee, Highlands, Polk Counties (Lakeland/Bartow)
+    "10th_circuit": {
+        "name": "Tenth Judicial Circuit (Hardee, Highlands, Polk Counties - Lakeland/Bartow)",
+        "website": "https://www.jud10.flcourts.org",
+        "counties": ["Hardee", "Highlands", "Polk"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "notes": "Per division calendar - check with JA"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "mediation": {
+                "description": "Mediation Completion",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 12th Circuit - DeSoto, Manatee, Sarasota Counties (Sarasota/Bradenton)
+    "12th_circuit": {
+        "name": "Twelfth Judicial Circuit (DeSoto, Manatee, Sarasota Counties - Sarasota/Bradenton)",
+        "website": "https://www.jud12.flcourts.org",
+        "counties": ["DeSoto", "Manatee", "Sarasota"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 120,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before",
+                "notes": "Fridays in Sarasota, varies in Manatee"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "expert_disclosure": {
+                "description": "Expert Witness Disclosure",
+                "deadline_days": 90,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 14th Circuit - Bay, Calhoun, Gulf, Holmes, Jackson, Washington Counties (Panama City)
+    "14th_circuit": {
+        "name": "Fourteenth Judicial Circuit (Bay, Calhoun, Gulf, Holmes, Jackson, Washington Counties - Panama City)",
+        "website": "https://www.jud14.flcourts.org",
+        "counties": ["Bay", "Calhoun", "Gulf", "Holmes", "Jackson", "Washington"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar",
+                "notes": "Check with division for calendar availability"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 21,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 16th Circuit - Monroe County (Florida Keys)
+    "16th_circuit": {
+        "name": "Sixteenth Judicial Circuit (Monroe County - Florida Keys)",
+        "website": "https://www.keyscourts.net",
+        "counties": ["Monroe"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar",
+                "notes": "Uniform Motion Calendar in Key West"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 18th Circuit - Brevard, Seminole Counties (Space Coast/Sanford)
+    "18th_circuit": {
+        "name": "Eighteenth Judicial Circuit (Brevard & Seminole Counties - Space Coast/Sanford)",
+        "website": "https://www.flcourts18.org",
+        "counties": ["Brevard", "Seminole"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "at-issue date",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before",
+                "notes": "Check division calendar - Fridays common"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 21,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "jury_instructions": {
+                "description": "Proposed Jury Instructions",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "expert_disclosure": {
+                "description": "Expert Witness Disclosure",
+                "deadline_days": 90,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 19th Circuit - Indian River, Martin, Okeechobee, St. Lucie Counties (Treasure Coast)
+    "19th_circuit": {
+        "name": "Nineteenth Judicial Circuit (Indian River, Martin, Okeechobee, St. Lucie Counties - Treasure Coast)",
+        "website": "https://www.circuit19.org",
+        "counties": ["Indian River", "Martin", "Okeechobee", "St. Lucie"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per Administrative Order"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "mediation": {
+                "description": "Mediation Completion",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before",
+                "notes": "Mediation required in most civil cases"
+            }
+        }
     }
 }
 
