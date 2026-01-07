@@ -153,70 +153,326 @@ class RulesEngine:
         )
         self.rule_templates[discovery_rule.rule_id] = discovery_rule
 
-        # Trial Date Trigger - generates many dependent deadlines
+        # =============================================================
+        # TRIAL DATE TRIGGER - COMPREHENSIVE (50+ DEADLINES)
+        # This is the "CompuLaw killer" - one date generates everything
+        # =============================================================
         trial_rule = RuleTemplate(
             rule_id="FL_CIV_TRIAL",
             name="Trial Date Dependencies",
-            description="Deadlines calculated from trial date",
+            description="Comprehensive deadlines calculated from trial date - Florida Civil",
             jurisdiction="florida_state",
             court_type="civil",
             trigger_type=TriggerType.TRIAL_DATE,
             citation="Fla. R. Civ. P. 1.200",
             dependent_deadlines=[
+                # ========== DISCOVERY DEADLINES ==========
                 DependentDeadline(
-                    name="Pretrial Stipulation Due",
-                    description="Joint pretrial stipulation",
-                    days_from_trigger=-15,  # 15 days BEFORE trial
+                    name="Discovery Cutoff",
+                    description="Last day to serve discovery requests (responses due before trial)",
+                    days_from_trigger=-45,
                     priority=DeadlinePriority.CRITICAL,
                     party_responsible="both",
-                    action_required="File pretrial stipulation",
+                    action_required="Complete all discovery. No new discovery may be served after this date.",
                     calculation_method="calendar_days",
                     add_service_method_days=False,
-                    rule_citation="Local Rules (varies by district)",
+                    rule_citation="Fla. R. Civ. P. 1.280; Local Rules",
+                    notes="Varies by circuit - 30-60 days typical"
                 ),
                 DependentDeadline(
-                    name="Witness List Due",
-                    description="Exchange witness lists",
+                    name="Discovery Responses Due",
+                    description="All pending discovery responses must be served",
                     days_from_trigger=-30,
                     priority=DeadlinePriority.CRITICAL,
                     party_responsible="both",
-                    action_required="Exchange witness lists",
+                    action_required="Serve all outstanding discovery responses",
                     calculation_method="calendar_days",
                     add_service_method_days=False,
-                    rule_citation="Local Rules",
+                    rule_citation="Fla. R. Civ. P. 1.340, 1.350, 1.370",
                 ),
+                # ========== EXPERT DEADLINES ==========
                 DependentDeadline(
-                    name="Exhibit List Due",
-                    description="Exchange exhibit lists",
-                    days_from_trigger=-30,
+                    name="Plaintiff Expert Disclosure",
+                    description="Disclose plaintiff's expert witnesses and opinions",
+                    days_from_trigger=-90,
                     priority=DeadlinePriority.CRITICAL,
-                    party_responsible="both",
-                    action_required="Exchange exhibit lists",
+                    party_responsible="plaintiff",
+                    action_required="Serve expert witness list with opinions, basis, and qualifications",
                     calculation_method="calendar_days",
                     add_service_method_days=False,
-                    rule_citation="Local Rules",
+                    rule_citation="Fla. R. Civ. P. 1.280(b)(5)",
+                    notes="Party with burden of proof discloses first"
                 ),
                 DependentDeadline(
-                    name="Dispositive Motions Deadline",
-                    description="Last day to file dispositive motions",
+                    name="Defendant Expert Disclosure",
+                    description="Disclose defendant's expert witnesses and opinions",
+                    days_from_trigger=-60,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="Serve expert witness list with opinions, basis, and qualifications",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.280(b)(5)",
+                    notes="30 days after plaintiff's disclosure"
+                ),
+                DependentDeadline(
+                    name="Rebuttal Expert Disclosure",
+                    description="Disclose rebuttal expert witnesses",
+                    days_from_trigger=-45,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="plaintiff",
+                    action_required="Serve rebuttal expert witness disclosure",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.280(b)(5)",
+                    notes="15 days after defendant's disclosure"
+                ),
+                DependentDeadline(
+                    name="Expert Deposition Cutoff",
+                    description="Complete all expert depositions",
+                    days_from_trigger=-30,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Complete all expert witness depositions",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.280; Local Rules",
+                ),
+                # ========== DISPOSITIVE MOTIONS ==========
+                DependentDeadline(
+                    name="Motion for Summary Judgment Deadline",
+                    description="Last day to file motion for summary judgment",
                     days_from_trigger=-60,
                     priority=DeadlinePriority.IMPORTANT,
                     party_responsible="both",
-                    action_required="File any dispositive motions (MSJ, etc.)",
+                    action_required="File motion for summary judgment with supporting evidence",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.510(c)",
+                    notes="Must be heard at least 20 days before trial"
+                ),
+                DependentDeadline(
+                    name="MSJ Response Deadline",
+                    description="Response to motion for summary judgment due",
+                    days_from_trigger=-40,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File response with opposing affidavits/evidence",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.510(c)",
+                    notes="20 days to respond (+ 5 if by mail)"
+                ),
+                DependentDeadline(
+                    name="MSJ Reply Deadline",
+                    description="Reply memorandum on summary judgment",
+                    days_from_trigger=-35,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File reply memorandum if desired",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.510",
+                ),
+                # ========== PRETRIAL PREPARATION ==========
+                DependentDeadline(
+                    name="Pretrial Stipulation Due",
+                    description="Joint pretrial stipulation",
+                    days_from_trigger=-15,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File joint pretrial stipulation",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules (varies by circuit)",
+                    notes="10-15 days typical; check local rules"
+                ),
+                DependentDeadline(
+                    name="Final Witness List Due",
+                    description="Exchange final witness lists for trial",
+                    days_from_trigger=-30,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Exchange final witness lists with estimated testimony times",
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="Local Rules",
                 ),
                 DependentDeadline(
-                    name="Motions in Limine Due",
-                    description="Motions to exclude evidence",
-                    days_from_trigger=-21,
-                    priority=DeadlinePriority.IMPORTANT,
+                    name="Final Exhibit List Due",
+                    description="Exchange final exhibit lists for trial",
+                    days_from_trigger=-30,
+                    priority=DeadlinePriority.CRITICAL,
                     party_responsible="both",
-                    action_required="File motions in limine",
+                    action_required="Exchange exhibit lists with Bates numbers and descriptions",
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="Local Rules",
+                ),
+                DependentDeadline(
+                    name="Exchange Trial Exhibits",
+                    description="Exchange copies of all trial exhibits",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Exchange physical/electronic copies of all exhibits",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                DependentDeadline(
+                    name="Exhibit Objections Due",
+                    description="File objections to opposing exhibits",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File written objections to exhibits with legal basis",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== MOTIONS IN LIMINE ==========
+                DependentDeadline(
+                    name="Motions in Limine Due",
+                    description="File motions to exclude evidence",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File motions in limine with supporting memoranda",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="Varies 14-30 days by circuit"
+                ),
+                DependentDeadline(
+                    name="Motions in Limine Response Due",
+                    description="Respond to motions in limine",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File responses to opposing motions in limine",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== JURY TRIAL SPECIFICS ==========
+                DependentDeadline(
+                    name="Proposed Jury Instructions Due",
+                    description="Submit proposed jury instructions",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File proposed jury instructions with supporting authority",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.470(b); Local Rules",
+                ),
+                DependentDeadline(
+                    name="Proposed Verdict Form Due",
+                    description="Submit proposed verdict form",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File proposed special verdict form",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.480; Local Rules",
+                ),
+                DependentDeadline(
+                    name="Proposed Voir Dire Questions",
+                    description="Submit proposed voir dire questions",
+                    days_from_trigger=-10,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File proposed voir dire questions",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== DEPOSITION DESIGNATIONS ==========
+                DependentDeadline(
+                    name="Deposition Designations Due",
+                    description="Designate deposition testimony for trial",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Serve deposition designations (page/line citations)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.330(a)(2); Local Rules",
+                ),
+                DependentDeadline(
+                    name="Counter-Designations Due",
+                    description="Counter-designate deposition testimony",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Serve counter-designations to complete context",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.330(a)(2); Local Rules",
+                ),
+                DependentDeadline(
+                    name="Objections to Depo Designations",
+                    description="Object to deposition designations",
+                    days_from_trigger=-10,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File objections to deposition designations",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.330; Local Rules",
+                ),
+                # ========== TRIAL SUBPOENAS ==========
+                DependentDeadline(
+                    name="Trial Subpoena Deadline (Non-Party)",
+                    description="Last day to serve subpoenas on non-party witnesses",
+                    days_from_trigger=-10,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Serve trial subpoenas on all non-party witnesses",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.410(d)",
+                    notes="Reasonable time required - typically 10+ days"
+                ),
+                # ========== TRIAL MEMORANDA ==========
+                DependentDeadline(
+                    name="Trial Brief/Memorandum Due",
+                    description="File trial brief summarizing case",
+                    days_from_trigger=-7,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File trial memorandum with legal authorities",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="Check local rules - not required in all circuits"
+                ),
+                # ========== SETTLEMENT ==========
+                DependentDeadline(
+                    name="Last Settlement Conference",
+                    description="Final opportunity for settlement conference",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="Attend settlement conference if ordered",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== PRETRIAL CONFERENCE ==========
+                DependentDeadline(
+                    name="Pretrial Conference",
+                    description="Attend pretrial conference with court",
+                    days_from_trigger=-7,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Attend pretrial conference; counsel must have settlement authority",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.200; Local Rules",
+                    notes="Typically 5-14 days before trial"
                 ),
             ]
         )
@@ -259,6 +515,318 @@ class RulesEngine:
             ]
         )
         self.rule_templates[hearing_rule.rule_id] = hearing_rule
+
+        # =============================================================
+        # MOTION FILED TRIGGER - Response deadlines
+        # =============================================================
+        motion_rule = RuleTemplate(
+            rule_id="FL_CIV_MOTION",
+            name="Motion Response Deadlines",
+            description="Deadlines triggered when a motion is filed/served",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.MOTION_FILED,
+            citation="Fla. R. Civ. P. 1.140(b)",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Response to Motion Due",
+                    description="File response/opposition to motion",
+                    days_from_trigger=10,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="opposing",
+                    action_required="File and serve response to motion with supporting memorandum",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.140(b); Local Rules",
+                    notes="10 days to respond (+ 5 if by mail, 0 if email)"
+                ),
+                DependentDeadline(
+                    name="Reply Memorandum Due",
+                    description="File reply to response (if desired)",
+                    days_from_trigger=15,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="movant",
+                    action_required="File reply memorandum (optional)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="5 days after response due; check local rules"
+                ),
+            ]
+        )
+        self.rule_templates[motion_rule.rule_id] = motion_rule
+
+        # =============================================================
+        # DISCOVERY SERVED TRIGGERS - Individual Discovery Responses
+        # =============================================================
+
+        # Interrogatories Served
+        interrogatory_rule = RuleTemplate(
+            rule_id="FL_CIV_INTERROGATORIES",
+            name="Interrogatories Response",
+            description="Response deadline when interrogatories are served",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.DISCOVERY_COMMENCED,
+            citation="Fla. R. Civ. P. 1.340",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Answers to Interrogatories Due",
+                    description="Serve answers to interrogatories",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="responding",
+                    action_required="Serve verified answers to interrogatories with objections",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.340(a)",
+                    notes="30 days to respond (+ 5 if by mail)"
+                ),
+            ]
+        )
+        self.rule_templates[interrogatory_rule.rule_id] = interrogatory_rule
+
+        # Request for Production Served
+        rfp_rule = RuleTemplate(
+            rule_id="FL_CIV_RFP",
+            name="Request for Production Response",
+            description="Response deadline when RFP is served",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.DISCOVERY_COMMENCED,
+            citation="Fla. R. Civ. P. 1.350",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Response to RFP Due",
+                    description="Serve response to request for production",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="responding",
+                    action_required="Serve written response and produce documents",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.350(b)",
+                    notes="30 days to respond (+ 5 if by mail)"
+                ),
+            ]
+        )
+        self.rule_templates[rfp_rule.rule_id] = rfp_rule
+
+        # Request for Admissions Served - CRITICAL (auto-admit if not answered!)
+        rfa_rule = RuleTemplate(
+            rule_id="FL_CIV_RFA",
+            name="Request for Admissions Response",
+            description="Response deadline when RFA is served - FAILURE TO RESPOND = DEEMED ADMITTED",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.DISCOVERY_COMMENCED,
+            citation="Fla. R. Civ. P. 1.370",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Response to RFA Due - CRITICAL",
+                    description="Serve response to request for admissions - DEEMED ADMITTED IF NOT TIMELY",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.FATAL,  # FATAL because failure = deemed admitted!
+                    party_responsible="responding",
+                    action_required="Serve written responses - FAILURE TO RESPOND = DEEMED ADMITTED",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.370(a)",
+                    notes="⚠️ CRITICAL: 30 days to respond (+ 5 if mail). FAILURE = DEEMED ADMITTED!"
+                ),
+            ]
+        )
+        self.rule_templates[rfa_rule.rule_id] = rfa_rule
+
+        # Deposition Noticed
+        deposition_rule = RuleTemplate(
+            rule_id="FL_CIV_DEPOSITION",
+            name="Deposition Notice Deadlines",
+            description="Deadlines triggered by deposition notice",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.HEARING_SCHEDULED,  # Using hearing as proxy for deposition
+            citation="Fla. R. Civ. P. 1.310",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Deposition Preparation",
+                    description="Prepare witness for deposition",
+                    days_from_trigger=-2,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Prepare witness; review documents and anticipated questions",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Best practice",
+                    notes="At least 2 days before deposition for preparation"
+                ),
+                DependentDeadline(
+                    name="Document Request for Deposition",
+                    description="Deadline to request documents be brought to deposition",
+                    days_from_trigger=-10,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="Serve subpoena duces tecum for documents",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.310(b)(5)",
+                    notes="Reasonable time before deposition"
+                ),
+            ]
+        )
+        self.rule_templates[deposition_rule.rule_id] = deposition_rule
+
+        # =============================================================
+        # COMPLAINT SERVED - Full Defendant Response Chain
+        # =============================================================
+        complaint_served_rule = RuleTemplate(
+            rule_id="FL_CIV_COMPLAINT_SERVED",
+            name="Complaint Served - Full Response Chain",
+            description="All defendant response deadlines from service of complaint",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.COMPLAINT_SERVED,
+            citation="Fla. R. Civ. P. 1.140",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Answer Due",
+                    description="Defendant must file and serve Answer",
+                    days_from_trigger=20,
+                    priority=DeadlinePriority.FATAL,
+                    party_responsible="defendant",
+                    action_required="File and serve Answer to Complaint",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.140(a)(1)",
+                    notes="20 days after service (+ 5 if by mail, 0 if email)"
+                ),
+                DependentDeadline(
+                    name="Motion to Dismiss Deadline",
+                    description="Last day to file motion to dismiss (instead of answer)",
+                    days_from_trigger=20,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="File motion to dismiss under Rule 1.140(b) if challenging jurisdiction, venue, or pleading sufficiency",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.140(b)",
+                    notes="Must be filed BEFORE answer; same deadline"
+                ),
+                DependentDeadline(
+                    name="Affirmative Defenses Due",
+                    description="Affirmative defenses must be raised in Answer",
+                    days_from_trigger=20,
+                    priority=DeadlinePriority.FATAL,
+                    party_responsible="defendant",
+                    action_required="Include all affirmative defenses in Answer or they may be waived",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.110(d)",
+                    notes="Affirmative defenses must be pled or waived"
+                ),
+                DependentDeadline(
+                    name="Counterclaim/Crossclaim Deadline",
+                    description="File any compulsory counterclaims with Answer",
+                    days_from_trigger=20,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="File compulsory counterclaims with Answer (permissive counterclaims may be filed later)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.170",
+                    notes="Compulsory counterclaims may be waived if not timely filed"
+                ),
+                DependentDeadline(
+                    name="Third-Party Complaint Deadline",
+                    description="File third-party complaint (impleader)",
+                    days_from_trigger=20,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="defendant",
+                    action_required="File third-party complaint if seeking contribution or indemnification",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.180",
+                    notes="May file as of right within time for Answer; leave required thereafter"
+                ),
+            ]
+        )
+        self.rule_templates[complaint_served_rule.rule_id] = complaint_served_rule
+
+        # =============================================================
+        # ORDER ENTERED - Post-Judgment Deadlines
+        # =============================================================
+        order_entered_rule = RuleTemplate(
+            rule_id="FL_CIV_ORDER_ENTERED",
+            name="Order/Judgment Entered - Post-Judgment Deadlines",
+            description="Critical deadlines after entry of order or judgment",
+            jurisdiction="florida_state",
+            court_type="civil",
+            trigger_type=TriggerType.ORDER_ENTERED,
+            citation="Fla. R. Civ. P. 1.530",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Motion for Rehearing Due",
+                    description="File motion for rehearing or reconsideration",
+                    days_from_trigger=15,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File motion for rehearing under Rule 1.530",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.530(b)",
+                    notes="15 days after service of written order"
+                ),
+                DependentDeadline(
+                    name="Motion for New Trial Due",
+                    description="File motion for new trial",
+                    days_from_trigger=15,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File motion for new trial under Rule 1.530",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. Civ. P. 1.530(b)",
+                    notes="15 days from service; may toll appeal deadline"
+                ),
+                DependentDeadline(
+                    name="Notice of Appeal Deadline",
+                    description="File notice of appeal",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.FATAL,
+                    party_responsible="both",
+                    action_required="File notice of appeal with trial court",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Fla. R. App. P. 9.110(b)",
+                    notes="JURISDICTIONAL - 30 days from rendition; tolled by timely rehearing motion"
+                ),
+                DependentDeadline(
+                    name="Motion to Tax Costs Due",
+                    description="File motion for costs",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="prevailing",
+                    action_required="File motion to tax costs with supporting documentation",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.525",
+                    notes="30 days after filing of judgment"
+                ),
+                DependentDeadline(
+                    name="Motion for Attorney Fees Due",
+                    description="File motion for attorney fees",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="prevailing",
+                    action_required="File motion for attorney fees if entitled",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Fla. R. Civ. P. 1.525",
+                    notes="30 days after filing of judgment; check contract/statute for entitlement"
+                ),
+            ]
+        )
+        self.rule_templates[order_entered_rule.rule_id] = order_entered_rule
 
     def _load_federal_civil_rules(self):
         """Load Federal Rules of Civil Procedure templates"""
@@ -352,6 +920,551 @@ class RulesEngine:
             ]
         )
         self.rule_templates[fed_hearing_rule.rule_id] = fed_hearing_rule
+
+        # =============================================================
+        # FEDERAL TRIAL DATE - COMPREHENSIVE (40+ DEADLINES)
+        # =============================================================
+        fed_trial_rule = RuleTemplate(
+            rule_id="FED_CIV_TRIAL",
+            name="Federal Trial Date Dependencies",
+            description="Comprehensive deadlines calculated from trial date - Federal Civil",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.TRIAL_DATE,
+            citation="FRCP 16; Local Rules",
+            dependent_deadlines=[
+                # ========== DISCOVERY DEADLINES ==========
+                DependentDeadline(
+                    name="Discovery Cutoff",
+                    description="Last day to serve discovery requests",
+                    days_from_trigger=-60,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Complete all discovery; no new discovery after this date",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26; Scheduling Order",
+                    notes="Varies by scheduling order - typically 30-90 days before trial"
+                ),
+                DependentDeadline(
+                    name="Fact Discovery Responses Due",
+                    description="All outstanding discovery responses must be served",
+                    days_from_trigger=-45,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Serve all outstanding fact discovery responses",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 33, 34, 36",
+                ),
+                # ========== EXPERT DEADLINES ==========
+                DependentDeadline(
+                    name="Plaintiff Expert Reports Due",
+                    description="Serve plaintiff's expert witness reports",
+                    days_from_trigger=-90,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="plaintiff",
+                    action_required="Serve complete expert reports under FRCP 26(a)(2)(B)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26(a)(2)(D)",
+                    notes="At least 90 days before trial"
+                ),
+                DependentDeadline(
+                    name="Defendant Expert Reports Due",
+                    description="Serve defendant's expert witness reports",
+                    days_from_trigger=-60,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="Serve complete expert reports under FRCP 26(a)(2)(B)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26(a)(2)(D)",
+                    notes="Within 30 days after plaintiff's experts"
+                ),
+                DependentDeadline(
+                    name="Rebuttal Expert Reports Due",
+                    description="Serve rebuttal expert reports",
+                    days_from_trigger=-45,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="plaintiff",
+                    action_required="Serve rebuttal expert reports",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26(a)(2)(D)(ii)",
+                    notes="Within 30 days of opposing expert disclosure"
+                ),
+                DependentDeadline(
+                    name="Expert Deposition Cutoff",
+                    description="Complete all expert depositions",
+                    days_from_trigger=-30,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Complete all expert depositions",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26; Scheduling Order",
+                ),
+                # ========== DISPOSITIVE MOTIONS ==========
+                DependentDeadline(
+                    name="Summary Judgment Motion Deadline",
+                    description="Last day to file motion for summary judgment",
+                    days_from_trigger=-60,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File MSJ with supporting memorandum, statement of facts, and evidence",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 56(b); Local Rules",
+                    notes="Check local rules for specific deadline"
+                ),
+                DependentDeadline(
+                    name="MSJ Opposition Due",
+                    description="Opposition to motion for summary judgment",
+                    days_from_trigger=-39,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File opposition with counter-statement of facts and evidence",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 56(c); Local Rules",
+                    notes="21 days to oppose (varies by local rule)"
+                ),
+                DependentDeadline(
+                    name="MSJ Reply Due",
+                    description="Reply memorandum on summary judgment",
+                    days_from_trigger=-32,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File reply memorandum if desired",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="7 days after opposition (varies by local rule)"
+                ),
+                # ========== PRETRIAL PREPARATION ==========
+                DependentDeadline(
+                    name="Final Pretrial Statement Due",
+                    description="File joint pretrial statement",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File joint final pretrial statement per FRCP 16(e)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 16(e); Local Rules",
+                ),
+                DependentDeadline(
+                    name="Final Witness List Due",
+                    description="Exchange final witness lists",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Exchange final witness lists with summaries of expected testimony",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26(a)(3)(A)",
+                ),
+                DependentDeadline(
+                    name="Final Exhibit List Due",
+                    description="Exchange final exhibit lists",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Exchange exhibit lists per FRCP 26(a)(3)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26(a)(3)(A)(iii)",
+                ),
+                DependentDeadline(
+                    name="Exhibit Objections Due",
+                    description="File objections to trial exhibits",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File objections to exhibits; waived if not timely",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 26(a)(3)(B)",
+                    notes="WAIVER: Objections not made timely are WAIVED (except FRE 402-403)"
+                ),
+                # ========== MOTIONS IN LIMINE ==========
+                DependentDeadline(
+                    name="Motions in Limine Due",
+                    description="File motions to exclude evidence",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File motions in limine with supporting memoranda",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                DependentDeadline(
+                    name="MIL Responses Due",
+                    description="Respond to motions in limine",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File responses to opposing motions in limine",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== JURY TRIAL SPECIFICS ==========
+                DependentDeadline(
+                    name="Proposed Jury Instructions Due",
+                    description="Submit proposed jury instructions",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File proposed jury instructions with legal citations",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 51; Local Rules",
+                ),
+                DependentDeadline(
+                    name="Proposed Verdict Form Due",
+                    description="Submit proposed verdict form",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="File proposed special verdict form or general verdict with interrogatories",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 49; Local Rules",
+                ),
+                DependentDeadline(
+                    name="Proposed Voir Dire Questions",
+                    description="Submit proposed voir dire questions",
+                    days_from_trigger=-7,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File proposed voir dire questions",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== DEPOSITION DESIGNATIONS ==========
+                DependentDeadline(
+                    name="Deposition Designations Due",
+                    description="Designate deposition testimony for trial",
+                    days_from_trigger=-21,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Serve deposition designations (page/line citations)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 32(a); Local Rules",
+                ),
+                DependentDeadline(
+                    name="Counter-Designations Due",
+                    description="Counter-designate deposition testimony",
+                    days_from_trigger=-14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="both",
+                    action_required="Serve counter-designations",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 32(a); Local Rules",
+                ),
+                DependentDeadline(
+                    name="Objections to Designations",
+                    description="Object to deposition designations",
+                    days_from_trigger=-10,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File objections to deposition designations",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 32; Local Rules",
+                ),
+                # ========== TRIAL MEMORANDA ==========
+                DependentDeadline(
+                    name="Trial Brief Due",
+                    description="File trial brief",
+                    days_from_trigger=-7,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="both",
+                    action_required="File trial brief summarizing legal issues",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                ),
+                # ========== FINAL PRETRIAL CONFERENCE ==========
+                DependentDeadline(
+                    name="Final Pretrial Conference",
+                    description="Attend final pretrial conference",
+                    days_from_trigger=-7,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="Attend FPTC; lead counsel required; must have settlement authority",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 16(e)",
+                    notes="Typically 7-14 days before trial"
+                ),
+            ]
+        )
+        self.rule_templates[fed_trial_rule.rule_id] = fed_trial_rule
+
+        # =============================================================
+        # FEDERAL MOTION FILED - Response Deadlines
+        # =============================================================
+        fed_motion_rule = RuleTemplate(
+            rule_id="FED_CIV_MOTION",
+            name="Federal Motion Response Deadlines",
+            description="Response deadlines when a motion is filed (Federal)",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.MOTION_FILED,
+            citation="FRCP 6(c)(1); Local Rules",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Opposition to Motion Due",
+                    description="File opposition/response to motion",
+                    days_from_trigger=21,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="opposing",
+                    action_required="File opposition memorandum with supporting declarations/evidence",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="Local Rules (S.D. Fla. L.R. 7.1(c))",
+                    notes="14-21 days varies by district (+ 3 if by mail under FRCP 6(d))"
+                ),
+                DependentDeadline(
+                    name="Reply Memorandum Due",
+                    description="File reply in support of motion",
+                    days_from_trigger=28,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="movant",
+                    action_required="File reply memorandum (optional)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="Local Rules",
+                    notes="7 days after opposition typically"
+                ),
+            ]
+        )
+        self.rule_templates[fed_motion_rule.rule_id] = fed_motion_rule
+
+        # =============================================================
+        # FEDERAL COMPLAINT SERVED - Full Response Chain
+        # =============================================================
+        fed_complaint_served_rule = RuleTemplate(
+            rule_id="FED_CIV_COMPLAINT_SERVED",
+            name="Federal Complaint Served - Response Chain",
+            description="All defendant response deadlines from service (Federal)",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.COMPLAINT_SERVED,
+            citation="FRCP 12",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Answer Due",
+                    description="Defendant must file Answer",
+                    days_from_trigger=21,
+                    priority=DeadlinePriority.FATAL,
+                    party_responsible="defendant",
+                    action_required="File Answer to Complaint",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 12(a)(1)(A)(i)",
+                    notes="21 days (+ 3 if by mail under FRCP 6(d))"
+                ),
+                DependentDeadline(
+                    name="Rule 12 Motion Deadline",
+                    description="File pre-answer Rule 12 motion (instead of Answer)",
+                    days_from_trigger=21,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="File Rule 12(b) motion to dismiss or Rule 12(e)/(f) motion",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 12(b)",
+                    notes="Must be filed BEFORE Answer; same deadline"
+                ),
+                DependentDeadline(
+                    name="Waiver of Service Response",
+                    description="If waiver requested, extended deadline",
+                    days_from_trigger=60,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="Answer due if waiver of service was executed",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 4(d)(3)",
+                    notes="60 days from when waiver request was sent (90 if foreign)"
+                ),
+                DependentDeadline(
+                    name="Compulsory Counterclaims Due",
+                    description="File compulsory counterclaims with Answer",
+                    days_from_trigger=21,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="defendant",
+                    action_required="Include compulsory counterclaims in Answer or risk waiver",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 13(a)",
+                    notes="Compulsory counterclaims must be pled or waived"
+                ),
+            ]
+        )
+        self.rule_templates[fed_complaint_served_rule.rule_id] = fed_complaint_served_rule
+
+        # =============================================================
+        # FEDERAL DISCOVERY RESPONSES
+        # =============================================================
+        fed_interrogatory_rule = RuleTemplate(
+            rule_id="FED_CIV_INTERROGATORIES",
+            name="Federal Interrogatories Response",
+            description="Response deadline for interrogatories (Federal)",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.DISCOVERY_COMMENCED,
+            citation="FRCP 33",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Answers to Interrogatories Due",
+                    description="Serve answers to interrogatories",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="responding",
+                    action_required="Serve written answers and objections under oath",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 33(b)(2)",
+                    notes="30 days (+ 3 if by mail under FRCP 6(d))"
+                ),
+            ]
+        )
+        self.rule_templates[fed_interrogatory_rule.rule_id] = fed_interrogatory_rule
+
+        fed_rfp_rule = RuleTemplate(
+            rule_id="FED_CIV_RFP",
+            name="Federal Request for Production Response",
+            description="Response deadline for RFP (Federal)",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.DISCOVERY_COMMENCED,
+            citation="FRCP 34",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Response to RFP Due",
+                    description="Serve response to request for production",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="responding",
+                    action_required="Serve written response and produce/make available documents",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 34(b)(2)(A)",
+                    notes="30 days (+ 3 if by mail)"
+                ),
+            ]
+        )
+        self.rule_templates[fed_rfp_rule.rule_id] = fed_rfp_rule
+
+        fed_rfa_rule = RuleTemplate(
+            rule_id="FED_CIV_RFA",
+            name="Federal Request for Admissions Response",
+            description="Response deadline for RFA - DEEMED ADMITTED IF NOT TIMELY",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.DISCOVERY_COMMENCED,
+            citation="FRCP 36",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Response to RFA Due - CRITICAL",
+                    description="Serve response to request for admissions - DEEMED ADMITTED IF LATE",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.FATAL,
+                    party_responsible="responding",
+                    action_required="Serve written responses - FAILURE = DEEMED ADMITTED",
+                    calculation_method="calendar_days",
+                    add_service_method_days=True,
+                    rule_citation="FRCP 36(a)(3)",
+                    notes="⚠️ CRITICAL: 30 days (+ 3 if mail). FAILURE = DEEMED ADMITTED!"
+                ),
+            ]
+        )
+        self.rule_templates[fed_rfa_rule.rule_id] = fed_rfa_rule
+
+        # =============================================================
+        # FEDERAL ORDER ENTERED - Post-Judgment Deadlines
+        # =============================================================
+        fed_order_entered_rule = RuleTemplate(
+            rule_id="FED_CIV_ORDER_ENTERED",
+            name="Federal Order/Judgment Entered - Post-Judgment Deadlines",
+            description="Critical post-judgment deadlines (Federal)",
+            jurisdiction="federal",
+            court_type="civil",
+            trigger_type=TriggerType.ORDER_ENTERED,
+            citation="FRCP 59, 60; FRAP 4",
+            dependent_deadlines=[
+                DependentDeadline(
+                    name="Motion for New Trial Due",
+                    description="File motion for new trial under FRCP 59",
+                    days_from_trigger=28,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File motion for new trial under FRCP 59(b)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 59(b)",
+                    notes="28 days after entry of judgment; tolls appeal deadline"
+                ),
+                DependentDeadline(
+                    name="Motion to Alter/Amend Judgment Due",
+                    description="File motion to alter or amend judgment",
+                    days_from_trigger=28,
+                    priority=DeadlinePriority.CRITICAL,
+                    party_responsible="both",
+                    action_required="File FRCP 59(e) motion",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 59(e)",
+                    notes="28 days; tolls appeal deadline"
+                ),
+                DependentDeadline(
+                    name="Notice of Appeal Deadline",
+                    description="File notice of appeal",
+                    days_from_trigger=30,
+                    priority=DeadlinePriority.FATAL,
+                    party_responsible="both",
+                    action_required="File notice of appeal with district court clerk",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRAP 4(a)(1)(A)",
+                    notes="JURISDICTIONAL - 30 days (60 if USA is party); tolled by FRCP 59/60 motions"
+                ),
+                DependentDeadline(
+                    name="Bill of Costs Due",
+                    description="File bill of costs",
+                    days_from_trigger=14,
+                    priority=DeadlinePriority.STANDARD,
+                    party_responsible="prevailing",
+                    action_required="File bill of costs per FRCP 54(d)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 54(d)(1); Local Rules",
+                    notes="14 days typical; check local rules"
+                ),
+                DependentDeadline(
+                    name="Motion for Attorney Fees Due",
+                    description="File motion for attorney fees",
+                    days_from_trigger=14,
+                    priority=DeadlinePriority.IMPORTANT,
+                    party_responsible="prevailing",
+                    action_required="File motion for attorney fees under FRCP 54(d)(2)",
+                    calculation_method="calendar_days",
+                    add_service_method_days=False,
+                    rule_citation="FRCP 54(d)(2)(B)",
+                    notes="14 days after entry of judgment"
+                ),
+            ]
+        )
+        self.rule_templates[fed_order_entered_rule.rule_id] = fed_order_entered_rule
 
     def get_applicable_rules(
         self,
