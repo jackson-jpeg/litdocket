@@ -385,7 +385,7 @@ class EnhancedChatService:
         # Get relevant court rules for this case's jurisdiction
         jurisdiction = case.jurisdiction or 'florida_state'
         circuit = getattr(case, 'circuit', None) or '11th'  # Default to Miami-Dade
-        rules_context = format_rules_for_ai_context(jurisdiction, circuit)
+        rules_context = format_rules_for_ai_context()  # Returns comprehensive rules summary
 
         return f"""# THE DOCKET OVERSEER
 
