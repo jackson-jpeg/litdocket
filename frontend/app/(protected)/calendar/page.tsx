@@ -1,70 +1,125 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Scale, ArrowLeft, Loader2 } from 'lucide-react';
+import { Scale, ArrowLeft, Loader2, Filter, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useCalendarDeadlines, CalendarDeadline } from '@/hooks/useCalendarDeadlines';
+import { useToast } from '@/components/Toast';
+import { deadlineEvents } from '@/lib/eventBus';
 import apiClient from '@/lib/api-client';
-import CalendarView from '@/components/CalendarView';
 
-interface Deadline {
-  id: string;
-  title: string;
-  deadline_date: string;
-  priority: string;
-  case_id?: string;
-  status: string;
-  description?: string;
-  applicable_rule?: string;
-}
-
-interface CaseInfo {
-  id: string;
-  case_number: string;
-  title: string;
-}
+import DeadlineSidebar from '@/components/calendar/DeadlineSidebar';
+import CalendarGrid from '@/components/calendar/CalendarGrid';
+import DeadlineDetailModal from '@/components/calendar/DeadlineDetailModal';
+import CreateDeadlineModal from '@/components/calendar/CreateDeadlineModal';
 
 export default function CalendarPage() {
   const router = useRouter();
-  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const [cases, setCases] = useState<CaseInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDeadline, setSelectedDeadline] = useState<Deadline | null>(null);
+  const { showSuccess, showError, showWarning } = useToast();
 
-  useEffect(() => {
-    fetchAllData();
+  // Filters state
+  const [selectedPriority, setSelectedPriority] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedCaseId, setSelectedCaseId] = useState('all');
+
+  // Modal state
+  const [selectedDeadline, setSelectedDeadline] = useState<CalendarDeadline | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createModalDate, setCreateModalDate] = useState<Date | null>(null);
+
+  // Get calendar data
+  const {
+    deadlines,
+    cases,
+    loading,
+    error,
+    refetch,
+    rescheduleDeadline,
+    createDeadline,
+    updateDeadlineStatus,
+    overdueDeadlines,
+    upcomingDeadlines,
+    stats,
+  } = useCalendarDeadlines();
+
+  // Handle deadline click
+  const handleDeadlineClick = useCallback((deadline: CalendarDeadline) => {
+    setSelectedDeadline(deadline);
   }, []);
 
-  const fetchAllData = async () => {
-    try {
-      // Fetch all cases
-      const casesResponse = await apiClient.get('/api/v1/cases/');
-      setCases(casesResponse.data);
-
-      // Fetch all deadlines across all cases
-      const allDeadlines: Deadline[] = [];
-      for (const caseData of casesResponse.data) {
-        const deadlinesResponse = await apiClient.get(`/api/v1/deadlines/case/${caseData.id}`);
-        allDeadlines.push(...deadlinesResponse.data);
-      }
-
-      setDeadlines(allDeadlines);
-    } catch (err) {
-      console.error('Failed to load data:', err);
-    } finally {
-      setLoading(false);
+  // Handle drag-drop reschedule
+  const handleEventDrop = useCallback(async (deadlineId: string, newDate: Date) => {
+    const success = await rescheduleDeadline(deadlineId, newDate);
+    if (success) {
+      showSuccess('Deadline rescheduled');
+      deadlineEvents.rescheduled({
+        deadlineId,
+        oldDate: '', // Not tracking old date here
+        newDate: newDate.toISOString(),
+      });
+    } else {
+      showError('Failed to reschedule deadline');
     }
-  };
+  }, [rescheduleDeadline, showSuccess, showError]);
 
-  const handleDeadlineClick = (deadline: Deadline) => {
-    setSelectedDeadline(deadline);
-  };
+  // Handle slot selection (create new deadline)
+  const handleSelectSlot = useCallback((date: Date) => {
+    if (cases.length === 0) {
+      showWarning('Create a case first before adding deadlines');
+      return;
+    }
+    setCreateModalDate(date);
+    setCreateModalOpen(true);
+  }, [cases.length, showWarning]);
 
-  const getCaseInfo = (caseId?: string) => {
-    if (!caseId) return null;
-    return cases.find(c => c.id === caseId);
-  };
+  // Handle create deadline
+  const handleCreateDeadline = useCallback(async (data: any) => {
+    const result = await createDeadline(data);
+    if (result) {
+      showSuccess(`Deadline "${result.title}" created`);
+      deadlineEvents.created(result);
+      return result;
+    }
+    return null;
+  }, [createDeadline, showSuccess]);
 
+  // Handle complete deadline
+  const handleCompleteDeadline = useCallback(async (deadlineId: string) => {
+    const success = await updateDeadlineStatus(deadlineId, 'completed');
+    if (success) {
+      showSuccess('Deadline completed');
+      deadlineEvents.completed({ id: deadlineId });
+    } else {
+      showError('Failed to complete deadline');
+    }
+  }, [updateDeadlineStatus, showSuccess, showError]);
+
+  // Handle iCal export
+  const handleExportICal = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/api/v1/deadlines/export/ical', {
+        responseType: 'blob',
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'all_deadlines.ics');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showSuccess('Calendar exported successfully');
+    } catch (err) {
+      console.error('Failed to export calendar:', err);
+      showError('Failed to export calendar');
+    }
+  }, [showSuccess, showError]);
+
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 flex items-center justify-center">
@@ -76,23 +131,100 @@ export default function CalendarPage() {
     );
   }
 
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Scale className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-slate-800 mb-2">Failed to load calendar</h2>
+          <p className="text-slate-600 mb-4">{error}</p>
+          <button
+            onClick={refetch}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
+    <div className="h-screen flex flex-col bg-slate-100">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <header className="bg-white border-b border-slate-200 flex-shrink-0">
+        <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Scale className="w-8 h-8 text-blue-600" />
+              <Scale className="w-7 h-7 text-blue-600" />
               <div>
-                <h1 className="text-xl font-bold text-slate-800">LitDocket</h1>
-                <p className="text-sm text-slate-600">Master Deadline Calendar</p>
+                <h1 className="text-lg font-bold text-slate-800">LitDocket</h1>
+                <p className="text-xs text-slate-500">Master Deadline Calendar</p>
               </div>
             </div>
+
             <div className="flex items-center gap-3">
+              {/* Filters */}
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-slate-400" />
+
+                {/* Case Filter */}
+                <select
+                  value={selectedCaseId}
+                  onChange={(e) => setSelectedCaseId(e.target.value)}
+                  className="text-sm px-2 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Cases</option>
+                  {cases.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.case_number}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Priority Filter */}
+                <select
+                  value={selectedPriority}
+                  onChange={(e) => setSelectedPriority(e.target.value)}
+                  className="text-sm px-2 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="fatal">Fatal</option>
+                  <option value="critical">Critical</option>
+                  <option value="important">Important</option>
+                  <option value="standard">Standard</option>
+                  <option value="informational">Informational</option>
+                </select>
+
+                {/* Status Filter */}
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="text-sm px-2 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              {/* Refresh */}
+              <button
+                onClick={refetch}
+                className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+
+              {/* Back to Dashboard */}
               <Link
                 href="/dashboard"
-                className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Dashboard</span>
@@ -102,95 +234,49 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Summary Banner */}
-        <div className="mb-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-blue-100 text-sm mb-1">Total Cases</p>
-              <p className="text-3xl font-bold">{cases.length}</p>
-            </div>
-            <div>
-              <p className="text-blue-100 text-sm mb-1">All Deadlines</p>
-              <p className="text-3xl font-bold">{deadlines.length}</p>
-            </div>
-            <div>
-              <p className="text-blue-100 text-sm mb-1">Pending</p>
-              <p className="text-3xl font-bold">
-                {deadlines.filter(d => d.status === 'pending').length}
-              </p>
-            </div>
-          </div>
+      {/* Main Content - Sidebar + Calendar */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar */}
+        <DeadlineSidebar
+          overdueDeadlines={overdueDeadlines}
+          upcomingDeadlines={upcomingDeadlines}
+          stats={stats}
+          onDeadlineClick={handleDeadlineClick}
+          onExportICal={handleExportICal}
+          onQuickComplete={handleCompleteDeadline}
+        />
+
+        {/* Calendar Grid */}
+        <div className="flex-1 overflow-hidden">
+          <CalendarGrid
+            deadlines={deadlines}
+            onEventClick={handleDeadlineClick}
+            onEventDrop={handleEventDrop}
+            onSelectSlot={handleSelectSlot}
+            selectedPriority={selectedPriority}
+            selectedStatus={selectedStatus}
+            selectedCaseId={selectedCaseId}
+          />
         </div>
+      </div>
 
-        {/* Calendar */}
-        <CalendarView deadlines={deadlines} onDeadlineClick={handleDeadlineClick} />
+      {/* Modals */}
+      <DeadlineDetailModal
+        deadline={selectedDeadline}
+        onClose={() => setSelectedDeadline(null)}
+        onComplete={handleCompleteDeadline}
+      />
 
-        {/* Deadline Detail Modal */}
-        {selectedDeadline && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedDeadline(null)}>
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-slate-800 mb-4">{selectedDeadline.title}</h3>
-
-              {selectedDeadline.description && (
-                <div className="mb-4">
-                  <p className="text-sm text-slate-600 whitespace-pre-line">{selectedDeadline.description}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Deadline Date</p>
-                  <p className="text-base text-slate-900">
-                    {new Date(selectedDeadline.deadline_date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Priority</p>
-                  <p className="text-base text-slate-900 capitalize">{selectedDeadline.priority}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Status</p>
-                  <p className="text-base text-slate-900 capitalize">{selectedDeadline.status}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Case</p>
-                  <p className="text-base text-blue-600 hover:underline cursor-pointer" onClick={() => router.push(`/cases/${selectedDeadline.case_id}`)}>
-                    {getCaseInfo(selectedDeadline.case_id)?.case_number || 'Unknown'}
-                  </p>
-                </div>
-              </div>
-
-              {selectedDeadline.applicable_rule && (
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-900 mb-1">Applicable Rule</p>
-                  <p className="text-sm text-blue-700">{selectedDeadline.applicable_rule}</p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setSelectedDeadline(null)}
-                  className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => router.push(`/cases/${selectedDeadline.case_id}`)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Go to Case
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+      <CreateDeadlineModal
+        isOpen={createModalOpen}
+        initialDate={createModalDate}
+        cases={cases}
+        onClose={() => {
+          setCreateModalOpen(false);
+          setCreateModalDate(null);
+        }}
+        onCreate={handleCreateDeadline}
+      />
     </div>
   );
 }

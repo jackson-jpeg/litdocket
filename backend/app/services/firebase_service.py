@@ -6,6 +6,9 @@ from firebase_admin import credentials, firestore, storage
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FirebaseService:
@@ -34,17 +37,17 @@ class FirebaseService:
                 import json
                 cred_dict = json.loads(firebase_cred_json)
                 cred = credentials.Certificate(cred_dict)
-                print("✅ Firebase initialized from environment variable")
+                logger.info("Firebase initialized from environment variable")
             else:
                 # Local development: Load from file
                 cred_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY', 'firebase-service-account.json')
 
                 if os.path.exists(cred_path):
                     cred = credentials.Certificate(cred_path)
-                    print("✅ Firebase initialized from service account file")
+                    logger.info("Firebase initialized from service account file")
                 else:
-                    print(f"⚠️  Firebase service account key not found at: {cred_path}")
-                    print(f"⚠️  Set FIREBASE_SERVICE_ACCOUNT_KEY_JSON env var or download key from Firebase Console")
+                    logger.warning(f"Firebase service account key not found at: {cred_path}")
+                    logger.warning("Set FIREBASE_SERVICE_ACCOUNT_KEY_JSON env var or download key from Firebase Console")
                     raise FileNotFoundError(f"Firebase credentials not found")
 
             # Initialize Firebase app
@@ -57,7 +60,7 @@ class FirebaseService:
             FirebaseService._initialized = True
 
         except Exception as e:
-            print(f"❌ Firebase initialization error: {e}")
+            logger.error(f"Firebase initialization error: {e}")
             raise
 
     @property

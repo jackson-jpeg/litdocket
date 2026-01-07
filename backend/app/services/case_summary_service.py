@@ -2,11 +2,14 @@
 Case Summary Service - Auto-updating case summaries
 Generates comprehensive case summaries that update whenever events occur
 """
+import logging
 from typing import Dict, List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 from app.models.case import Case
 from app.models.document import Document
 from app.models.deadline import Deadline
@@ -98,7 +101,7 @@ Return as JSON with structure:
             return summary_data
 
         except Exception as e:
-            print(f"Error generating case summary: {e}")
+            logger.error(f"Error generating case summary: {e}")
             return self._generate_fallback_summary(case, documents, deadlines)
 
     def _build_case_context(

@@ -342,3 +342,176 @@ async def get_case_triggers(
 
 # Need to import timedelta for recalculation
 from datetime import timedelta
+
+
+class UpdateTriggerDateRequest(BaseModel):
+    new_date: str  # ISO format YYYY-MM-DD
+
+
+class CascadePreviewItem(BaseModel):
+    deadline_id: str
+    title: str
+    current_date: str | None
+    new_date: str | None
+    days_changed: int
+    is_manually_overridden: bool
+    will_update: bool
+
+
+@router.get("/{trigger_id}/preview-cascade")
+async def preview_cascade_changes(
+    trigger_id: str,
+    new_date: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Preview what deadlines would change if the trigger date is updated.
+    Does not make any actual changes.
+    """
+
+    # Get trigger deadline
+    trigger = db.query(Deadline).filter(
+        Deadline.id == trigger_id,
+        Deadline.user_id == str(current_user.id)
+    ).first()
+
+    if not trigger:
+        raise HTTPException(status_code=404, detail="Trigger not found")
+
+    # Parse new date
+    try:
+        new_trigger_date = date_type.fromisoformat(new_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    old_trigger_date = trigger.deadline_date
+    if not old_trigger_date:
+        raise HTTPException(status_code=400, detail="Trigger has no date set")
+
+    # Calculate days difference
+    days_diff = (new_trigger_date - old_trigger_date).days
+
+    # Get all dependent deadlines for this trigger
+    dependent_deadlines = db.query(Deadline).filter(
+        Deadline.trigger_event == trigger.trigger_event,
+        Deadline.case_id == trigger.case_id,
+        Deadline.id != trigger_id  # Exclude the trigger itself
+    ).all()
+
+    preview = []
+    for deadline in dependent_deadlines:
+        current_date = deadline.deadline_date
+        new_deadline_date = None
+
+        if current_date:
+            new_deadline_date = current_date + timedelta(days=days_diff)
+
+        # Check if manually overridden
+        is_manually_overridden = (
+            deadline.is_manually_overridden == True or
+            deadline.auto_recalculate == False
+        )
+
+        # Will update if: has auto_recalculate=True, is pending, and not manually overridden
+        will_update = (
+            deadline.auto_recalculate == True and
+            deadline.status == 'pending' and
+            not is_manually_overridden
+        )
+
+        preview.append(CascadePreviewItem(
+            deadline_id=str(deadline.id),
+            title=deadline.title,
+            current_date=current_date.isoformat() if current_date else None,
+            new_date=new_deadline_date.isoformat() if new_deadline_date else None,
+            days_changed=days_diff,
+            is_manually_overridden=is_manually_overridden,
+            will_update=will_update
+        ))
+
+    return preview
+
+
+@router.patch("/{trigger_id}/update-date")
+async def update_trigger_date(
+    trigger_id: str,
+    request: UpdateTriggerDateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update trigger date and cascade changes to dependent deadlines.
+    Simpler endpoint than /recalculate - just takes the new date.
+    """
+
+    # Get trigger deadline
+    trigger = db.query(Deadline).filter(
+        Deadline.id == trigger_id,
+        Deadline.user_id == str(current_user.id)
+    ).first()
+
+    if not trigger:
+        raise HTTPException(status_code=404, detail="Trigger not found")
+
+    # Parse new date
+    try:
+        new_trigger_date = date_type.fromisoformat(request.new_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    old_trigger_date = trigger.deadline_date
+    if not old_trigger_date:
+        raise HTTPException(status_code=400, detail="Trigger has no date set")
+
+    # Calculate days difference
+    days_diff = (new_trigger_date - old_trigger_date).days
+
+    # Update trigger deadline
+    trigger.deadline_date = new_trigger_date
+    trigger.trigger_date = new_trigger_date
+    trigger.modified_by = current_user.email
+
+    # Get all dependent deadlines that should be updated
+    dependent_deadlines = db.query(Deadline).filter(
+        Deadline.trigger_event == trigger.trigger_event,
+        Deadline.case_id == trigger.case_id,
+        Deadline.id != trigger_id,
+        Deadline.auto_recalculate == True,
+        Deadline.status == 'pending'
+    ).all()
+
+    # Update each dependent deadline
+    updated_count = 0
+    for deadline in dependent_deadlines:
+        # Skip if manually overridden
+        if deadline.is_manually_overridden:
+            continue
+
+        if deadline.deadline_date:
+            # Determine jurisdiction from case for holiday adjustment
+            case = db.query(Case).filter(Case.id == deadline.case_id).first()
+            jurisdiction = case.jurisdiction if case and case.jurisdiction else "florida_state"
+
+            new_deadline_date = deadline.deadline_date + timedelta(days=days_diff)
+
+            # Adjust for holidays/weekends
+            new_deadline_date = calendar_service.adjust_for_holidays_and_weekends(
+                new_deadline_date,
+                jurisdiction=jurisdiction
+            )
+
+            deadline.deadline_date = new_deadline_date
+            deadline.trigger_date = new_trigger_date
+            deadline.modified_by = current_user.email
+            updated_count += 1
+
+    db.commit()
+
+    return {
+        'success': True,
+        'trigger_id': trigger_id,
+        'old_date': old_trigger_date.isoformat(),
+        'new_date': new_trigger_date.isoformat(),
+        'deadlines_updated': updated_count
+    }

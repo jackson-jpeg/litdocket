@@ -6,10 +6,13 @@ Handles Firebase Admin SDK initialization and token verification.
 
 import os
 import json
+import logging
 from typing import Dict, Optional
 import firebase_admin
 from firebase_admin import credentials, auth
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin SDK
 _firebase_initialized = False
@@ -35,18 +38,18 @@ def initialize_firebase():
             cred = credentials.Certificate(cred_dict)
         else:
             # Development mode - use default application credentials
-            print("⚠️  No Firebase credentials found. Using development mode.")
-            print("   Set FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_JSON for production.")
+            logger.warning("No Firebase credentials found. Using development mode.")
+            logger.warning("Set FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_JSON for production.")
             cred = None
 
         if cred:
             firebase_admin.initialize_app(cred)
             _firebase_initialized = True
-            print("✅ Firebase Admin SDK initialized successfully")
+            logger.info("Firebase Admin SDK initialized successfully")
 
     except Exception as e:
-        print(f"❌ Failed to initialize Firebase: {str(e)}")
-        print("   App will run in development mode with mock authentication")
+        logger.error(f"Failed to initialize Firebase: {str(e)}")
+        logger.warning("App will run in development mode with mock authentication")
 
 
 async def verify_firebase_token(id_token: str) -> Dict:
@@ -130,7 +133,7 @@ async def get_user_from_firebase(uid: str) -> Optional[Dict]:
     except auth.UserNotFoundError:
         return None
     except Exception as e:
-        print(f"Error fetching user from Firebase: {str(e)}")
+        logger.error(f"Error fetching user from Firebase: {str(e)}")
         return None
 
 

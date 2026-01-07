@@ -2,11 +2,14 @@
 Deadline Service - Implements Jackson's Legal Docketing Methodology
 Extracts and calculates deadlines from legal documents with comprehensive Florida/Federal rules support
 """
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta, date
 import re
 
 from app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 from app.utils.florida_holidays import is_business_day, adjust_to_business_day, get_all_court_holidays
 from app.utils.florida_jurisdictions import identify_jurisdiction, get_applicable_rules
 from app.services.rules_engine import rules_engine, TriggerType
@@ -83,7 +86,7 @@ class DeadlineService:
             return deadlines
 
         except Exception as e:
-            print(f"Error extracting deadlines: {e}")
+            logger.error(f"Error extracting deadlines: {e}")
             return []
 
     def _build_deadline_extraction_prompt(

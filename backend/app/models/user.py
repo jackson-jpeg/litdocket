@@ -47,3 +47,9 @@ class User(Base):
     deadline_history_entries = relationship("DeadlineHistory", back_populates="user", cascade="all, delete-orphan")
     ai_feedback = relationship("AIExtractionFeedback", back_populates="user", cascade="all, delete-orphan")
     deadline_templates = relationship("DeadlineTemplate", back_populates="creator", cascade="all, delete-orphan")
+
+    # Document tagging
+    tags = relationship("Tag", back_populates="user", cascade="all, delete-orphan")
+
+    # Case templates
+    case_templates = relationship("CaseTemplate", back_populates="user", cascade="all, delete-orphan")

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Scale, FileText, Calendar, MessageSquare, ArrowLeft, Loader2, Upload, Zap, Eye, Download, CheckSquare, Trash2, Edit3, Clock, X, Check } from 'lucide-react';
 import Link from 'next/link';
 import apiClient from '@/lib/api-client';
-import { useCaseData } from '@/hooks/useCaseData';
+import { useCaseData, Trigger } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
 import { validateChatMessage, validateBulkSelection } from '@/lib/validation';
 import { formatDateTime } from '@/lib/formatters';
@@ -20,6 +20,11 @@ import { DeadlineCardSkeleton, DocumentCardSkeleton, ChatSkeleton, CaseSummarySk
 import { useCaseSync } from '@/hooks/useCaseSync';
 import { deadlineEvents, uiEvents } from '@/lib/eventBus';
 import type { Document, ChatMessage } from '@/types';
+
+// New deadline components
+import DeadlineListPanel from '@/components/cases/deadlines/DeadlineListPanel';
+import TriggerEventsPanel from '@/components/cases/triggers/TriggerEventsPanel';
+import EditTriggerModal from '@/components/cases/triggers/EditTriggerModal';
 
 export default function CaseRoomPage() {
   const params = useParams();
@@ -46,8 +51,10 @@ export default function CaseRoomPage() {
 
   // UI state
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
+  const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [mobileActiveTab, setMobileActiveTab] = useState<'documents' | 'deadlines' | 'chat'>('deadlines');
+  const [useNewDeadlineUI, setUseNewDeadlineUI] = useState(true); // Feature flag for new UI
 
   // Deadline management state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -639,221 +646,35 @@ export default function CaseRoomPage() {
             )}
           </div>
 
-          {/* Panel B: Deadlines */}
-          <div className={`bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-1 ${
+          {/* Panel B: Deadlines - New Enhanced UI */}
+          <div className={`lg:col-span-1 space-y-4 ${
             mobileActiveTab !== 'deadlines' ? 'hidden lg:block' : ''
           }`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-6 h-6 text-green-600" />
-                <h3 className="text-lg font-semibold text-slate-800">Deadlines</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-500">{deadlines.length}</span>
-                {!selectionMode && (
-                  <>
-                    <button
-                      onClick={exportToCalendar}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                      title="Export to Calendar"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span className="hidden sm:inline">Export</span>
-                    </button>
-                    <button
-                      onClick={() => setTriggerModalOpen(true)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
-                      title="Create Trigger Event"
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span className="hidden sm:inline">Trigger</span>
-                    </button>
-                    <button
-                      onClick={() => setSelectionMode(true)}
-                      className="flex items-center gap-1 px-3 py-1.5 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
-                      title="Manage Deadlines"
-                    >
-                      <CheckSquare className="w-4 h-4" />
-                      <span className="hidden sm:inline">Manage</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
+            {/* Trigger Events Panel */}
+            <TriggerEventsPanel
+              triggers={triggers}
+              deadlines={deadlines}
+              caseId={caseId}
+              onAddTrigger={() => setTriggerModalOpen(true)}
+              onEditTrigger={(trigger) => setEditingTrigger(trigger)}
+              onRefresh={() => {
+                refetch.deadlines();
+                refetch.triggers();
+              }}
+            />
 
-            {/* Bulk Action Toolbar */}
-            {selectionMode && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">
-                    {selectedDeadlines.size} selected
-                  </span>
-                  <button
-                    onClick={selectAllDeadlines}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Select All
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={handleBulkComplete}
-                    disabled={processingBulk || selectedDeadlines.size === 0}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 disabled:opacity-50"
-                  >
-                    <CheckSquare className="w-3 h-3" />
-                    Complete
-                  </button>
-                  <button
-                    onClick={() => setBulkEditOpen(true)}
-                    disabled={processingBulk || selectedDeadlines.size === 0}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 disabled:opacity-50"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setSnoozeOpen(true)}
-                    disabled={processingBulk || selectedDeadlines.size === 0}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 disabled:opacity-50"
-                  >
-                    <Clock className="w-3 h-3" />
-                    Snooze
-                  </button>
-                  <button
-                    onClick={handleBulkDelete}
-                    disabled={processingBulk || selectedDeadlines.size === 0}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 disabled:opacity-50"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Delete
-                  </button>
-                  <button
-                    onClick={clearDeadlineSelection}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded border border-slate-300"
-                  >
-                    <X className="w-3 h-3" />
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Trigger Events Section */}
-            {triggers.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length > 0 && (
-              <div className="mb-4 pb-4 border-b border-slate-200">
-                <h4 className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2 flex items-center gap-1">
-                  <Zap className="w-3 h-3" />
-                  Trigger Events
-                </h4>
-                <div className="space-y-2">
-                  {triggers
-                    .filter(trigger => trigger.status !== 'completed' && trigger.status !== 'cancelled')
-                    .map((trigger) => (
-                    <div
-                      key={trigger.id}
-                      className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-purple-900">{trigger.title}</p>
-                          <p className="text-xs text-purple-600 mt-0.5">
-                            {new Date(trigger.trigger_date).toLocaleDateString()} •
-                            Generated {trigger.dependent_deadlines_count} deadline{trigger.dependent_deadlines_count !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {deadlines.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                <p className="text-sm text-slate-600 mb-2">No deadlines yet</p>
-                <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  Upload documents to auto-extract deadlines
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6 max-h-[600px] overflow-y-auto">
-                {/* Active Deadlines */}
-                {(() => {
-                  const activeDeadlines = deadlines.filter(d => d.status === 'pending' || d.status === 'in_progress');
-                  const completedDeadlines = deadlines.filter(d => d.status === 'completed');
-
-                  return (
-                    <>
-                      {/* Active Deadlines Section */}
-                      {activeDeadlines.length > 0 && (
-                        <div className="space-y-3">
-                          <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide px-1">
-                            Active ({activeDeadlines.length})
-                          </h3>
-                          <div className="space-y-3">
-                            {activeDeadlines.map((deadline) => (
-                              <DeadlineCard
-                                key={deadline.id}
-                                deadline={deadline}
-                                selectionMode={selectionMode}
-                                isSelected={selectedDeadlines.has(deadline.id)}
-                                onToggleSelection={toggleDeadlineSelection}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Completed Deadlines Section (Collapsible) */}
-                      {completedDeadlines.length > 0 && (
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => setShowCompletedDeadlines(!showCompletedDeadlines)}
-                            className="w-full flex items-center justify-between px-1 text-xs font-semibold text-slate-500 uppercase tracking-wide hover:text-slate-700 transition-colors"
-                          >
-                            <span>Completed ({completedDeadlines.length})</span>
-                            <svg
-                              className={`w-4 h-4 transition-transform ${showCompletedDeadlines ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                          {showCompletedDeadlines && (
-                            <div className="space-y-3">
-                              {completedDeadlines.map((deadline) => (
-                                <DeadlineCard
-                                  key={deadline.id}
-                                  deadline={deadline}
-                                  selectionMode={selectionMode}
-                                  isSelected={selectedDeadlines.has(deadline.id)}
-                                  onToggleSelection={toggleDeadlineSelection}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* No active deadlines message */}
-                      {activeDeadlines.length === 0 && completedDeadlines.length > 0 && (
-                        <div className="text-center py-8">
-                          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-3">
-                            <Check className="w-6 h-6 text-green-600" />
-                          </div>
-                          <p className="text-sm font-medium text-green-700 mb-1">All caught up!</p>
-                          <p className="text-xs text-slate-500">All deadlines are completed</p>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
+            {/* Enhanced Deadline List Panel */}
+            <DeadlineListPanel
+              deadlines={deadlines}
+              triggers={triggers}
+              caseId={caseId}
+              onAddDeadline={() => setTriggerModalOpen(true)}
+              onExportCalendar={exportToCalendar}
+              onRefresh={() => {
+                refetch.deadlines();
+                refetch.triggers();
+              }}
+            />
           </div>
 
           {/* Panel C: Enhanced AI Chat */}
@@ -904,6 +725,19 @@ export default function CaseRoomPage() {
         onClose={() => setSnoozeOpen(false)}
         selectedCount={selectedDeadlines.size}
         onSnooze={handleSnooze}
+      />
+
+      {/* Edit Trigger Modal */}
+      <EditTriggerModal
+        isOpen={!!editingTrigger}
+        trigger={editingTrigger}
+        deadlines={deadlines}
+        onClose={() => setEditingTrigger(null)}
+        onSuccess={() => {
+          refetch.deadlines();
+          refetch.triggers();
+          setEditingTrigger(null);
+        }}
       />
     </div>
   );

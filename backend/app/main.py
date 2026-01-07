@@ -77,10 +77,41 @@ app.include_router(api_router, prefix="/api/v1")
 # Create database tables on startup
 @app.on_event("startup")
 async def startup():
+    logger.info("=" * 60)
     logger.info("Starting LitDocket API...")
+    logger.info("=" * 60)
+
+    # Configuration validation
+    if settings.DEBUG:
+        logger.warning("⚠️  DEBUG MODE ENABLED - Disable for production!")
+
+    # Log configuration summary (without sensitive values)
+    logger.info(f"Environment: {'DEVELOPMENT' if settings.DEBUG else 'PRODUCTION'}")
+    logger.info(f"CORS Origins: {len(settings.ALLOWED_ORIGINS)} configured")
+    logger.info(f"Database: {'SQLite' if 'sqlite' in settings.DATABASE_URL.lower() else 'PostgreSQL'}")
+    logger.info(f"Database URL: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else settings.DATABASE_URL}")
+
+    # Validate critical settings
+    if not settings.SECRET_KEY or len(settings.SECRET_KEY) < 32:
+        logger.error("SECRET_KEY is missing or too short!")
+    if not settings.JWT_SECRET_KEY or len(settings.JWT_SECRET_KEY) < 32:
+        logger.error("JWT_SECRET_KEY is missing or too short!")
+    if not settings.ANTHROPIC_API_KEY or not settings.ANTHROPIC_API_KEY.startswith('sk-ant-'):
+        logger.error("ANTHROPIC_API_KEY is missing or invalid!")
+
+    # CRITICAL: Create backup before any database operations
+    from app.utils.db_backup import auto_backup_on_startup
+    auto_backup_on_startup(settings.DATABASE_URL)
+
+    # Create database tables (safe - doesn't drop existing tables)
     logger.info("Creating database tables...")
     Base.metadata.create_all(bind=engine)
+
+    logger.info("=" * 60)
     logger.info("Application startup complete")
+    logger.info(f"API docs available at: /api/docs")
+    logger.info("=" * 60)
+
 
 @app.on_event("shutdown")
 async def shutdown():

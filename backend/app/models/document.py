@@ -33,3 +33,6 @@ class Document(Base):
 
     # V3.0 Enhancements - RAG
     embeddings = relationship("DocumentEmbedding", back_populates="document", cascade="all, delete-orphan")
+
+    # Document tagging
+    tags = relationship("DocumentTag", back_populates="document", cascade="all, delete-orphan")

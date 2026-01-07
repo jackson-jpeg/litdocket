@@ -22,6 +22,12 @@ from app.models.active_session import ActiveSession
 # Notification System
 from app.models.notification import Notification, NotificationPreferences
 
+# Document Tagging
+from app.models.document_tag import Tag, DocumentTag
+
+# Case Templates
+from app.models.case_template import CaseTemplate
+
 __all__ = [
     "Base",
     "User",
@@ -44,4 +50,9 @@ __all__ = [
     # Notifications
     "Notification",
     "NotificationPreferences",
+    # Document Tagging
+    "Tag",
+    "DocumentTag",
+    # Case Templates
+    "CaseTemplate",
 ]

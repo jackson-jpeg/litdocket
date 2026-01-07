@@ -10,6 +10,7 @@ export type AppEvent =
   | 'deadline:updated'
   | 'deadline:deleted'
   | 'deadline:completed'
+  | 'deadline:rescheduled'
   | 'deadlines:bulk-updated'
   | 'document:uploaded'
   | 'document:analyzed'
@@ -162,6 +163,11 @@ export const deadlineEvents = {
   },
   completed: (deadline: any) => {
     eventBus.emit('deadline:completed', deadline);
+    eventBus.emit('calendar:refresh');
+    eventBus.emit('insights:refresh');
+  },
+  rescheduled: (data: { deadlineId: string; oldDate: string; newDate: string }) => {
+    eventBus.emit('deadline:rescheduled', data);
     eventBus.emit('calendar:refresh');
     eventBus.emit('insights:refresh');
   },

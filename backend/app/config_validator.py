@@ -2,7 +2,10 @@
 Configuration validator - ensures all required environment variables are set
 """
 import sys
+import logging
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def validate_config():
@@ -46,31 +49,31 @@ def validate_config():
     
     # Warn if DEBUG is enabled
     if settings.DEBUG:
-        print("⚠️  WARNING: DEBUG mode is enabled. Disable in production!")
-    
-    # If there are errors, print them and exit
+        logger.warning("DEBUG mode is enabled. Disable in production!")
+
+    # If there are errors, log them and exit
     if errors:
-        print("\n" + "="*80)
-        print("CONFIGURATION VALIDATION FAILED")
-        print("="*80)
+        logger.critical("=" * 80)
+        logger.critical("CONFIGURATION VALIDATION FAILED")
+        logger.critical("=" * 80)
         for error in errors:
-            print(error)
-        print("\nPlease set the required environment variables:")
-        print("1. Copy .env.example to .env")
-        print("2. Generate secure keys with:")
-        print("   python -c \"import secrets; print(secrets.token_urlsafe(64))\"")
-        print("3. Add your Anthropic API key")
-        print("4. Restart the application")
-        print("="*80 + "\n")
+            logger.critical(error)
+        logger.critical("Please set the required environment variables:")
+        logger.critical("1. Copy .env.example to .env")
+        logger.critical("2. Generate secure keys with:")
+        logger.critical("   python -c \"import secrets; print(secrets.token_urlsafe(64))\"")
+        logger.critical("3. Add your Anthropic API key")
+        logger.critical("4. Restart the application")
+        logger.critical("=" * 80)
         sys.exit(1)
-    
+
     # All checks passed
-    print("✅ Configuration validation passed")
-    print(f"   - SECRET_KEY: {len(settings.SECRET_KEY)} characters")
-    print(f"   - JWT_SECRET_KEY: {len(settings.JWT_SECRET_KEY)} characters")
-    print(f"   - ANTHROPIC_API_KEY: Set ({settings.ANTHROPIC_API_KEY[:15]}...)")
-    print(f"   - DEBUG: {settings.DEBUG}")
-    print(f"   - DATABASE_URL: {settings.DATABASE_URL.split('@')[0]}...")  # Hide password
+    logger.info("Configuration validation passed")
+    logger.info(f"SECRET_KEY: {len(settings.SECRET_KEY)} characters")
+    logger.info(f"JWT_SECRET_KEY: {len(settings.JWT_SECRET_KEY)} characters")
+    logger.info(f"ANTHROPIC_API_KEY: Set ({settings.ANTHROPIC_API_KEY[:15]}...)")
+    logger.info(f"DEBUG: {settings.DEBUG}")
+    logger.info(f"DATABASE_URL: {settings.DATABASE_URL.split('@')[0]}...")  # Hide password
 
 
 if __name__ == "__main__":

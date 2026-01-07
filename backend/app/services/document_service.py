@@ -1,9 +1,12 @@
 from typing import Dict, Optional, List
 from sqlalchemy.orm import Session
 import uuid
+import logging
 from datetime import datetime
 
 from app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 from app.services.firebase_service import firebase_service
 from app.services.deadline_service import DeadlineService
 from app.services.confidence_scoring import confidence_scorer
@@ -143,7 +146,7 @@ class DocumentService:
             try:
                 case.filing_date = datetime.strptime(analysis['filing_date'], '%Y-%m-%d').date()
             except (KeyError, ValueError, TypeError) as e:
-                print(f"⚠️  Could not parse filing date: {e}")
+                logger.warning(f"Could not parse filing date: {e}")
                 pass
 
         return case
@@ -179,7 +182,7 @@ class DocumentService:
             try:
                 document.filing_date = datetime.strptime(analysis['filing_date'], '%Y-%m-%d').date()
             except (KeyError, ValueError, TypeError) as e:
-                print(f"⚠️  Could not parse document filing date: {e}")
+                logger.warning(f"Could not parse document filing date: {e}")
                 pass
 
         document.received_date = datetime.now().date()
@@ -223,7 +226,7 @@ class DocumentService:
                 user_id=document.user_id
             )
         except Exception as e:
-            print(f"Error extracting deadlines: {e}")
+            logger.error(f"Error extracting deadlines: {e}")
             deadline_data_list = []
 
         # Save AI-extracted deadlines to database with confidence scoring
@@ -304,13 +307,13 @@ class DocumentService:
 
         # Process each trigger event to generate deadline chains
         if trigger_events:
-            print(f"✨ DETECTED {len(trigger_events)} TRIGGER EVENT(S) in document")
+            logger.info(f"Detected {len(trigger_events)} trigger event(s) in document")
 
             # Get service method from analysis or metadata
             service_method = analysis.get('service_method', 'electronic')
 
             for trigger_info in trigger_events:
-                print(f"✨ Processing trigger: {trigger_info['trigger_event']} on {trigger_info['trigger_date']} (Source: {trigger_info.get('source', 'Unknown')})")
+                logger.info(f"Processing trigger: {trigger_info['trigger_event']} on {trigger_info['trigger_date']} (Source: {trigger_info.get('source', 'Unknown')})")
 
                 # Generate deadline chains using rules engine
                 try:
@@ -324,7 +327,7 @@ class DocumentService:
                         service_method=service_method
                     )
 
-                    print(f"   → Generated {len(chain_deadlines)} deadline(s) from this trigger")
+                    logger.info(f"Generated {len(chain_deadlines)} deadline(s) from trigger")
 
                     # Save rules-engine generated deadlines with high confidence
                     for chain_deadline in chain_deadlines:
@@ -381,7 +384,7 @@ class DocumentService:
                         all_deadlines.append(deadline)
 
                 except Exception as e:
-                    print(f"   ⚠️  Error generating deadline chains for trigger '{trigger_info['trigger_event']}': {e}")
+                    logger.error(f"Error generating deadline chains for trigger '{trigger_info['trigger_event']}': {e}")
 
         self.db.commit()
 

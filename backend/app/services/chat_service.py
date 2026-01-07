@@ -8,11 +8,15 @@ from sqlalchemy.orm import Session
 import json
 import re
 
+import logging
+
 from app.services.ai_service import AIService
 from app.services.deadline_service import DeadlineService
 from app.services.case_summary_service import CaseSummaryService
 from app.services.rules_engine import rules_engine, TriggerType
 from app.models.case import Case
+
+logger = logging.getLogger(__name__)
 from app.models.document import Document
 from app.models.deadline import Deadline
 from app.models.chat_message import ChatMessage
@@ -302,7 +306,7 @@ Return as JSON:
 
             return intent
         except Exception as e:
-            print(f"Error analyzing intent: {e}")
+            logger.error(f"Error analyzing intent: {e}")
             return {
                 'type': 'query_information',
                 'confidence': 0.5,

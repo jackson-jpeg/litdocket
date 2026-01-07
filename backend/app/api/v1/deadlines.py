@@ -1,16 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
+import uuid
+import logging
 
 from app.database import get_db
 from app.models.user import User
 from app.models.deadline import Deadline
 from app.models.case import Case
 from app.utils.auth import get_current_user  # Real JWT authentication
+from app.schemas.deadline import DeadlineCreate, DeadlineReschedule
 # WebSocket disabled for MVP
 # from app.websocket.events import event_handler
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -340,3 +344,219 @@ async def export_all_deadlines_to_ical(
             "Content-Disposition": 'attachment; filename="all_deadlines.ics"'
         }
     )
+
+
+# ============================================================================
+# NEW CALENDAR ENDPOINTS
+# ============================================================================
+
+@router.get("/user/all")
+async def get_all_user_deadlines(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    status: Optional[str] = Query(None, description="Filter by status: pending, completed, cancelled"),
+    priority: Optional[str] = Query(None, description="Filter by priority"),
+    start_date: Optional[str] = Query(None, description="Filter deadlines on or after this date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Filter deadlines on or before this date (YYYY-MM-DD)"),
+    case_ids: Optional[str] = Query(None, description="Comma-separated case IDs to filter by")
+):
+    """
+    Get ALL deadlines across all cases for the current user.
+
+    This endpoint solves the N+1 problem by fetching all deadlines in a single query,
+    including case information for display in calendar views.
+    """
+    # Build base query with case join
+    query = db.query(Deadline, Case).join(
+        Case, Deadline.case_id == Case.id
+    ).filter(
+        Deadline.user_id == str(current_user.id)
+    )
+
+    # Apply filters
+    if status:
+        query = query.filter(Deadline.status == status)
+
+    if priority:
+        query = query.filter(Deadline.priority == priority)
+
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").date()
+            query = query.filter(Deadline.deadline_date >= start)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, "%Y-%m-%d").date()
+            query = query.filter(Deadline.deadline_date <= end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+
+    if case_ids:
+        case_id_list = [cid.strip() for cid in case_ids.split(",")]
+        query = query.filter(Deadline.case_id.in_(case_id_list))
+
+    # Order by deadline date
+    results = query.order_by(
+        Deadline.deadline_date.asc().nullslast(),
+        Deadline.priority.desc(),
+        Deadline.created_at.desc()
+    ).all()
+
+    # Format response with case info
+    return [
+        {
+            'id': str(deadline.id),
+            'case_id': str(deadline.case_id),
+            'case_number': case.case_number,
+            'case_title': case.title,
+            'document_id': str(deadline.document_id) if deadline.document_id else None,
+            'title': deadline.title,
+            'description': deadline.description,
+            'deadline_date': deadline.deadline_date.isoformat() if deadline.deadline_date else None,
+            'deadline_type': deadline.deadline_type,
+            'applicable_rule': deadline.applicable_rule,
+            'calculation_basis': deadline.calculation_basis,
+            'priority': deadline.priority,
+            'status': deadline.status,
+            'party_role': deadline.party_role,
+            'action_required': deadline.action_required,
+            'is_calculated': deadline.is_calculated,
+            'is_manually_overridden': deadline.is_manually_overridden,
+            'is_estimated': deadline.is_estimated,
+            'created_at': deadline.created_at.isoformat(),
+            'updated_at': deadline.updated_at.isoformat()
+        }
+        for deadline, case in results
+    ]
+
+
+@router.patch("/{deadline_id}/reschedule")
+async def reschedule_deadline(
+    deadline_id: str,
+    reschedule_data: DeadlineReschedule,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Reschedule a deadline to a new date.
+
+    This endpoint is designed for drag-drop rescheduling in the calendar UI.
+    It properly tracks manual overrides to prevent auto-recalculation from
+    reverting user changes.
+    """
+    deadline = db.query(Deadline).filter(
+        Deadline.id == deadline_id,
+        Deadline.user_id == str(current_user.id)
+    ).first()
+
+    if not deadline:
+        raise HTTPException(status_code=404, detail="Deadline not found")
+
+    # Store original date if this is the first override
+    if not deadline.original_deadline_date and deadline.deadline_date:
+        deadline.original_deadline_date = deadline.deadline_date
+
+    old_date = deadline.deadline_date
+
+    # Update the deadline date
+    deadline.deadline_date = reschedule_data.new_date
+
+    # Mark as manually overridden to prevent auto-recalculation
+    deadline.is_manually_overridden = True
+    deadline.auto_recalculate = False
+    deadline.override_timestamp = datetime.utcnow()
+    deadline.override_user_id = str(current_user.id)
+    deadline.override_reason = reschedule_data.reason or "Rescheduled via calendar"
+
+    # Update modification tracking
+    deadline.modified_by = current_user.email
+    deadline.modification_reason = reschedule_data.reason or "Rescheduled via calendar drag-drop"
+
+    db.commit()
+    db.refresh(deadline)
+
+    logger.info(f"Deadline {deadline_id} rescheduled from {old_date} to {reschedule_data.new_date} by user {current_user.id}")
+
+    return {
+        'success': True,
+        'deadline_id': str(deadline.id),
+        'old_date': old_date.isoformat() if old_date else None,
+        'new_date': deadline.deadline_date.isoformat(),
+        'is_manually_overridden': deadline.is_manually_overridden,
+        'message': f"Deadline rescheduled to {deadline.deadline_date.strftime('%B %d, %Y')}"
+    }
+
+
+@router.post("/")
+async def create_deadline(
+    deadline_data: DeadlineCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new deadline manually.
+
+    This endpoint allows creating deadlines directly from the calendar UI
+    (e.g., by clicking on an empty date slot).
+    """
+    # Verify the case exists and belongs to the user
+    case = db.query(Case).filter(
+        Case.id == deadline_data.case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found or access denied")
+
+    # Validate priority
+    valid_priorities = ['informational', 'standard', 'important', 'critical', 'fatal']
+    if deadline_data.priority not in valid_priorities:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid priority. Must be one of: {', '.join(valid_priorities)}"
+        )
+
+    # Create the deadline
+    deadline = Deadline(
+        id=str(uuid.uuid4()),
+        case_id=deadline_data.case_id,
+        user_id=str(current_user.id),
+        title=deadline_data.title,
+        description=deadline_data.description,
+        deadline_date=deadline_data.deadline_date,
+        priority=deadline_data.priority,
+        deadline_type=deadline_data.deadline_type,
+        applicable_rule=deadline_data.applicable_rule,
+        party_role=deadline_data.party_role,
+        action_required=deadline_data.action_required,
+        status="pending",
+        is_calculated=False,  # Manually created
+        extraction_method="manual",
+        created_via_chat=False
+    )
+
+    db.add(deadline)
+    db.commit()
+    db.refresh(deadline)
+
+    logger.info(f"Deadline created: {deadline.id} for case {deadline_data.case_id} by user {current_user.id}")
+
+    return {
+        'success': True,
+        'deadline': {
+            'id': str(deadline.id),
+            'case_id': str(deadline.case_id),
+            'case_number': case.case_number,
+            'case_title': case.title,
+            'title': deadline.title,
+            'description': deadline.description,
+            'deadline_date': deadline.deadline_date.isoformat() if deadline.deadline_date else None,
+            'priority': deadline.priority,
+            'status': deadline.status,
+            'created_at': deadline.created_at.isoformat()
+        },
+        'message': f"Deadline '{deadline.title}' created for {deadline.deadline_date.strftime('%B %d, %Y')}"
+    }

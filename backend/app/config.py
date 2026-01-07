@@ -39,10 +39,17 @@ class Settings(BaseSettings):
         ]
 
     # Database - Auto-detect production (Railway provides DATABASE_URL env var)
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "sqlite:///./docket_assist.db"  # Fallback to SQLite for local dev
-    )
+    # CRITICAL: Use absolute path for SQLite to prevent data loss from working directory changes
+    @property
+    def DATABASE_URL(self) -> str:
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            return db_url
+        # Use absolute path for SQLite in development
+        # This ensures the database is always in the same location regardless of working directory
+        import pathlib
+        backend_dir = pathlib.Path(__file__).parent.parent.absolute()
+        return f"sqlite:///{backend_dir}/docket_assist.db"
 
     # AI Services - REQUIRED from environment
     ANTHROPIC_API_KEY: str = Field(..., env="ANTHROPIC_API_KEY")  # Required - NEVER hardcode

@@ -1,25 +1,75 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
+import logging
 
 from app.database import get_db
 from app.models.user import User
 from app.models.case import Case
 from app.models.document import Document
 from app.models.deadline import Deadline
+from app.models.case_template import CaseTemplate
 from app.services.case_summary_service import CaseSummaryService
-from app.utils.auth import get_current_user  # Real JWT authentication
+from app.utils.auth import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# ===================
+# PYDANTIC MODELS
+# ===================
+
+class CaseCreate(BaseModel):
+    case_number: str
+    title: str
+    court: Optional[str] = None
+    judge: Optional[str] = None
+    case_type: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    district: Optional[str] = None
+    circuit: Optional[str] = None
+    parties: Optional[List[dict]] = None
+
+
+class TemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    case_type: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    court: Optional[str] = None
+    district: Optional[str] = None
+    circuit: Optional[str] = None
+    party_roles: Optional[List[dict]] = None
+    default_deadlines: Optional[List[dict]] = None
 
 
 @router.get("/")
 async def list_cases(
+    include_archived: bool = Query(False, description="Include archived cases"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    case_type: Optional[str] = Query(None, description="Filter by case type"),
+    jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List all cases for the current user"""
-    cases = db.query(Case).filter(Case.user_id == str(current_user.id)).order_by(Case.created_at.desc()).all()
+    """List all cases for the current user with optional filtering"""
+    query = db.query(Case).filter(Case.user_id == str(current_user.id))
+
+    # Filter archived cases unless specifically requested
+    if not include_archived:
+        query = query.filter(Case.status != 'archived')
+
+    # Apply optional filters
+    if status:
+        query = query.filter(Case.status == status)
+    if case_type:
+        query = query.filter(Case.case_type == case_type)
+    if jurisdiction:
+        query = query.filter(Case.jurisdiction == jurisdiction)
+
+    cases = query.order_by(Case.created_at.desc()).all()
 
     return [
         {
@@ -297,4 +347,289 @@ async def get_case_timeline(
         'case_id': case_id,
         'case_number': case.case_number,
         'timeline': timeline
+    }
+
+
+# ===================
+# CASE ARCHIVE
+# ===================
+
+@router.post("/{case_id}/archive")
+async def archive_case(
+    case_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Archive a case (hides from main list)"""
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    case.status = 'archived'
+    db.commit()
+
+    return {
+        'success': True,
+        'case_id': case_id,
+        'message': f'Case {case.case_number} has been archived'
+    }
+
+
+@router.post("/{case_id}/unarchive")
+async def unarchive_case(
+    case_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Restore an archived case"""
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    case.status = 'active'
+    db.commit()
+
+    return {
+        'success': True,
+        'case_id': case_id,
+        'message': f'Case {case.case_number} has been restored'
+    }
+
+
+@router.delete("/{case_id}")
+async def delete_case(
+    case_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Permanently delete a case and all related data"""
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    case_number = case.case_number
+    db.delete(case)  # Cascades to documents, deadlines, etc.
+    db.commit()
+
+    return {
+        'success': True,
+        'message': f'Case {case_number} has been permanently deleted'
+    }
+
+
+# ===================
+# CASE TEMPLATES
+# ===================
+
+@router.get("/templates/")
+async def list_templates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """List all case templates for current user"""
+    templates = db.query(CaseTemplate).filter(
+        CaseTemplate.user_id == str(current_user.id)
+    ).order_by(CaseTemplate.created_at.desc()).all()
+
+    return [
+        {
+            'id': str(t.id),
+            'name': t.name,
+            'description': t.description,
+            'case_type': t.case_type,
+            'jurisdiction': t.jurisdiction,
+            'court': t.court,
+            'times_used': t.times_used,
+            'created_at': t.created_at.isoformat()
+        }
+        for t in templates
+    ]
+
+
+@router.post("/templates/")
+async def create_template(
+    template_data: TemplateCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new case template"""
+    template = CaseTemplate(
+        user_id=str(current_user.id),
+        name=template_data.name,
+        description=template_data.description,
+        case_type=template_data.case_type,
+        jurisdiction=template_data.jurisdiction,
+        court=template_data.court,
+        district=template_data.district,
+        circuit=template_data.circuit,
+        party_roles=template_data.party_roles,
+        default_deadlines=template_data.default_deadlines
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+
+    return {
+        'id': str(template.id),
+        'name': template.name,
+        'message': 'Template created successfully'
+    }
+
+
+@router.post("/templates/{template_id}/create-case")
+async def create_case_from_template(
+    template_id: str,
+    case_data: CaseCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new case from a template"""
+    # Get template
+    template = db.query(CaseTemplate).filter(
+        CaseTemplate.id == template_id,
+        CaseTemplate.user_id == str(current_user.id)
+    ).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Create case with template defaults + provided data
+    new_case = Case(
+        user_id=str(current_user.id),
+        case_number=case_data.case_number,
+        title=case_data.title,
+        court=case_data.court or template.court,
+        judge=case_data.judge,
+        case_type=case_data.case_type or template.case_type,
+        jurisdiction=case_data.jurisdiction or template.jurisdiction,
+        district=case_data.district or template.district,
+        circuit=case_data.circuit or template.circuit,
+        parties=case_data.parties or [],
+        status='active'
+    )
+    db.add(new_case)
+    db.flush()  # Get case ID
+
+    # Create default deadlines from template
+    deadlines_created = 0
+    if template.default_deadlines:
+        from datetime import datetime, timedelta
+
+        for dl_template in template.default_deadlines:
+            deadline_date = None
+            if dl_template.get('days_from_filing') and new_case.filing_date:
+                deadline_date = new_case.filing_date + timedelta(days=dl_template['days_from_filing'])
+
+            deadline = Deadline(
+                case_id=str(new_case.id),
+                user_id=str(current_user.id),
+                title=dl_template.get('title', 'Deadline'),
+                description=dl_template.get('description', ''),
+                deadline_date=deadline_date,
+                applicable_rule=dl_template.get('rule'),
+                priority=dl_template.get('priority', 'medium'),
+                status='pending'
+            )
+            db.add(deadline)
+            deadlines_created += 1
+
+    # Update template usage count
+    template.times_used = str(int(template.times_used or 0) + 1)
+
+    db.commit()
+    db.refresh(new_case)
+
+    return {
+        'success': True,
+        'case_id': str(new_case.id),
+        'case_number': new_case.case_number,
+        'deadlines_created': deadlines_created,
+        'message': f'Case created from template "{template.name}"'
+    }
+
+
+@router.post("/{case_id}/save-as-template")
+async def save_case_as_template(
+    case_id: str,
+    template_name: str = Query(..., description="Name for the template"),
+    template_description: Optional[str] = Query(None, description="Template description"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Save an existing case as a template"""
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Extract party roles from case parties
+    party_roles = []
+    if case.parties:
+        for party in case.parties:
+            party_roles.append({
+                'role': party.get('role', 'Party'),
+                'name_placeholder': True
+            })
+
+    # Create template from case
+    template = CaseTemplate(
+        user_id=str(current_user.id),
+        name=template_name,
+        description=template_description or f'Template based on {case.case_number}',
+        case_type=case.case_type,
+        jurisdiction=case.jurisdiction,
+        court=case.court,
+        district=case.district,
+        circuit=case.circuit,
+        party_roles=party_roles
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+
+    return {
+        'success': True,
+        'template_id': str(template.id),
+        'template_name': template.name,
+        'message': f'Template "{template_name}" created from case {case.case_number}'
+    }
+
+
+@router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a case template"""
+    template = db.query(CaseTemplate).filter(
+        CaseTemplate.id == template_id,
+        CaseTemplate.user_id == str(current_user.id)
+    ).first()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    template_name = template.name
+    db.delete(template)
+    db.commit()
+
+    return {
+        'success': True,
+        'message': f'Template "{template_name}" has been deleted'
     }

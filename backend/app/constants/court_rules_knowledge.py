@@ -728,6 +728,295 @@ FLORIDA_LOCAL_RULES = {
                 "direction": "before"
             }
         }
+    },
+
+    # 15th Circuit - Palm Beach County
+    "15th_circuit": {
+        "name": "Fifteenth Judicial Circuit (Palm Beach County)",
+        "website": "https://www.15thcircuit.com",
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "at-issue date",
+                "notes": "CMC scheduled after case at issue"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "notes": "Per individual division calendar"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 15,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before",
+                "notes": "All discovery must be completed 45 days before trial"
+            },
+            "expert_disclosure": {
+                "description": "Expert Witness Disclosure",
+                "deadline_days": 90,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 4th Circuit - Duval, Clay, Nassau Counties (Jacksonville)
+    "4th_circuit": {
+        "name": "Fourth Judicial Circuit (Duval, Clay, Nassau Counties - Jacksonville)",
+        "website": "https://www.jud4.org",
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 60,
+                "trigger": "at-issue date",
+                "notes": "CMC within 60 days of case at issue"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "notes": "Scheduled per division - typically Fridays"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 21,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Joint Pretrial Statement",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "mediation": {
+                "description": "Mediation Completion",
+                "deadline_days": 60,
+                "trigger": "trial date",
+                "direction": "before",
+                "notes": "Mediation must be completed at least 60 days before trial"
+            }
+        }
+    },
+
+    # 20th Circuit - Charlotte, Collier, Glades, Hendry, Lee Counties (Southwest Florida)
+    "20th_circuit": {
+        "name": "Twentieth Judicial Circuit (Southwest Florida - Fort Myers)",
+        "website": "https://www.ca.cjis20.org",
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 120,
+                "trigger": "case filing",
+                "notes": "CMC scheduled within 120 days"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar Notice",
+                "deadline_days": 5,
+                "trigger": "hearing date",
+                "direction": "before",
+                "notes": "5 days notice required"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 6th Circuit - Pinellas and Pasco Counties
+    "6th_circuit": {
+        "name": "Sixth Judicial Circuit (Pinellas & Pasco Counties - Clearwater/St. Petersburg)",
+        "website": "https://www.jud6.org",
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "CMC within 90 days of filing"
+            },
+            "motion_calendar": {
+                "description": "Uniform Motion Calendar",
+                "notes": "Per division calendar - check JAWS system"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 5,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "motions_in_limine": {
+                "description": "Motions in Limine",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 45,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "jury_instructions": {
+                "description": "Proposed Jury Instructions",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 2nd Circuit - Franklin, Gadsden, Jefferson, Leon, Liberty, Wakulla (Tallahassee)
+    "2nd_circuit": {
+        "name": "Second Judicial Circuit (Leon County - Tallahassee)",
+        "website": "https://www.leoncountyfl.gov/circuit",
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "at-issue date",
+                "notes": "CMC scheduled after case is at issue"
+            },
+            "motion_calendar": {
+                "description": "Motion Calendar",
+                "notes": "Per division calendar"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 21,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 7,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
+    },
+
+    # 7th Circuit - Flagler, Putnam, St. Johns, Volusia Counties
+    "7th_circuit": {
+        "name": "Seventh Judicial Circuit (Volusia & St. Johns Counties - Daytona Beach)",
+        "website": "https://www.circuit7.org",
+        "rules": {
+            "case_management": {
+                "description": "Case Management Conference",
+                "deadline_days": 90,
+                "trigger": "case filing",
+                "notes": "Per administrative order"
+            },
+            "pretrial_conference": {
+                "description": "Pretrial Conference",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "pretrial_stipulation": {
+                "description": "Pretrial Stipulation",
+                "deadline_days": 10,
+                "trigger": "pretrial conference",
+                "direction": "before"
+            },
+            "witness_list": {
+                "description": "Witness and Exhibit Lists",
+                "deadline_days": 10,
+                "trigger": "trial date",
+                "direction": "before"
+            },
+            "discovery_cutoff": {
+                "description": "Discovery Cutoff",
+                "deadline_days": 30,
+                "trigger": "trial date",
+                "direction": "before"
+            }
+        }
     }
 }
 
@@ -793,6 +1082,7 @@ FEDERAL_LOCAL_RULES = {
     "middle_district": {
         "name": "Middle District of Florida",
         "website": "https://www.flmd.uscourts.gov",
+        "divisions": ["Tampa", "Orlando", "Jacksonville", "Fort Myers", "Ocala"],
         "rules": {
             "case_management": {
                 "description": "Case Management Report",
@@ -826,6 +1116,88 @@ FEDERAL_LOCAL_RULES = {
                 "deadline_days": 7,
                 "trigger": "final pretrial conference",
                 "direction": "before"
+            },
+            "discovery_dispute": {
+                "description": "Discovery Dispute Resolution",
+                "notes": "Local Rule 3.01(g) - Must confer in good faith before filing motion to compel"
+            },
+            "summary_judgment": {
+                "description": "Motion for Summary Judgment",
+                "deadline_days": 21,
+                "trigger": "close of discovery",
+                "notes": "Per scheduling order, Local Rule 3.01"
+            },
+            "jury_instructions": {
+                "description": "Proposed Jury Instructions",
+                "deadline_days": 14,
+                "trigger": "trial date",
+                "direction": "before",
+                "notes": "Local Rule 3.07"
+            }
+        }
+    },
+
+    "northern_district": {
+        "name": "Northern District of Florida",
+        "website": "https://www.flnd.uscourts.gov",
+        "divisions": ["Pensacola", "Tallahassee", "Gainesville", "Panama City"],
+        "rules": {
+            "case_management": {
+                "description": "Case Management Report",
+                "deadline_days": 14,
+                "trigger": "Rule 26(f) conference",
+                "notes": "Local Rule 16.1"
+            },
+            "motion_response": {
+                "description": "Response to Motion",
+                "deadline_days": 14,
+                "trigger": "service of motion",
+                "service_extension": True,
+                "notes": "Local Rule 7.1(B)"
+            },
+            "motion_reply": {
+                "description": "Reply to Response",
+                "deadline_days": 7,
+                "trigger": "service of response",
+                "service_extension": True,
+                "notes": "Local Rule 7.1(C)"
+            },
+            "discovery_dispute": {
+                "description": "Discovery Dispute Resolution",
+                "notes": "Local Rule 26.1 - Must confer before filing motion to compel"
+            },
+            "pretrial_statement": {
+                "description": "Joint Pretrial Statement",
+                "deadline_days": 14,
+                "trigger": "final pretrial conference",
+                "direction": "before",
+                "notes": "Local Rule 16.2"
+            },
+            "witness_list": {
+                "description": "Witness List",
+                "deadline_days": 14,
+                "trigger": "final pretrial conference",
+                "direction": "before"
+            },
+            "exhibit_list": {
+                "description": "Exhibit List",
+                "deadline_days": 14,
+                "trigger": "final pretrial conference",
+                "direction": "before"
+            },
+            "jury_instructions": {
+                "description": "Proposed Jury Instructions",
+                "deadline_days": 7,
+                "trigger": "trial date",
+                "direction": "before",
+                "notes": "Local Rule 51.1"
+            },
+            "deposition_notice": {
+                "description": "Deposition Notice",
+                "deadline_days": 7,
+                "trigger": "deposition date",
+                "direction": "before",
+                "notes": "7 days reasonable notice required"
             }
         }
     }
@@ -1130,11 +1502,24 @@ def format_rules_for_ai_context() -> str:
     sections.append("- Federal with USA party: 60 days (FRAP 4(a)(1)(B))")
     sections.append("")
 
-    # Local Rules
-    sections.append("## FLORIDA LOCAL RULES")
+    # Local Rules - Florida State
+    sections.append("## FLORIDA STATE LOCAL RULES")
     sections.append("- 11th Circuit (Miami-Dade): Pretrial stip 10 days before trial")
     sections.append("- 17th Circuit (Broward): CMC within 180 days of filing")
     sections.append("- 13th Circuit (Tampa): UMC on Fridays, pretrial stip 7 days before CMC")
     sections.append("- 9th Circuit (Orlando): Jury instructions 10 days before trial")
+    sections.append("- 15th Circuit (Palm Beach): Discovery cutoff 45 days before trial")
+    sections.append("- 4th Circuit (Jacksonville): Mediation 60 days before trial")
+    sections.append("- 20th Circuit (Southwest FL): CMC within 120 days of filing")
+    sections.append("- 6th Circuit (Pinellas/Pasco): Discovery cutoff 45 days before trial")
+    sections.append("- 2nd Circuit (Tallahassee): CMC within 90 days at issue")
+    sections.append("- 7th Circuit (Daytona): Discovery cutoff 30 days before trial")
+    sections.append("")
+
+    # Federal Districts
+    sections.append("## FLORIDA FEDERAL DISTRICTS")
+    sections.append("- Southern District (Miami/Ft. Lauderdale/West Palm): Motion response 14 days, reply 7 days")
+    sections.append("- Middle District (Tampa/Orlando/Jax/Ft Myers/Ocala): Motion response 14 days, reply 7 days")
+    sections.append("- Northern District (Pensacola/Tallahassee/Gainesville): Motion response 14 days, reply 7 days")
 
     return "\n".join(sections)

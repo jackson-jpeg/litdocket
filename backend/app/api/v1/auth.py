@@ -77,16 +77,22 @@ async def login_with_firebase(
         from app.services.firebase_service import firebase_service
         from jose import jwt as jose_jwt
 
-        # DEVELOPMENT MODE: If DEBUG is enabled, extract email from token without verification
-        if settings.DEBUG:
-            print("⚠️  DEBUG MODE: Bypassing Firebase token verification")
+        # DEVELOPMENT MODE: Only bypass if explicitly enabled via DEV_AUTH_BYPASS env var
+        # WARNING: This should NEVER be enabled in production
+        import os
+        dev_auth_bypass = os.getenv("DEV_AUTH_BYPASS", "false").lower() == "true"
+
+        if dev_auth_bypass and settings.DEBUG:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("DEV_AUTH_BYPASS enabled - bypassing Firebase token verification")
             try:
                 # Decode token without verification to get email (UNSAFE - DEV ONLY!)
                 unverified_payload = jose_jwt.decode(token_data.id_token, options={"verify_signature": False})
                 email = unverified_payload.get('email') or unverified_payload.get('user_id') or 'dev@docketassist.com'
-                print(f"✅ DEBUG MODE: Auto-login with email: {email}")
+                logger.info(f"DEV MODE: Auto-login with email: {email}")
             except Exception as decode_error:
-                print(f"⚠️  Could not decode token, using demo user")
+                logger.warning("Could not decode token, using demo user")
                 email = 'dev@docketassist.com'
         else:
             # PRODUCTION: Verify Firebase token properly
@@ -136,9 +142,11 @@ async def login_with_firebase(
 
     except Exception as e:
         import traceback
+        import logging
+        logger = logging.getLogger(__name__)
         error_details = traceback.format_exc()
-        print(f"❌ Firebase auth error: {str(e)}")
-        print(f"Full traceback: {error_details}")
+        logger.error(f"Firebase auth error: {str(e)}")
+        logger.debug(f"Full traceback: {error_details}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Firebase token: {str(e)}",
@@ -275,9 +283,16 @@ async def complete_signup(
         from firebase_admin import auth as firebase_auth
         from app.services.firebase_service import firebase_service
         from jose import jwt as jose_jwt
+        import os
+        import logging
 
-        # Decode token to get email
-        if settings.DEBUG:
+        logger = logging.getLogger(__name__)
+
+        # Decode token to get email - only bypass if explicitly enabled
+        dev_auth_bypass = os.getenv("DEV_AUTH_BYPASS", "false").lower() == "true"
+
+        if dev_auth_bypass and settings.DEBUG:
+            logger.warning("DEV_AUTH_BYPASS enabled in complete_signup")
             try:
                 unverified_payload = jose_jwt.decode(request.id_token, options={"verify_signature": False})
                 email = unverified_payload.get('email') or 'dev@docketassist.com'
@@ -330,8 +345,8 @@ async def complete_signup(
         raise
     except Exception as e:
         import traceback
-        print(f"Complete signup error: {str(e)}")
-        print(traceback.format_exc())
+        logger.error(f"Complete signup error: {str(e)}")
+        logger.debug(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to complete signup: {str(e)}"
