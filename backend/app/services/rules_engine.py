@@ -1487,7 +1487,8 @@ class RulesEngine:
         self,
         trigger_date: date,
         rule_template: RuleTemplate,
-        service_method: str = "email"
+        service_method: str = "email",
+        case_context: Optional[Dict] = None
     ) -> List[Dict]:
         """
         Calculate all dependent deadlines from a trigger event with 10/10 legal defensibility
@@ -1498,10 +1499,20 @@ class RulesEngine:
         - Jurisdiction-specific service method extensions
         - Court days vs calendar days properly handled
 
+        CompuLaw-style output includes:
+        - Party-specific titles: "Deadline for Defendant, John Smith to file Answer"
+        - Calculation explanations: "(Calculated: 20 days after service of complaint)"
+        - Trigger formulas: "triggered 20 Days after $CMPSVD"
+
         Args:
             trigger_date: Date of the trigger event
             rule_template: Rule template to apply
             service_method: "electronic", "mail", or "hand_delivery"
+            case_context: Optional dict with case info for CompuLaw-style titles
+                - plaintiffs: List of plaintiff names
+                - defendants: List of defendant names
+                - case_number: Case number
+                - source_document: Source document name/number
 
         Returns:
             List of calculated deadlines with complete audit trails
@@ -1512,6 +1523,29 @@ class RulesEngine:
 
         # Initialize calculator for this jurisdiction
         calculator = AuthoritativeDeadlineCalculator(jurisdiction=rule_template.jurisdiction)
+
+        # Extract case context for CompuLaw-style formatting
+        plaintiffs = case_context.get('plaintiffs', []) if case_context else []
+        defendants = case_context.get('defendants', []) if case_context else []
+        case_number = case_context.get('case_number', '') if case_context else ''
+        source_document = case_context.get('source_document', '') if case_context else ''
+
+        # Build trigger code for CompuLaw-style formula (e.g., $TR, $CMPSVD, $MDRF)
+        trigger_codes = {
+            'trial_date': '$TR',
+            'complaint_served': '$CMPSVD',
+            'case_filed': '$CF',
+            'discovery_commenced': '$DC',
+            'discovery_deadline': '$DCUTOFF',
+            'pretrial_conference': '$PC',
+            'hearing_scheduled': '$HR',
+            'motion_filed': '$MTN',
+            'order_entered': '$ORD',
+            'appeal_filed': '$NOA',
+            'service_completed': '$SVC',
+            'answer_due': '$ANS',
+        }
+        trigger_code = trigger_codes.get(rule_template.trigger_type.value, '$TRIG')
 
         for dependent in rule_template.dependent_deadlines:
             # Determine if this is before or after the trigger
@@ -1593,9 +1627,79 @@ class RulesEngine:
             else:
                 short_explanation += " after trigger"
 
+            # ================================================================
+            # COMPULAW-STYLE FORMATTING
+            # ================================================================
+
+            # Build party string based on who's responsible
+            party_str = ""
+            if dependent.party_responsible == "plaintiff":
+                if plaintiffs:
+                    party_str = f"Plaintiff{'s' if len(plaintiffs) > 1 else ''}, {' and '.join(plaintiffs)}"
+                else:
+                    party_str = "Plaintiff"
+            elif dependent.party_responsible == "defendant":
+                if defendants:
+                    party_str = f"Defendant{'s' if len(defendants) > 1 else ''}, {' and '.join(defendants)}"
+                else:
+                    party_str = "Defendant"
+            elif dependent.party_responsible == "both":
+                party_str = "All Parties"
+            elif dependent.party_responsible == "court":
+                party_str = "Court"
+            else:
+                party_str = dependent.party_responsible.title()
+
+            # Build CompuLaw-style trigger formula
+            if calc_method == CalculationMethod.COURT_DAYS:
+                day_type = "Court Day" if base_days == 1 else "Court Days"
+            else:
+                day_type = "Day" if base_days == 1 else "Days"
+
+            if is_before_trigger:
+                trigger_formula = f"triggered {base_days} {day_type} before {trigger_code}"
+            else:
+                # Check if there's service extension
+                service_ext = 0
+                if dependent.add_service_method_days:
+                    try:
+                        service_ext = get_service_extension_days(rule_template.jurisdiction, service_method)
+                    except:
+                        pass
+
+                if service_ext > 0:
+                    trigger_formula = f"triggered {base_days} {day_type} plus {service_ext} Days ({service_method}) after {trigger_code}"
+                else:
+                    trigger_formula = f"triggered {base_days} {day_type} after {trigger_code}"
+
+            # Build calculation explanation for title
+            trigger_name = rule_template.trigger_type.value.replace('_', ' ')
+            if is_before_trigger:
+                calc_explanation = f"Calculated: {base_days} days before {trigger_name}"
+            else:
+                if service_ext > 0:
+                    calc_explanation = f"Calculated: {base_days} days + {service_ext} days ({service_method}) after {trigger_name}"
+                else:
+                    calc_explanation = f"Calculated: {base_days} days after {trigger_name}"
+
+            # Build CompuLaw-style title
+            # Format: "Deadline for [Party] to [action] ([Calculation])"
+            action_verb = dependent.action_required.split()[0].lower() if dependent.action_required else "complete"
+            if action_verb in ['file', 'serve', 'complete', 'exchange', 'submit', 'respond', 'disclose', 'provide']:
+                compulaw_title = f"Deadline for {party_str} to {dependent.action_required} ({calc_explanation})"
+            else:
+                compulaw_title = f"{dependent.name} - {party_str} ({calc_explanation})"
+
+            # Build CompuLaw-style description with source reference and trigger formula
+            source_ref = ""
+            if source_document:
+                source_ref = f"\n[per {source_document}; {trigger_date.strftime('%m/%d/%Y')}]"
+
+            compulaw_description = f"{dependent.description}{source_ref} {trigger_formula}"
+
             calculated_deadlines.append({
-                'title': dependent.name,
-                'description': dependent.description,
+                'title': compulaw_title,
+                'description': compulaw_description,
                 'deadline_date': final_date,
                 'priority': dependent.priority.value,
                 'party_role': dependent.party_responsible,
@@ -1613,7 +1717,11 @@ class RulesEngine:
                 'service_method': service_method,
                 'short_explanation': short_explanation + roll_info,
                 'jurisdiction': rule_template.jurisdiction,
-                'court_type': rule_template.court_type
+                'court_type': rule_template.court_type,
+                # CompuLaw-style extras
+                'trigger_code': trigger_code,
+                'trigger_formula': trigger_formula,
+                'party_string': party_str
             })
 
         return calculated_deadlines

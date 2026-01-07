@@ -158,11 +158,31 @@ async def create_trigger_event(
     # Generate all dependent deadlines
     all_dependent_deadlines = []
 
+    # Build case context for CompuLaw-style formatting
+    case_context = {
+        'plaintiffs': [],
+        'defendants': [],
+        'case_number': case.case_number,
+        'source_document': request.notes or f"Trigger Event: {request.trigger_type}"
+    }
+
+    # Extract party names from case.parties (if available)
+    if case.parties:
+        for party in case.parties:
+            party_name = party.get('name', '')
+            party_role = party.get('role', '').lower()
+            if party_name:
+                if 'plaintiff' in party_role:
+                    case_context['plaintiffs'].append(party_name)
+                elif 'defendant' in party_role:
+                    case_context['defendants'].append(party_name)
+
     for template in templates:
         dependent_deadlines = rules_engine.calculate_dependent_deadlines(
             trigger_date=trigger_date,
             rule_template=template,
-            service_method=request.service_method or "email"
+            service_method=request.service_method or "email",
+            case_context=case_context
         )
 
         # Create deadline records
