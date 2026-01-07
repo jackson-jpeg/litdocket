@@ -366,39 +366,6 @@ export default function CaseRoomPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Success Banner (only show if documents exist) */}
-        {documents.length > 0 && (
-          <div className="mb-8 bg-green-50 border border-green-200 rounded-xl p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-semibold text-green-900 mb-2">
-                  Document{documents.length !== 1 ? 's' : ''} Analyzed
-                </h2>
-                <p className="text-green-700 mb-2">
-                  Claude AI has analyzed your documents and extracted case information.
-                </p>
-                <div className="text-sm text-green-600 space-y-1">
-                  <div>
-                    <strong>{documents.length}</strong> document{documents.length !== 1 ? 's' : ''} in this case
-                  </div>
-                  {deadlines.length > 0 && (
-                    <div>
-                      <strong>{deadlines.length}</strong> deadline{deadlines.length !== 1 ? 's' : ''} auto-extracted
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Case Info Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
           <h2 className="text-2xl font-bold text-slate-800 mb-6">Case Information</h2>
