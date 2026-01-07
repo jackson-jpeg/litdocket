@@ -147,6 +147,23 @@ export function useCaseData(caseId: string) {
     refreshAll();
   }, [caseId]);
 
+  // Optimistic update functions for immediate UI feedback
+  const updateDeadlineStatus = useCallback((deadlineId: string, newStatus: string) => {
+    setDeadlines(prev => prev.map(d =>
+      d.id === deadlineId ? { ...d, status: newStatus } : d
+    ));
+  }, []);
+
+  const removeDeadline = useCallback((deadlineId: string) => {
+    setDeadlines(prev => prev.filter(d => d.id !== deadlineId));
+  }, []);
+
+  const updateDeadlineDate = useCallback((deadlineId: string, newDate: string) => {
+    setDeadlines(prev => prev.map(d =>
+      d.id === deadlineId ? { ...d, deadline_date: newDate } : d
+    ));
+  }, []);
+
   return {
     caseData,
     documents,
@@ -162,6 +179,12 @@ export function useCaseData(caseId: string) {
       triggers: fetchTriggers,
       caseSummary: fetchCaseSummary,
       all: refreshAll,
+    },
+    // Optimistic updates for immediate UI feedback
+    optimistic: {
+      updateDeadlineStatus,
+      removeDeadline,
+      updateDeadlineDate,
     },
   };
 }

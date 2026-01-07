@@ -25,6 +25,12 @@ import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
 
+interface OptimisticUpdateFns {
+  updateDeadlineStatus: (id: string, status: string) => void;
+  removeDeadline: (id: string) => void;
+  updateDeadlineDate: (id: string, date: string) => void;
+}
+
 interface DeadlineListPanelProps {
   deadlines: Deadline[];
   triggers: Trigger[];
@@ -32,6 +38,7 @@ interface DeadlineListPanelProps {
   onAddDeadline?: () => void;
   onExportCalendar?: () => void;
   onRefresh?: () => void;
+  onOptimisticUpdate?: OptimisticUpdateFns;
 }
 
 export default function DeadlineListPanel({
@@ -41,6 +48,7 @@ export default function DeadlineListPanel({
   onAddDeadline,
   onExportCalendar,
   onRefresh,
+  onOptimisticUpdate,
 }: DeadlineListPanelProps) {
   const { showSuccess, showError, showWarning } = useToast();
 
@@ -94,20 +102,29 @@ export default function DeadlineListPanel({
     setSelectionMode(false);
   }, []);
 
-  // Deadline actions
+  // Deadline actions with optimistic updates
   const handleComplete = useCallback(async (id: string) => {
+    // Optimistic update - immediately update UI
+    onOptimisticUpdate?.updateDeadlineStatus(id, 'completed');
+
     try {
       await apiClient.patch(`/api/v1/deadlines/${id}/status?status=completed`);
       deadlineEvents.completed({ id });
       showSuccess('Deadline completed');
+      // Refetch to ensure consistency (async, doesn't block)
       onRefresh?.();
     } catch (err) {
+      // Revert optimistic update on error
+      onOptimisticUpdate?.updateDeadlineStatus(id, 'pending');
       showError('Failed to complete deadline');
     }
-  }, [showSuccess, showError, onRefresh]);
+  }, [showSuccess, showError, onRefresh, onOptimisticUpdate]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (!confirm('Delete this deadline? This cannot be undone.')) return;
+
+    // Optimistic update - immediately remove from UI
+    onOptimisticUpdate?.removeDeadline(id);
 
     try {
       await apiClient.delete(`/api/v1/deadlines/${id}`);
@@ -115,14 +132,21 @@ export default function DeadlineListPanel({
       showSuccess('Deadline deleted');
       onRefresh?.();
     } catch (err) {
+      // Can't easily revert delete - refetch to restore
+      onRefresh?.();
       showError('Failed to delete deadline');
     }
-  }, [showSuccess, showError, onRefresh]);
+  }, [showSuccess, showError, onRefresh, onOptimisticUpdate]);
 
   const handleReschedule = useCallback(async (id: string, newDate: Date) => {
+    const newDateStr = newDate.toISOString().split('T')[0];
+
+    // Optimistic update - immediately update date in UI
+    onOptimisticUpdate?.updateDeadlineDate(id, newDateStr);
+
     try {
       await apiClient.patch(`/api/v1/deadlines/${id}/reschedule`, {
-        new_date: newDate.toISOString().split('T')[0],
+        new_date: newDateStr,
       });
       deadlineEvents.rescheduled({
         deadlineId: id,
@@ -132,14 +156,21 @@ export default function DeadlineListPanel({
       showSuccess('Deadline rescheduled');
       onRefresh?.();
     } catch (err) {
+      // Refetch to restore correct date on error
+      onRefresh?.();
       showError('Failed to reschedule deadline');
     }
-  }, [showSuccess, showError, onRefresh]);
+  }, [showSuccess, showError, onRefresh, onOptimisticUpdate]);
 
-  // Bulk actions
+  // Bulk actions with optimistic updates
   const handleBulkComplete = useCallback(async () => {
     if (selectedIds.size === 0) return;
     setProcessing(true);
+
+    // Optimistic update - immediately mark all as completed
+    Array.from(selectedIds).forEach(id => {
+      onOptimisticUpdate?.updateDeadlineStatus(id, 'completed');
+    });
 
     try {
       await Promise.all(
@@ -152,16 +183,25 @@ export default function DeadlineListPanel({
       clearSelection();
       onRefresh?.();
     } catch (err) {
+      // Revert on error
+      Array.from(selectedIds).forEach(id => {
+        onOptimisticUpdate?.updateDeadlineStatus(id, 'pending');
+      });
       showError('Failed to complete deadlines');
     } finally {
       setProcessing(false);
     }
-  }, [selectedIds, showSuccess, showError, clearSelection, onRefresh]);
+  }, [selectedIds, showSuccess, showError, clearSelection, onRefresh, onOptimisticUpdate]);
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
     if (!confirm(`Delete ${selectedIds.size} deadline(s)? This cannot be undone.`)) return;
     setProcessing(true);
+
+    // Optimistic update - immediately remove all
+    Array.from(selectedIds).forEach(id => {
+      onOptimisticUpdate?.removeDeadline(id);
+    });
 
     try {
       await Promise.all(
@@ -172,11 +212,13 @@ export default function DeadlineListPanel({
       clearSelection();
       onRefresh?.();
     } catch (err) {
+      // Refetch to restore on error
+      onRefresh?.();
       showError('Failed to delete deadlines');
     } finally {
       setProcessing(false);
     }
-  }, [selectedIds, showSuccess, showError, clearSelection, onRefresh]);
+  }, [selectedIds, showSuccess, showError, clearSelection, onRefresh, onOptimisticUpdate]);
 
   // Stats
   const activeCount = deadlines.filter(d => d.status === 'pending' || d.status === 'in_progress').length;

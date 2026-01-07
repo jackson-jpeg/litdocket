@@ -30,7 +30,7 @@ import AddTriggerModal from '@/components/cases/triggers/AddTriggerModal';
 export default function CaseRoomPage() {
   const params = useParams();
   const caseId = params.caseId as string;
-  const { caseData, documents, deadlines, triggers, caseSummary, loading, error, refetch } = useCaseData(caseId);
+  const { caseData, documents, deadlines, triggers, caseSummary, loading, error, refetch, optimistic } = useCaseData(caseId);
   const { showSuccess, showError, showWarning } = useToast();
 
   // Setup case synchronization across all components
@@ -676,6 +676,7 @@ export default function CaseRoomPage() {
                 refetch.deadlines();
                 refetch.triggers();
               }}
+              onOptimisticUpdate={optimistic}
             />
           </div>
 
