@@ -11,6 +11,7 @@ from app.models.deadline import Deadline
 from app.models.case import Case
 from app.utils.auth import get_current_user  # Real JWT authentication
 from app.schemas.deadline import DeadlineCreate, DeadlineReschedule
+from app.services.case_summary_service import CaseSummaryService
 # WebSocket disabled for MVP
 # from app.websocket.events import event_handler
 
@@ -237,8 +238,21 @@ async def update_deadline_status(
     db.commit()
     db.refresh(deadline)
 
-    # WebSocket broadcast disabled for MVP
-    # Can re-enable for production deployment
+    # Update case summary to reflect deadline status change
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=str(deadline.case_id),
+            event_type="deadline_status_changed",
+            event_details={
+                "deadline_id": str(deadline.id),
+                "title": deadline.title,
+                "new_status": status
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
 
     return {
         'success': True,
@@ -264,13 +278,26 @@ async def delete_deadline(
         raise HTTPException(status_code=404, detail="Deadline not found")
 
     case_id = str(deadline.case_id)
-    deadline_id = str(deadline.id)
+    deleted_title = deadline.title
+    deadline_id_str = str(deadline.id)
 
     db.delete(deadline)
     db.commit()
 
-    # WebSocket broadcast disabled for MVP
-    # Can re-enable for production deployment
+    # Update case summary to reflect deadline deletion
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=case_id,
+            event_type="deadline_deleted",
+            event_details={
+                "deadline_id": deadline_id_str,
+                "title": deleted_title
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
 
     return {
         'success': True,
@@ -480,6 +507,23 @@ async def reschedule_deadline(
 
     logger.info(f"Deadline {deadline_id} rescheduled from {old_date} to {reschedule_data.new_date} by user {current_user.id}")
 
+    # Update case summary to reflect deadline reschedule
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=str(deadline.case_id),
+            event_type="deadline_rescheduled",
+            event_details={
+                "deadline_id": str(deadline.id),
+                "title": deadline.title,
+                "old_date": old_date.isoformat() if old_date else None,
+                "new_date": deadline.deadline_date.isoformat()
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
+
     return {
         'success': True,
         'deadline_id': str(deadline.id),
@@ -543,6 +587,23 @@ async def create_deadline(
     db.refresh(deadline)
 
     logger.info(f"Deadline created: {deadline.id} for case {deadline_data.case_id} by user {current_user.id}")
+
+    # Update case summary to reflect new deadline
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=deadline_data.case_id,
+            event_type="deadline_created",
+            event_details={
+                "deadline_id": str(deadline.id),
+                "title": deadline.title,
+                "deadline_date": deadline.deadline_date.isoformat() if deadline.deadline_date else None,
+                "priority": deadline.priority
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
 
     return {
         'success': True,

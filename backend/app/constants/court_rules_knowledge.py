@@ -2017,53 +2017,154 @@ def get_deadline_template(template_key: str) -> Optional[Dict]:
     return COMMON_DEADLINE_TEMPLATES.get(template_key)
 
 
-def format_rules_for_ai_context() -> str:
-    """Format all rules knowledge into a string for AI context."""
+def format_rules_for_ai_context(jurisdiction: str = None, circuit: str = None) -> str:
+    """
+    Format all rules knowledge into a string for AI context.
+
+    Args:
+        jurisdiction: "florida_state" or "federal" - prioritizes relevant rules
+        circuit: Circuit number (e.g., "11th", "17th") - includes detailed local rules
+
+    Returns:
+        Comprehensive rules context for AI assistant
+    """
     sections = []
 
     # Florida Civil Procedure highlights
     sections.append("## FLORIDA RULES OF CIVIL PROCEDURE - KEY DEADLINES")
-    sections.append("- Answer to Complaint: 20 days (Fla. R. Civ. P. 1.140(a)(1))")
-    sections.append("- Response to Discovery: 30 days (Rules 1.340, 1.350, 1.370)")
-    sections.append("- Response to Motion: 10 days (Rule 1.160(b))")
-    sections.append("- Response to MSJ: 20 days (Rule 1.510(c))")
-    sections.append("- Service by mail adds 5 days (Rule 2.514(b))")
-    sections.append("- Electronic service: NO additional days (since Jan 2019)")
+    sections.append("| Deadline Type | Days | Rule Citation | Notes |")
+    sections.append("|--------------|------|---------------|-------|")
+    sections.append("| Answer to Complaint | 20 | Fla. R. Civ. P. 1.140(a)(1) | +5 days if served by mail |")
+    sections.append("| Motion to Dismiss | 20 | Fla. R. Civ. P. 1.140(b) | Must be filed BEFORE answer |")
+    sections.append("| Response to Motion | 10 | Rule 1.160(b) | +5 days if by mail |")
+    sections.append("| Response to MSJ | 20 | Rule 1.510(c) | +5 days if by mail |")
+    sections.append("| Interrogatory Response | 30 | Rule 1.340(a) | +5 days if by mail |")
+    sections.append("| RFP Response | 30 | Rule 1.350(b) | +5 days if by mail |")
+    sections.append("| **RFA Response** | **30** | **Rule 1.370(a)** | **⚠️ DEEMED ADMITTED if late!** |")
+    sections.append("| Motion for Rehearing | 15 | Rule 1.530(b) | After service of order |")
+    sections.append("| Notice of Appeal | 30 | Fla. R. App. P. 9.110(b) | **JURISDICTIONAL** |")
+    sections.append("")
+    sections.append("**Service Method Time Extensions (Fla. R. Jud. Admin. 2.514(b)):**")
+    sections.append("- Mail service: +5 calendar days")
+    sections.append("- Electronic service (e-Portal): +0 days (since Jan 1, 2019)")
+    sections.append("- Hand delivery: +0 days")
     sections.append("")
 
     # Federal Civil Procedure highlights
     sections.append("## FEDERAL RULES OF CIVIL PROCEDURE - KEY DEADLINES")
-    sections.append("- Answer to Complaint: 21 days (FRCP 12(a)(1)(A)(i))")
-    sections.append("- Response to Discovery: 30 days (Rules 33, 34, 36)")
-    sections.append("- Initial Disclosures: 14 days after Rule 26(f) conference")
-    sections.append("- Service by mail adds 3 days (FRCP 6(d))")
+    sections.append("| Deadline Type | Days | Rule Citation | Notes |")
+    sections.append("|--------------|------|---------------|-------|")
+    sections.append("| Answer to Complaint | 21 | FRCP 12(a)(1)(A)(i) | +3 days if by mail |")
+    sections.append("| Rule 12 Motion | 21 | FRCP 12(b) | Must be filed BEFORE answer |")
+    sections.append("| Opposition to Motion | 21 | Local Rules | Varies by district (14-21 days) |")
+    sections.append("| Reply Memorandum | 7 | Local Rules | After opposition |")
+    sections.append("| Interrogatory Response | 30 | FRCP 33(b)(2) | +3 days if by mail |")
+    sections.append("| RFP Response | 30 | FRCP 34(b)(2)(A) | +3 days if by mail |")
+    sections.append("| **RFA Response** | **30** | **FRCP 36(a)(3)** | **⚠️ DEEMED ADMITTED if late!** |")
+    sections.append("| Initial Disclosures | 14 | FRCP 26(a)(1)(C) | After Rule 26(f) conference |")
+    sections.append("| Expert Reports (plaintiff) | 90 | FRCP 26(a)(2)(D) | Before trial |")
+    sections.append("| Expert Reports (defendant) | 60 | FRCP 26(a)(2)(D) | Before trial |")
+    sections.append("| FRCP 59 Motion | 28 | FRCP 59(b) | Tolls appeal deadline |")
+    sections.append("| Notice of Appeal | 30/60 | FRAP 4(a)(1) | **JURISDICTIONAL** (60 if USA party) |")
+    sections.append("")
+    sections.append("**Service Method Time Extensions (FRCP 6(d)):**")
+    sections.append("- Mail service: +3 calendar days")
+    sections.append("- Electronic service: +3 calendar days (same as mail)")
+    sections.append("- Hand delivery: +0 days")
     sections.append("")
 
-    # Appellate highlights
-    sections.append("## APPELLATE DEADLINES (JURISDICTIONAL)")
-    sections.append("- Florida Notice of Appeal: 30 days from rendition (Fla. R. App. P. 9.110(b))")
-    sections.append("- Federal Notice of Appeal: 30 days from entry (FRAP 4(a)(1)(A))")
-    sections.append("- Federal with USA party: 60 days (FRAP 4(a)(1)(B))")
-    sections.append("")
+    # Circuit-Specific Local Rules (if circuit provided)
+    if circuit:
+        circuit_key = circuit.lower().replace(" ", "_").replace("th", "").replace("st", "").replace("nd", "").replace("rd", "")
+        if not circuit_key.endswith("_circuit"):
+            circuit_key = f"{circuit_key}_circuit"
 
-    # Local Rules - Florida State
-    sections.append("## FLORIDA STATE LOCAL RULES")
-    sections.append("- 11th Circuit (Miami-Dade): Pretrial stip 10 days before trial")
-    sections.append("- 17th Circuit (Broward): CMC within 180 days of filing")
-    sections.append("- 13th Circuit (Tampa): UMC on Fridays, pretrial stip 7 days before CMC")
-    sections.append("- 9th Circuit (Orlando): Jury instructions 10 days before trial")
-    sections.append("- 15th Circuit (Palm Beach): Discovery cutoff 45 days before trial")
-    sections.append("- 4th Circuit (Jacksonville): Mediation 60 days before trial")
-    sections.append("- 20th Circuit (Southwest FL): CMC within 120 days of filing")
-    sections.append("- 6th Circuit (Pinellas/Pasco): Discovery cutoff 45 days before trial")
-    sections.append("- 2nd Circuit (Tallahassee): CMC within 90 days at issue")
-    sections.append("- 7th Circuit (Daytona): Discovery cutoff 30 days before trial")
+        local_rules = FLORIDA_LOCAL_RULES.get(circuit_key)
+        if local_rules:
+            sections.append(f"## {local_rules['name'].upper()} - LOCAL RULES")
+            sections.append(f"Website: {local_rules.get('website', 'N/A')}")
+            if local_rules.get('counties'):
+                sections.append(f"Counties: {', '.join(local_rules['counties'])}")
+            sections.append("")
+            sections.append("| Rule Type | Deadline | Trigger | Notes |")
+            sections.append("|-----------|----------|---------|-------|")
+
+            for rule_key, rule in local_rules.get('rules', {}).items():
+                days = rule.get('deadline_days', 'Per Order')
+                direction = rule.get('direction', 'after')
+                trigger = rule.get('trigger', 'N/A')
+                notes = rule.get('notes', '')
+                desc = rule.get('description', rule_key)
+
+                if direction == 'before':
+                    days_str = f"{days} days before" if isinstance(days, int) else days
+                else:
+                    days_str = f"{days} days after" if isinstance(days, int) else days
+
+                sections.append(f"| {desc} | {days_str} | {trigger} | {notes} |")
+            sections.append("")
+
+    # All Florida Circuit Local Rules Summary
+    sections.append("## ALL FLORIDA CIRCUIT LOCAL RULES SUMMARY")
+    sections.append("| Circuit | Area | CMC | Discovery Cutoff | Pretrial Stip | Witness Lists |")
+    sections.append("|---------|------|-----|------------------|---------------|---------------|")
+
+    circuit_summaries = [
+        ("1st", "Pensacola", "90 days", "30 days", "7 days before PTC", "14 days"),
+        ("2nd", "Tallahassee", "90 days at issue", "30 days", "7 days before PTC", "Per order"),
+        ("3rd", "Lake City", "120 days", "30 days", "5 days before PTC", "10 days"),
+        ("4th", "Jacksonville", "60 days at issue", "30 days", "7 days before PTC", "14 days"),
+        ("5th", "Ocala", "90 days at issue", "45 days", "7 days before PTC", "14 days"),
+        ("6th", "Clearwater", "90 days", "45 days", "5 days before PTC", "10 days"),
+        ("7th", "Daytona", "90 days", "30 days", "10 days before PTC", "10 days"),
+        ("8th", "Gainesville", "90 days", "30 days", "7 days before PTC", "10 days"),
+        ("9th", "Orlando", "120 days", "Per CMO", "5 days before PTC", "Per CMO"),
+        ("10th", "Lakeland", "90 days", "45 days", "10 days before PTC", "14 days"),
+        ("11th", "Miami", "60 days", "30 days", "10 days", "10 days"),
+        ("12th", "Sarasota", "120 days", "30 days", "10 days before PTC", "14 days"),
+        ("13th", "Tampa", "90 days at issue", "Per CMO", "7 days before CMC", "Per CMO"),
+        ("14th", "Panama City", "90 days", "30 days", "7 days before PTC", "10 days"),
+        ("15th", "Palm Beach", "90 days at issue", "45 days", "10 days before PTC", "10 days"),
+        ("16th", "Keys", "90 days", "30 days", "7 days before PTC", "10 days"),
+        ("17th", "Ft. Lauderdale", "180 days", "Per CMO", "10 days before PTC", "Per CMO"),
+        ("18th", "Space Coast", "90 days at issue", "45 days", "10 days before PTC", "14 days"),
+        ("19th", "Treasure Coast", "90 days", "45 days", "10 days before PTC", "14 days"),
+        ("20th", "Ft. Myers", "120 days", "30 days", "10 days before PTC", "14 days"),
+    ]
+
+    for circ in circuit_summaries:
+        sections.append(f"| {circ[0]} | {circ[1]} | {circ[2]} | {circ[3]} | {circ[4]} | {circ[5]} |")
     sections.append("")
 
     # Federal Districts
-    sections.append("## FLORIDA FEDERAL DISTRICTS")
-    sections.append("- Southern District (Miami/Ft. Lauderdale/West Palm): Motion response 14 days, reply 7 days")
-    sections.append("- Middle District (Tampa/Orlando/Jax/Ft Myers/Ocala): Motion response 14 days, reply 7 days")
-    sections.append("- Northern District (Pensacola/Tallahassee/Gainesville): Motion response 14 days, reply 7 days")
+    sections.append("## FLORIDA FEDERAL DISTRICT LOCAL RULES")
+    sections.append("| District | Divisions | Motion Response | Motion Reply | Pretrial Statement |")
+    sections.append("|----------|-----------|-----------------|--------------|-------------------|")
+    sections.append("| Southern | Miami, Ft. Lauderdale, West Palm | 14 days | 7 days | 14 days before FPTC |")
+    sections.append("| Middle | Tampa, Orlando, Jacksonville | 14 days | 7 days | 7 days before FPTC |")
+    sections.append("| Northern | Pensacola, Tallahassee, Gainesville | 14 days | 7 days | 14 days before FPTC |")
+    sections.append("")
+
+    # Trigger Templates Available
+    sections.append("## AVAILABLE TRIGGER TEMPLATES")
+    sections.append("Use `create_trigger_deadline` with these triggers to auto-generate all dependent deadlines:")
+    sections.append("")
+    sections.append("| Trigger Type | Description | Deadlines Generated |")
+    sections.append("|--------------|-------------|---------------------|")
+    sections.append("| `trial_date` | Trial date set | 25-30 deadlines (discovery, experts, MSJ, pretrial, jury) |")
+    sections.append("| `complaint_served` | Complaint served on defendant | 5 deadlines (answer, MTD, counterclaims) |")
+    sections.append("| `motion_filed` | Motion filed/served | 2 deadlines (response, reply) |")
+    sections.append("| `discovery_commenced` | Discovery served (rogs/RFP/RFA) | 1 deadline (response due) |")
+    sections.append("| `order_entered` | Order/judgment entered | 5 deadlines (rehearing, appeal, costs, fees) |")
+    sections.append("| `hearing_scheduled` | Hearing scheduled | 2 deadlines (memo, exhibits) |")
+    sections.append("")
+
+    # Critical Warnings
+    sections.append("## ⚠️ CRITICAL WARNINGS")
+    sections.append("1. **RFA Responses**: FAILURE TO RESPOND = DEEMED ADMITTED (both FL & Fed)")
+    sections.append("2. **Notice of Appeal**: JURISDICTIONAL - Cannot be extended by court or parties")
+    sections.append("3. **Service Method**: Florida email = 0 days; Federal email = 3 days")
+    sections.append("4. **Rule 12 Motions**: Must be filed BEFORE answer or waived")
+    sections.append("5. **Compulsory Counterclaims**: Must be in answer or waived")
 
     return "\n".join(sections)

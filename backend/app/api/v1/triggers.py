@@ -14,6 +14,10 @@ from app.models.deadline import Deadline
 from app.utils.auth import get_current_user
 from app.services.rules_engine import rules_engine, TriggerType
 from app.services.calendar_service import calendar_service
+from app.services.case_summary_service import CaseSummaryService
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -188,6 +192,23 @@ async def create_trigger_event(
 
     db.commit()
 
+    # Update case summary to reflect trigger creation
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=request.case_id,
+            event_type="trigger_created",
+            event_details={
+                "trigger_id": str(trigger_deadline.id),
+                "trigger_type": request.trigger_type,
+                "trigger_date": trigger_date.isoformat(),
+                "deadlines_created": len(all_dependent_deadlines)
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
+
     return {
         'success': True,
         'trigger_deadline_id': str(trigger_deadline.id),
@@ -284,6 +305,23 @@ async def recalculate_dependent_deadlines(
         })
 
     db.commit()
+
+    # Update case summary to reflect trigger recalculation
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=str(trigger.case_id),
+            event_type="trigger_recalculated",
+            event_details={
+                "trigger_id": trigger_deadline_id,
+                "old_date": old_trigger_date.isoformat() if old_trigger_date else None,
+                "new_date": new_trigger_date.isoformat(),
+                "deadlines_updated": len(updated_deadlines)
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
 
     return {
         'success': True,
@@ -507,6 +545,23 @@ async def update_trigger_date(
             updated_count += 1
 
     db.commit()
+
+    # Update case summary to reflect trigger date change
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=str(trigger.case_id),
+            event_type="trigger_date_changed",
+            event_details={
+                "trigger_id": trigger_id,
+                "old_date": old_trigger_date.isoformat(),
+                "new_date": new_trigger_date.isoformat(),
+                "deadlines_updated": updated_count
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
 
     return {
         'success': True,
