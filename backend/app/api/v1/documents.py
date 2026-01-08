@@ -68,6 +68,15 @@ async def upload_document(
     """
 
     try:
+        # SECURITY: Verify case ownership if case_id is provided
+        if case_id:
+            case = db.query(Case).filter(
+                Case.id == case_id,
+                Case.user_id == str(current_user.id)
+            ).first()
+            if not case:
+                raise HTTPException(status_code=404, detail="Case not found or access denied")
+
         # Validate file type
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are accepted")
@@ -206,6 +215,15 @@ async def bulk_upload_documents(
     - Existing cases if case numbers match
     - New cases if no match found
     """
+    # SECURITY: Verify case ownership if case_id is provided
+    if case_id:
+        case = db.query(Case).filter(
+            Case.id == case_id,
+            Case.user_id == str(current_user.id)
+        ).first()
+        if not case:
+            raise HTTPException(status_code=404, detail="Case not found or access denied")
+
     results = []
 
     for file in files:

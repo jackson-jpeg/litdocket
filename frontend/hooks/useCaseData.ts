@@ -16,7 +16,7 @@ export interface CaseData {
   case_type?: string;
   filing_date?: string;
   parties?: Array<{ name: string; role: string }>;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -84,8 +84,9 @@ export function useCaseData(caseId: string) {
       const response = await apiClient.get(`/api/v1/cases/${caseId}`);
       setCaseData(response.data);
       setError(null);
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.detail || 'Failed to load case data';
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      const errorMsg = axiosError.response?.data?.detail || 'Failed to load case data';
       setError(errorMsg);
       throw new Error(errorMsg);
     } finally {
