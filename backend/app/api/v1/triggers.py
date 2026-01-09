@@ -31,6 +31,9 @@ class CreateTriggerRequest(BaseModel):
     service_method: Optional[str] = "email"
     rule_template_id: Optional[str] = None  # If specific template desired
     notes: Optional[str] = None
+    # SmartEventEntry overrides - allows user to customize dates before saving
+    overrides: Optional[dict[str, str]] = None  # { "deadline_title": "2025-01-15" }
+    exclusions: Optional[List[str]] = None  # ["deadline_title_1", "deadline_title_2"]
 
 
 class UpdateTriggerRequest(BaseModel):
@@ -47,6 +50,159 @@ class RuleTemplateResponse(BaseModel):
     trigger_type: str
     citation: str
     num_dependent_deadlines: int
+
+
+class PreviewTriggerRequest(BaseModel):
+    """Request schema for previewing trigger deadlines before creation"""
+    trigger_type: str
+    trigger_date: str  # ISO format YYYY-MM-DD
+    jurisdiction: str  # "federal", "florida_state"
+    court_type: str  # "civil", "criminal", "appellate"
+    service_method: Optional[str] = "email"
+
+
+@router.get("/event-types")
+async def get_event_types(
+    jurisdiction: Optional[str] = None,
+    court_type: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all available event types for SmartEventEntry.
+    Returns event types with categories, deadline counts, and descriptions.
+    """
+    templates = rules_engine.get_all_templates()
+
+    # Filter if requested
+    if jurisdiction:
+        templates = [t for t in templates if t.jurisdiction == jurisdiction]
+    if court_type:
+        templates = [t for t in templates if t.court_type == court_type]
+
+    # Build event types with categories
+    event_types = []
+    seen_types = set()
+
+    # Category mapping based on trigger type
+    category_map = {
+        'trial_date': 'trial',
+        'complaint_served': 'pleading',
+        'summons_served': 'pleading',
+        'answer_filed': 'pleading',
+        'discovery_cutoff': 'discovery',
+        'deposition_notice': 'discovery',
+        'motion_filed': 'motion',
+        'motion_hearing': 'motion',
+        'appeal_filed': 'appellate',
+        'notice_of_appeal': 'appellate',
+    }
+
+    for template in templates:
+        trigger_type = template.trigger_type.value
+        if trigger_type in seen_types:
+            continue
+        seen_types.add(trigger_type)
+
+        # Determine category
+        category = category_map.get(trigger_type, 'other')
+
+        event_types.append({
+            'id': trigger_type,
+            'name': template.name,
+            'description': template.description,
+            'category': category,
+            'deadline_count': len(template.dependent_deadlines),
+            'jurisdiction': template.jurisdiction,
+            'court_type': template.court_type,
+            'citation': template.citation
+        })
+
+    # Sort by category then name
+    category_order = ['trial', 'pleading', 'discovery', 'motion', 'appellate', 'other']
+    event_types.sort(key=lambda e: (category_order.index(e['category']) if e['category'] in category_order else 99, e['name']))
+
+    return event_types
+
+
+@router.post("/preview")
+async def preview_trigger_deadlines(
+    request: PreviewTriggerRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Preview deadlines that would be created by a trigger without saving.
+    Used by SmartEventEntry for live cascade preview.
+    """
+    logger.info(f"Previewing trigger: type={request.trigger_type}, date={request.trigger_date}")
+
+    # Parse trigger date
+    try:
+        trigger_date = date_type.fromisoformat(request.trigger_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    # Get trigger type enum
+    try:
+        trigger_enum = TriggerType(request.trigger_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trigger type: {request.trigger_type}"
+        )
+
+    # Get applicable templates
+    templates = rules_engine.get_applicable_rules(
+        jurisdiction=request.jurisdiction,
+        court_type=request.court_type,
+        trigger_type=trigger_enum
+    )
+
+    if not templates:
+        return {
+            'success': True,
+            'trigger_type': request.trigger_type,
+            'trigger_date': trigger_date.isoformat(),
+            'deadlines': []
+        }
+
+    # Calculate deadlines without saving
+    all_deadlines = []
+    case_context = {
+        'plaintiffs': [],
+        'defendants': [],
+        'case_number': 'Preview',
+        'source_document': f"Trigger Event: {request.trigger_type}"
+    }
+
+    for template in templates:
+        dependent_deadlines = rules_engine.calculate_dependent_deadlines(
+            trigger_date=trigger_date,
+            rule_template=template,
+            service_method=request.service_method or "email",
+            case_context=case_context
+        )
+
+        for deadline_data in dependent_deadlines:
+            all_deadlines.append({
+                'title': deadline_data['title'],
+                'description': deadline_data['description'],
+                'deadline_date': deadline_data['deadline_date'].isoformat() if deadline_data['deadline_date'] else None,
+                'priority': deadline_data['priority'],
+                'rule_citation': deadline_data['rule_citation'],
+                'calculation_basis': deadline_data['calculation_basis'],
+                'party_role': deadline_data['party_role'],
+                'action_required': deadline_data['action_required'],
+            })
+
+    # Sort by deadline date
+    all_deadlines.sort(key=lambda d: d['deadline_date'] or '9999-12-31')
+
+    return {
+        'success': True,
+        'trigger_type': request.trigger_type,
+        'trigger_date': trigger_date.isoformat(),
+        'deadlines': all_deadlines
+    }
 
 
 @router.get("/templates")
@@ -187,13 +343,33 @@ async def create_trigger_event(
 
         # Create deadline records
         for deadline_data in dependent_deadlines:
+            title = deadline_data['title']
+
+            # Check if this deadline is excluded
+            if request.exclusions and title in request.exclusions:
+                logger.info(f"Excluding deadline: {title}")
+                continue
+
+            # Check for date override
+            final_date = deadline_data['deadline_date']
+            is_overridden = False
+
+            if request.overrides and title in request.overrides:
+                try:
+                    override_date = date_type.fromisoformat(request.overrides[title])
+                    final_date = override_date
+                    is_overridden = True
+                    logger.info(f"Override applied for '{title}': {deadline_data['deadline_date']} -> {override_date}")
+                except ValueError:
+                    logger.warning(f"Invalid override date for '{title}': {request.overrides[title]}")
+
             deadline = Deadline(
                 case_id=request.case_id,
                 user_id=str(current_user.id),
                 parent_deadline_id=str(trigger_deadline.id),
-                title=deadline_data['title'],
+                title=title,
                 description=deadline_data['description'],
-                deadline_date=deadline_data['deadline_date'],
+                deadline_date=final_date,
                 priority=deadline_data['priority'],
                 party_role=deadline_data['party_role'],
                 action_required=deadline_data['action_required'],
@@ -203,7 +379,8 @@ async def create_trigger_event(
                 trigger_date=deadline_data['trigger_date'],
                 is_calculated=True,
                 is_dependent=True,
-                auto_recalculate=True,
+                auto_recalculate=not is_overridden,  # Don't auto-recalculate if manually overridden
+                is_manually_overridden=is_overridden,
                 original_deadline_date=deadline_data['deadline_date'],
                 service_method=request.service_method
             )

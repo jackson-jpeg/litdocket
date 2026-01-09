@@ -1,5 +1,12 @@
 'use client';
 
+/**
+ * DeadlineRow - Responsive Deadline Display
+ *
+ * Desktop (lg+): Horizontal layout with title, badges, date on same row
+ * Mobile/Vertical: Stacked layout for readability on narrow screens
+ */
+
 import { useState, useRef, useEffect } from 'react';
 import {
   CheckCircle2,
@@ -110,16 +117,26 @@ export default function DeadlineRow({
     }
   };
 
+  // Format date for mobile display
+  const formatDateShort = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
   return (
     <div
       className={`group relative border-l-4 ${priorityStyle.border} rounded-r-lg bg-white hover:bg-slate-50 transition-all ${
         isCompleted ? 'opacity-60' : ''
       } ${isOverdue ? 'ring-1 ring-red-200' : ''}`}
     >
-      <div className="p-3">
-        {/* Main Row */}
-        <div className="flex items-start gap-3">
-          {/* Selection/Complete Checkbox */}
+      {/* Responsive padding: more on mobile for touch targets */}
+      <div className="p-3 lg:p-3">
+
+        {/* Desktop Layout (lg+): Single row */}
+        <div className="hidden lg:flex items-start gap-3">
+          {/* Checkbox */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -130,20 +147,13 @@ export default function DeadlineRow({
               }
             }}
             className={`flex-shrink-0 mt-0.5 ${
-              selectionMode
-                ? 'text-blue-600'
-                : isCompleted
-                ? 'text-green-500'
-                : 'text-slate-300 hover:text-green-500'
+              selectionMode ? 'text-blue-600' :
+              isCompleted ? 'text-green-500' :
+              'text-slate-300 hover:text-green-500'
             } transition-colors`}
-            title={selectionMode ? (isSelected ? 'Deselect' : 'Select') : (isCompleted ? 'Completed' : 'Mark complete')}
           >
             {selectionMode ? (
-              isSelected ? (
-                <CheckCircle2 className="w-5 h-5 fill-blue-600 text-white" />
-              ) : (
-                <Circle className="w-5 h-5" />
-              )
+              isSelected ? <CheckCircle2 className="w-5 h-5 fill-blue-600 text-white" /> : <Circle className="w-5 h-5" />
             ) : isCompleted ? (
               <CheckCircle2 className="w-5 h-5" />
             ) : (
@@ -153,15 +163,12 @@ export default function DeadlineRow({
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            {/* Title Row */}
+            {/* Title + Date Row */}
             <div className="flex items-start justify-between gap-2">
-              <h4 className={`font-medium text-sm ${
-                isCompleted ? 'text-slate-500 line-through' : 'text-slate-900'
-              }`}>
-                {deadline.title}
+              <h4 className={`font-medium text-sm min-w-0 ${isCompleted ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                <span className="block truncate">{deadline.title}</span>
               </h4>
 
-              {/* Date */}
               <div className="flex-shrink-0">
                 {isEditing ? (
                   <input
@@ -176,12 +183,8 @@ export default function DeadlineRow({
                 ) : (
                   <button
                     onClick={handleDateClick}
-                    className={`text-sm font-medium ${
-                      isOverdue
-                        ? 'text-red-600'
-                        : isCompleted
-                        ? 'text-slate-400'
-                        : 'text-slate-700 hover:text-blue-600'
+                    className={`text-sm font-medium font-mono ${
+                      isOverdue ? 'text-red-600' : isCompleted ? 'text-slate-400' : 'text-slate-700 hover:text-blue-600'
                     } ${!isCompleted && !isCancelled ? 'hover:underline cursor-pointer' : ''}`}
                     disabled={isCompleted || isCancelled}
                   >
@@ -193,35 +196,26 @@ export default function DeadlineRow({
 
             {/* Meta Row */}
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {/* Priority Badge */}
               <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded ${priorityStyle.bg} ${priorityStyle.text}`}>
                 {deadline.priority}
               </span>
-
-              {/* Type Badge */}
               {deadline.deadline_type && (
                 <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-600">
                   {deadline.deadline_type}
                 </span>
               )}
-
-              {/* Auto-calculated Badge */}
               {deadline.is_calculated && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700">
                   <Sparkles className="w-3 h-3" />
                   Auto
                 </span>
               )}
-
-              {/* Overdue Badge */}
               {isOverdue && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">
                   <AlertTriangle className="w-3 h-3" />
                   Overdue
                 </span>
               )}
-
-              {/* Rule Citation */}
               {deadline.applicable_rule && (
                 <span className="text-xs text-slate-500 truncate max-w-[150px]" title={deadline.applicable_rule}>
                   {deadline.applicable_rule}
@@ -241,7 +235,7 @@ export default function DeadlineRow({
             )}
           </div>
 
-          {/* Actions Menu */}
+          {/* Actions (Desktop) */}
           {!selectionMode && (
             <div className="relative flex-shrink-0" ref={menuRef}>
               <button
@@ -250,72 +244,174 @@ export default function DeadlineRow({
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
+            </div>
+          )}
+        </div>
 
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
-                  {!isCompleted && onComplete && (
-                    <button
-                      onClick={() => {
-                        onComplete(deadline.id);
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-green-600" />
-                      Mark Complete
-                    </button>
-                  )}
-                  {onEdit && (
-                    <button
-                      onClick={() => {
-                        onEdit(deadline);
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Edit2 className="w-4 h-4 text-blue-600" />
-                      Edit
-                    </button>
-                  )}
-                  {!isCompleted && (
-                    <button
-                      onClick={() => {
-                        handleDateClick();
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Calendar className="w-4 h-4 text-amber-600" />
-                      Reschedule
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowMenu(false)}
-                    className="w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                  >
-                    <History className="w-4 h-4 text-slate-500" />
-                    View History
-                  </button>
-                  {onDelete && (
-                    <>
-                      <div className="border-t border-slate-100 my-1" />
-                      <button
-                        onClick={() => {
-                          onDelete(deadline.id);
-                          setShowMenu(false);
-                        }}
-                        className="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
+        {/* Mobile/Vertical Layout (< lg): Stacked */}
+        <div className="lg:hidden">
+          {/* Row 1: Checkbox + Title + Menu */}
+          <div className="flex items-start gap-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (selectionMode && onToggleSelection) {
+                  onToggleSelection(deadline.id);
+                } else if (!isCompleted && onComplete) {
+                  onComplete(deadline.id);
+                }
+              }}
+              className={`flex-shrink-0 mt-0.5 p-1 -m-1 ${
+                selectionMode ? 'text-blue-600' :
+                isCompleted ? 'text-green-500' :
+                'text-slate-300 hover:text-green-500'
+              } transition-colors`}
+            >
+              {selectionMode ? (
+                isSelected ? <CheckCircle2 className="w-6 h-6 fill-blue-600 text-white" /> : <Circle className="w-6 h-6" />
+              ) : isCompleted ? (
+                <CheckCircle2 className="w-6 h-6" />
+              ) : (
+                <Circle className="w-6 h-6" />
+              )}
+            </button>
+
+            <div className="flex-1 min-w-0">
+              <h4 className={`font-medium text-base leading-snug ${isCompleted ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                {deadline.title}
+              </h4>
+            </div>
+
+            {!selectionMode && (
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 -m-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 flex-shrink-0"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Row 2: Date + Badges */}
+          <div className="flex items-center gap-2 mt-2 ml-8 flex-wrap">
+            {/* Date Badge */}
+            {isEditing ? (
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={editingDate}
+                onChange={(e) => setEditingDate(e.target.value)}
+                onBlur={handleDateChange}
+                onKeyDown={handleDateKeyDown}
+                className="text-sm px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            ) : (
+              <button
+                onClick={handleDateClick}
+                disabled={isCompleted || isCancelled}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm font-mono font-medium ${
+                  isOverdue ? 'bg-red-100 text-red-700' :
+                  isCompleted ? 'bg-slate-100 text-slate-400' :
+                  'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-700'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                {deadline.deadline_date ? formatDateShort(deadline.deadline_date) : 'No date'}
+              </button>
+            )}
+
+            {/* Priority */}
+            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${priorityStyle.bg} ${priorityStyle.text}`}>
+              {deadline.priority}
+            </span>
+
+            {/* Overdue */}
+            {isOverdue && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-700">
+                <AlertTriangle className="w-3 h-3" />
+                Overdue
+              </span>
+            )}
+
+            {/* Auto */}
+            {deadline.is_calculated && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700">
+                <Sparkles className="w-3 h-3" />
+                Auto
+              </span>
+            )}
+          </div>
+
+          {/* Row 3: Rule + Chain (if present) */}
+          {(deadline.applicable_rule || parentTrigger) && (
+            <div className="mt-2 ml-8 flex flex-wrap items-center gap-2">
+              {deadline.applicable_rule && (
+                <span className="text-xs text-slate-500">{deadline.applicable_rule}</span>
+              )}
+              {parentTrigger && (
+                <button
+                  onClick={() => onViewChain?.(parentTrigger.id)}
+                  className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700"
+                >
+                  <Link2 className="w-3 h-3" />
+                  <span>{parentTrigger.title}</span>
+                </button>
               )}
             </div>
           )}
         </div>
+
+        {/* Shared Dropdown Menu */}
+        {showMenu && (
+          <div ref={menuRef} className="absolute right-2 top-12 lg:top-8 w-44 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+            {!isCompleted && onComplete && (
+              <button
+                onClick={() => { onComplete(deadline.id); setShowMenu(false); }}
+                className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                Complete
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={() => { onEdit(deadline); setShowMenu(false); }}
+                className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+              >
+                <Edit2 className="w-4 h-4 text-blue-600" />
+                Edit
+              </button>
+            )}
+            {!isCompleted && (
+              <button
+                onClick={() => { handleDateClick(); setShowMenu(false); }}
+                className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+              >
+                <Calendar className="w-4 h-4 text-amber-600" />
+                Reschedule
+              </button>
+            )}
+            <button
+              onClick={() => setShowMenu(false)}
+              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <History className="w-4 h-4 text-slate-500" />
+              History
+            </button>
+            {onDelete && (
+              <>
+                <div className="border-t border-slate-100 my-1" />
+                <button
+                  onClick={() => { onDelete(deadline.id); setShowMenu(false); }}
+                  className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
