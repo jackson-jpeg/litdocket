@@ -26,7 +26,18 @@ export type AppEvent =
   | 'ui:show-error'
   | 'ui:show-warning'
   | 'ui:show-info'
-  | 'toast:show';
+  | 'toast:show'
+  | 'filter:apply'
+  | 'filter:clear';
+
+/**
+ * Filter types for terminal commands
+ */
+export type FilterCommand =
+  | { type: 'show'; value: 'all' | 'overdue' | 'pending' | 'completed' }
+  | { type: 'priority'; value: string }
+  | { type: 'search'; value: string }
+  | { type: 'clear' };
 
 class EventBus {
   private events: Map<AppEvent, Set<EventCallback>> = new Map();
@@ -203,4 +214,17 @@ export const chatEvents = {
     eventBus.emit('calendar:refresh');
     eventBus.emit('insights:refresh');
   },
+};
+
+/**
+ * Convenience functions for filter events (Terminal -> Data Grid)
+ */
+export const filterEvents = {
+  showAll: () => eventBus.emit('filter:apply', { type: 'show', value: 'all' }),
+  showOverdue: () => eventBus.emit('filter:apply', { type: 'show', value: 'overdue' }),
+  showPending: () => eventBus.emit('filter:apply', { type: 'show', value: 'pending' }),
+  showCompleted: () => eventBus.emit('filter:apply', { type: 'show', value: 'completed' }),
+  filterByPriority: (priority: string) => eventBus.emit('filter:apply', { type: 'priority', value: priority }),
+  search: (query: string) => eventBus.emit('filter:apply', { type: 'search', value: query }),
+  clear: () => eventBus.emit('filter:clear'),
 };

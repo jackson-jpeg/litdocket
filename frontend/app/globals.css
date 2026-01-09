@@ -54,8 +54,10 @@
    ============================================ */
 
 * {
-  /* Enforce zero radius globally */
+  /* SOVEREIGN LAW #1: Zero Radius */
   border-radius: 0 !important;
+  /* SOVEREIGN LAW #2: No Soft Shadows */
+  box-shadow: none !important;
 }
 
 html {
@@ -556,6 +558,31 @@ h1, h2, h3, .font-serif, .font-display {
 
   /* Border utilities */
   .border-grid { border-color: var(--grid-line); }
+
+  /* HARD BEVEL - Depth without shadows */
+  .bevel {
+    border-bottom: 2px solid var(--border-dark);
+    border-right: 2px solid var(--border-dark);
+  }
+
+  .bevel-sm {
+    border-bottom: 1px solid var(--border-dark);
+    border-right: 1px solid var(--border-dark);
+  }
+
+  .bevel-inset {
+    border-top: 2px solid var(--border-dark);
+    border-left: 2px solid var(--border-dark);
+    border-bottom: 2px solid var(--border-light);
+    border-right: 2px solid var(--border-light);
+  }
+
+  .bevel-raised {
+    border-top: 2px solid var(--border-light);
+    border-left: 2px solid var(--border-light);
+    border-bottom: 2px solid var(--border-dark);
+    border-right: 2px solid var(--border-dark);
+  }
 }
 
 /* ============================================
