@@ -94,7 +94,7 @@ export function Sidebar() {
       {/* System Info Footer */}
       <div className="px-3 py-2 border-t border-grid-line text-xxs text-ink-muted">
         <div>LitDocket v1.0</div>
-        <div className="font-mono">SOVEREIGN</div>
+        <div className="font-mono">Professional Edition</div>
       </div>
     </aside>
   );

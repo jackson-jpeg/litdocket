@@ -41,7 +41,7 @@ const TOOLS: Tool[] = [
     name: 'Deadline Calculator',
     description: 'Calculate deadlines with federal/state holiday awareness, service day extensions, and full audit trail.',
     icon: <Calculator className="w-5 h-5" />,
-    href: '/tools/sovereign',
+    href: '/tools/deadline-calculator',
     status: 'active',
     category: 'calculation',
   },

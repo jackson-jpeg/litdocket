@@ -28,7 +28,7 @@ export function CockpitHeader() {
           LitDocket
         </div>
         <div className="text-xs text-white/60 font-mono">
-          SOVEREIGN
+          PRO
         </div>
       </div>
 
