@@ -3,10 +3,11 @@
 /**
  * Jurisdiction Navigator - CompuLaw-Style Court Selector
  *
- * Sovereign Design System:
- * - Dark terminal aesthetic
- * - Dense hierarchical tree display
- * - Zero radius
+ * Gold Standard Design System (matching Dashboard):
+ * - Light slate background
+ * - White cards with shadows
+ * - Rounded corners
+ * - Uppercase tracking headers
  */
 
 import React, { useState } from 'react';
@@ -27,24 +28,28 @@ export default function JurisdictionSelectorPage() {
   const [selection, setSelection] = useState<JurisdictionSelection | null>(null);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800">
+      <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center gap-4 mb-4">
             <button
               onClick={() => router.push('/tools')}
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-slate-400 hover:text-slate-700 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-3">
-              <GitBranch className="w-6 h-6 text-cyan-400" />
-              <h1 className="text-2xl font-mono font-bold">JURISDICTION NAVIGATOR</h1>
-              <span className="px-2 py-0.5 bg-emerald-900 text-emerald-400 text-xs font-mono">ACTIVE</span>
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <GitBranch className="w-5 h-5 text-blue-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900">Jurisdiction Navigator</h1>
+              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-mono rounded-full border border-green-200">
+                ACTIVE
+              </span>
             </div>
           </div>
-          <p className="text-slate-400 text-sm font-mono">
+          <p className="text-slate-500 text-sm">
             CompuLaw-style hierarchical court selector with automatic concurrent rule detection
           </p>
         </div>
@@ -55,10 +60,10 @@ export default function JurisdictionSelectorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Tree Selector */}
           <div className="space-y-4">
-            <div className="bg-slate-900 border border-slate-700">
-              <div className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center gap-2">
-                <Database className="w-4 h-4 text-cyan-400" />
-                <span className="font-mono text-sm text-slate-300">JURISDICTION TREE</span>
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+              <div className="bg-slate-100 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
+                <Database className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Jurisdiction Tree</span>
               </div>
               <div className="p-4">
                 <JurisdictionTreeSelector
@@ -78,20 +83,20 @@ export default function JurisdictionSelectorPage() {
             </div>
 
             {/* Instructions */}
-            <div className="bg-slate-900 border border-slate-700 p-4">
-              <h3 className="font-mono text-xs text-slate-500 uppercase mb-3">HOW TO USE</h3>
+            <div className="bg-white border border-slate-200 p-4 rounded-lg">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">How to Use</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-start gap-2">
-                  <span className="text-cyan-400 font-mono">1.</span>
-                  <span className="text-slate-300">Navigate: Federal → Middle District → Bankruptcy</span>
+                  <span className="text-blue-600 font-bold">1.</span>
+                  <span className="text-slate-600">Navigate: Federal → Middle District → Bankruptcy</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-cyan-400 font-mono">2.</span>
-                  <span className="text-slate-300">Select court location to auto-select concurrent rules</span>
+                  <span className="text-blue-600 font-bold">2.</span>
+                  <span className="text-slate-600">Select court location to auto-select concurrent rules</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-cyan-400 font-mono">3.</span>
-                  <span className="text-slate-300">Dependencies (FRCP, FRBP) are locked automatically</span>
+                  <span className="text-blue-600 font-bold">3.</span>
+                  <span className="text-slate-600">Dependencies (FRCP, FRBP) are locked automatically</span>
                 </div>
               </div>
             </div>
@@ -102,24 +107,24 @@ export default function JurisdictionSelectorPage() {
             {selection ? (
               <>
                 {/* Status */}
-                <div className={`p-4 border flex items-start gap-3 ${
+                <div className={`p-4 border flex items-start gap-3 rounded-lg ${
                   selection.isValid
-                    ? 'bg-emerald-900/30 border-emerald-800'
-                    : 'bg-amber-900/30 border-amber-800'
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-amber-50 border-amber-200'
                 }`}>
                   {selection.isValid ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   ) : (
-                    <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   )}
                   <div>
-                    <p className={`font-mono text-sm ${
-                      selection.isValid ? 'text-emerald-400' : 'text-amber-400'
+                    <p className={`font-medium text-sm ${
+                      selection.isValid ? 'text-green-700' : 'text-amber-700'
                     }`}>
-                      {selection.isValid ? 'SELECTION VALID' : 'WARNINGS DETECTED'}
+                      {selection.isValid ? 'Selection Valid' : 'Warnings Detected'}
                     </p>
                     <p className={`text-sm ${
-                      selection.isValid ? 'text-emerald-300' : 'text-amber-300'
+                      selection.isValid ? 'text-green-600' : 'text-amber-600'
                     }`}>
                       {selection.activeRuleSetIds.length} rule sets active
                     </p>
@@ -127,12 +132,12 @@ export default function JurisdictionSelectorPage() {
                 </div>
 
                 {/* Active Rule Sets */}
-                <div className="bg-slate-900 border border-slate-700">
-                  <div className="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
-                    <span className="font-mono text-sm text-slate-300">
-                      ACTIVE RULE SETS ({selection.activeRuleSetIds.length})
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-100 border-b border-slate-200 px-4 py-2 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      Active Rule Sets ({selection.activeRuleSetIds.length})
                     </span>
-                    <Scale className="w-4 h-4 text-cyan-400" />
+                    <Scale className="w-4 h-4 text-blue-600" />
                   </div>
                   <div className="p-4">
                     {selection.activeRuleSetCodes.length > 0 ? (
@@ -140,7 +145,7 @@ export default function JurisdictionSelectorPage() {
                         {selection.activeRuleSetCodes.map((code) => (
                           <span
                             key={code}
-                            className="px-2 py-1 bg-slate-800 text-cyan-400 font-mono text-xs border border-slate-700"
+                            className="px-2 py-1 bg-blue-50 text-blue-700 font-mono text-xs border border-blue-200 rounded"
                           >
                             {code}
                           </span>
@@ -153,25 +158,25 @@ export default function JurisdictionSelectorPage() {
                 </div>
 
                 {/* Selection Breakdown */}
-                <div className="bg-slate-900 border border-slate-700">
-                  <div className="bg-slate-800 border-b border-slate-700 px-4 py-2">
-                    <span className="font-mono text-sm text-slate-300">SELECTION BREAKDOWN</span>
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-100 border-b border-slate-200 px-4 py-2">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Selection Breakdown</span>
                   </div>
                   <div className="p-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs font-mono text-slate-500 uppercase mb-1">User Selected</p>
-                        <p className="text-2xl font-mono font-bold text-white">
+                      <div className="bg-slate-50 rounded-lg p-3">
+                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">User Selected</p>
+                        <p className="text-2xl font-bold text-slate-900">
                           {selection.primaryRuleSetIds.length}
                         </p>
-                        <p className="text-xs text-slate-400">rule sets</p>
+                        <p className="text-xs text-slate-500">rule sets</p>
                       </div>
-                      <div>
-                        <p className="text-xs font-mono text-slate-500 uppercase mb-1">Auto-Selected</p>
-                        <p className="text-2xl font-mono font-bold text-cyan-400">
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Auto-Selected</p>
+                        <p className="text-2xl font-bold text-blue-600">
                           {selection.activeRuleSetIds.length - selection.primaryRuleSetIds.length}
                         </p>
-                        <p className="text-xs text-slate-400">dependencies</p>
+                        <p className="text-xs text-slate-500">dependencies</p>
                       </div>
                     </div>
                   </div>
@@ -179,20 +184,20 @@ export default function JurisdictionSelectorPage() {
 
                 {/* Warnings */}
                 {selection.warnings.length > 0 && (
-                  <div className="bg-slate-900 border border-slate-700">
-                    <div className="bg-amber-900/50 border-b border-amber-800 px-4 py-2 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
-                      <span className="font-mono text-sm text-amber-300">
-                        WARNINGS ({selection.warnings.length})
+                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">
+                        Warnings ({selection.warnings.length})
                       </span>
                     </div>
                     <div className="p-4 space-y-3">
                       {selection.warnings.map((warning, i) => (
-                        <div key={i} className="border-l-2 border-amber-600 pl-3 py-1">
-                          <p className="text-sm text-amber-200">{warning.message}</p>
+                        <div key={i} className="border-l-2 border-amber-400 pl-3 py-1">
+                          <p className="text-sm text-amber-700">{warning.message}</p>
                           {warning.suggestedAction && (
-                            <p className="text-xs text-slate-400 mt-1">
-                              <ChevronRight className="w-3 h-3 inline" /> {warning.suggestedAction}
+                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                              <ChevronRight className="w-3 h-3" /> {warning.suggestedAction}
                             </p>
                           )}
                         </div>
@@ -202,12 +207,12 @@ export default function JurisdictionSelectorPage() {
                 )}
 
                 {/* Raw JSON (collapsed) */}
-                <details className="bg-slate-900 border border-slate-700">
-                  <summary className="bg-slate-800 border-b border-slate-700 px-4 py-2 cursor-pointer">
-                    <span className="font-mono text-sm text-slate-300">RAW DATA</span>
+                <details className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <summary className="bg-slate-100 border-b border-slate-200 px-4 py-2 cursor-pointer">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Raw Data</span>
                   </summary>
                   <div className="p-4">
-                    <pre className="bg-slate-800 p-3 text-xs font-mono text-slate-300 overflow-x-auto max-h-48">
+                    <pre className="bg-slate-50 p-3 text-xs font-mono text-slate-600 overflow-x-auto max-h-48 rounded">
                       {JSON.stringify(selection, null, 2)}
                     </pre>
                   </div>
@@ -215,12 +220,14 @@ export default function JurisdictionSelectorPage() {
               </>
             ) : (
               /* Empty State */
-              <div className="bg-slate-900 border border-slate-700 p-12 text-center">
-                <GitBranch className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <p className="text-slate-500 font-mono text-sm">
+              <div className="bg-white border border-slate-200 p-12 text-center rounded-xl">
+                <div className="w-16 h-16 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                  <GitBranch className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-slate-600 font-medium">
                   Select jurisdictions from the tree
                 </p>
-                <p className="text-slate-600 font-mono text-xs mt-2">
+                <p className="text-slate-400 text-sm mt-2">
                   Selection data will appear here
                 </p>
               </div>
@@ -230,24 +237,30 @@ export default function JurisdictionSelectorPage() {
 
         {/* Feature Cards */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-900 border border-slate-800 p-4">
-            <GitBranch className="w-5 h-5 text-cyan-400 mb-2" />
-            <h3 className="font-mono text-sm font-bold text-white mb-1">Hierarchical Navigation</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-white border border-slate-200 p-4 rounded-lg">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-3">
+              <GitBranch className="w-5 h-5 text-blue-600" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Hierarchical Navigation</h3>
+            <p className="text-xs text-slate-500">
               Navigate: Florida → Federal → Middle District → Bankruptcy Court
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 p-4">
-            <Database className="w-5 h-5 text-amber-400 mb-2" />
-            <h3 className="font-mono text-sm font-bold text-white mb-1">Concurrent Rules</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-white border border-slate-200 p-4 rounded-lg">
+            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center mb-3">
+              <Database className="w-5 h-5 text-amber-600" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Concurrent Rules</h3>
+            <p className="text-xs text-slate-500">
               Selecting FL:BRMD-7 auto-selects FRCP + FRBP dependencies
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 p-4">
-            <AlertTriangle className="w-5 h-5 text-rose-400 mb-2" />
-            <h3 className="font-mono text-sm font-bold text-white mb-1">Smart Warnings</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-white border border-slate-200 p-4 rounded-lg">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center mb-3">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Smart Warnings</h3>
+            <p className="text-xs text-slate-500">
               Alerts when selecting local rules without required base rules
             </p>
           </div>

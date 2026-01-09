@@ -3,10 +3,11 @@
 /**
  * Tools Hub - Command Center for Legal Power Tools
  *
- * Sovereign Design System:
- * - Dense grid layout
- * - Terminal aesthetic
- * - Zero radius
+ * Gold Standard Design System (matching Dashboard):
+ * - Light slate background
+ * - White cards with shadows
+ * - Rounded corners
+ * - Uppercase tracking headers
  */
 
 import { useRouter } from 'next/navigation';
@@ -21,7 +22,7 @@ import {
   Zap,
   ArrowRight,
   Lock,
-  Sparkles,
+  Wrench,
 } from 'lucide-react';
 
 interface Tool {
@@ -116,17 +117,36 @@ const CATEGORY_LABELS: Record<string, string> = {
   export: 'IMPORT/EXPORT',
 };
 
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  calculation: <Calculator className="w-4 h-4" />,
+  navigation: <GitBranch className="w-4 h-4" />,
+  analysis: <FileSearch className="w-4 h-4" />,
+  export: <Calendar className="w-4 h-4" />,
+};
+
 export default function ToolsHubPage() {
   const router = useRouter();
 
   const getStatusBadge = (status: Tool['status']) => {
     switch (status) {
       case 'active':
-        return <span className="px-2 py-0.5 bg-emerald-900 text-emerald-400 text-xs font-mono">ACTIVE</span>;
+        return (
+          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-mono rounded-full border border-green-200">
+            ACTIVE
+          </span>
+        );
       case 'beta':
-        return <span className="px-2 py-0.5 bg-amber-900 text-amber-400 text-xs font-mono">BETA</span>;
+        return (
+          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-mono rounded-full border border-amber-200">
+            BETA
+          </span>
+        );
       case 'coming_soon':
-        return <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs font-mono">SOON</span>;
+        return (
+          <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-xs font-mono rounded-full border border-slate-200">
+            SOON
+          </span>
+        );
     }
   };
 
@@ -143,28 +163,36 @@ export default function ToolsHubPage() {
   }, {} as Record<string, Tool[]>);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800">
+      <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <Sparkles className="w-6 h-6 text-cyan-400" />
-                <h1 className="text-2xl font-mono font-bold text-white">TOOLS</h1>
+                <div className="p-2 bg-slate-100 rounded-lg">
+                  <Wrench className="w-5 h-5 text-slate-700" />
+                </div>
+                <h1 className="text-2xl font-bold text-slate-900">Tools</h1>
               </div>
-              <p className="text-slate-400 text-sm font-mono">
+              <p className="text-slate-500 text-sm">
                 Legal Power Tools for Professional Docketing
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-slate-500 text-xs font-mono">
-                {TOOLS.filter(t => t.status === 'active').length} ACTIVE
-                {' / '}
-                {TOOLS.filter(t => t.status === 'beta').length} BETA
-                {' / '}
-                {TOOLS.filter(t => t.status === 'coming_soon').length} COMING
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="text-right text-sm">
+                <div className="flex items-center gap-4">
+                  <span className="text-green-600 font-medium">
+                    {TOOLS.filter(t => t.status === 'active').length} Active
+                  </span>
+                  <span className="text-amber-600 font-medium">
+                    {TOOLS.filter(t => t.status === 'beta').length} Beta
+                  </span>
+                  <span className="text-slate-400">
+                    {TOOLS.filter(t => t.status === 'coming_soon').length} Coming
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -173,32 +201,32 @@ export default function ToolsHubPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Quick Access - Active Tools */}
-        <section className="mb-12">
+        <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-sm font-mono text-slate-400 uppercase tracking-wider">Quick Access</h2>
+            <Zap className="w-4 h-4 text-green-600" />
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Access</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {TOOLS.filter(t => t.status === 'active').map((tool) => (
               <button
                 key={tool.id}
                 onClick={() => handleToolClick(tool)}
-                className="group bg-slate-900 border border-slate-700 hover:border-cyan-600 p-6 text-left transition-all"
+                className="group bg-white border border-slate-200 hover:border-slate-400 hover:shadow-md p-6 text-left transition-all rounded-xl"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="p-2 bg-slate-800 text-cyan-400 group-hover:bg-cyan-900 transition-colors">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
                     {tool.icon}
                   </div>
                   {getStatusBadge(tool.status)}
                 </div>
-                <h3 className="text-lg font-mono font-semibold text-white mb-2 group-hover:text-cyan-400 transition-colors">
+                <h3 className="text-lg font-semibold text-slate-900 mb-2 group-hover:text-blue-700 transition-colors">
                   {tool.name}
                 </h3>
-                <p className="text-sm text-slate-400 mb-4">
+                <p className="text-sm text-slate-500 mb-4">
                   {tool.description}
                 </p>
-                <div className="flex items-center gap-2 text-cyan-400 text-sm font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>LAUNCH</span>
+                <div className="flex items-center gap-2 text-blue-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span>Launch Tool</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
               </button>
@@ -209,36 +237,38 @@ export default function ToolsHubPage() {
         {/* All Tools by Category */}
         {Object.entries(toolsByCategory).map(([category, tools]) => (
           <section key={category} className="mb-8">
-            <h2 className="text-xs font-mono text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <span className="w-8 h-px bg-slate-700" />
-              {CATEGORY_LABELS[category]}
-              <span className="flex-1 h-px bg-slate-700" />
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-slate-400">{CATEGORY_ICONS[category]}</span>
+              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {CATEGORY_LABELS[category]}
+              </h2>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {tools.map((tool) => (
                 <button
                   key={tool.id}
                   onClick={() => handleToolClick(tool)}
                   disabled={tool.status === 'coming_soon'}
-                  className={`group p-4 text-left border transition-all ${
+                  className={`group p-4 text-left border rounded-lg transition-all ${
                     tool.status === 'coming_soon'
-                      ? 'bg-slate-900/50 border-slate-800 cursor-not-allowed opacity-60'
-                      : 'bg-slate-900 border-slate-700 hover:border-slate-500'
+                      ? 'bg-slate-50 border-slate-200 cursor-not-allowed opacity-60'
+                      : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-sm'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className={`${tool.status === 'coming_soon' ? 'text-slate-600' : 'text-slate-400'}`}>
+                    <div className={`${tool.status === 'coming_soon' ? 'text-slate-400' : 'text-slate-600'}`}>
                       {tool.icon}
                     </div>
                     {tool.status === 'coming_soon' && (
-                      <Lock className="w-3 h-3 text-slate-600" />
+                      <Lock className="w-3 h-3 text-slate-400" />
                     )}
                     {tool.status === 'beta' && (
-                      <span className="text-xs font-mono text-amber-500">BETA</span>
+                      <span className="text-xs font-mono text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">BETA</span>
                     )}
                   </div>
-                  <h3 className={`text-sm font-mono font-medium mb-1 ${
-                    tool.status === 'coming_soon' ? 'text-slate-500' : 'text-white'
+                  <h3 className={`text-sm font-medium mb-1 ${
+                    tool.status === 'coming_soon' ? 'text-slate-500' : 'text-slate-900'
                   }`}>
                     {tool.name}
                   </h3>
@@ -252,29 +282,29 @@ export default function ToolsHubPage() {
         ))}
 
         {/* Footer Stats */}
-        <footer className="mt-12 pt-8 border-t border-slate-800">
+        <footer className="mt-12 pt-8 border-t border-slate-200">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div>
-              <p className="text-3xl font-mono font-bold text-white">{TOOLS.length}</p>
-              <p className="text-xs font-mono text-slate-500 uppercase">Total Tools</p>
+            <div className="bg-white rounded-xl p-4 border border-slate-200">
+              <p className="text-3xl font-bold text-slate-900">{TOOLS.length}</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Total Tools</p>
             </div>
-            <div>
-              <p className="text-3xl font-mono font-bold text-emerald-400">
+            <div className="bg-white rounded-xl p-4 border border-slate-200">
+              <p className="text-3xl font-bold text-green-600">
                 {TOOLS.filter(t => t.status === 'active').length}
               </p>
-              <p className="text-xs font-mono text-slate-500 uppercase">Active</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Active</p>
             </div>
-            <div>
-              <p className="text-3xl font-mono font-bold text-amber-400">
+            <div className="bg-white rounded-xl p-4 border border-slate-200">
+              <p className="text-3xl font-bold text-amber-600">
                 {TOOLS.filter(t => t.status === 'beta').length}
               </p>
-              <p className="text-xs font-mono text-slate-500 uppercase">In Beta</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">In Beta</p>
             </div>
-            <div>
-              <p className="text-3xl font-mono font-bold text-slate-500">
+            <div className="bg-white rounded-xl p-4 border border-slate-200">
+              <p className="text-3xl font-bold text-slate-400">
                 {TOOLS.filter(t => t.status === 'coming_soon').length}
               </p>
-              <p className="text-xs font-mono text-slate-500 uppercase">Coming Soon</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Coming Soon</p>
             </div>
           </div>
         </footer>

@@ -3,11 +3,11 @@
 /**
  * Document Analyzer - AI-Powered Legal Document Analysis
  *
- * Sovereign Design System:
- * - Terminal aesthetic with dark theme
- * - Dense data display
- * - Zero radius
- * - Real-time analysis feedback
+ * Gold Standard Design System (matching Dashboard):
+ * - Light slate background
+ * - White cards with shadows
+ * - Rounded corners
+ * - Uppercase tracking headers
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -24,7 +24,6 @@ import {
   Building,
   ChevronRight,
   Loader2,
-  X,
   Sparkles,
   ArrowLeft,
 } from 'lucide-react';
@@ -171,32 +170,36 @@ export default function DocumentAnalyzerPage() {
 
   const getPriorityColor = (priority?: string) => {
     switch (priority?.toLowerCase()) {
-      case 'fatal': return 'text-red-500';
-      case 'critical': return 'text-rose-500';
-      case 'important': return 'text-amber-500';
-      default: return 'text-slate-400';
+      case 'fatal': return 'text-red-600 bg-red-50';
+      case 'critical': return 'text-rose-600 bg-rose-50';
+      case 'important': return 'text-amber-600 bg-amber-50';
+      default: return 'text-slate-600 bg-slate-50';
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800">
+      <header className="bg-white border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-6 py-6">
           <div className="flex items-center gap-4 mb-4">
             <button
               onClick={() => router.push('/tools')}
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-slate-400 hover:text-slate-700 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-3">
-              <FileText className="w-6 h-6 text-cyan-400" />
-              <h1 className="text-2xl font-mono font-bold">DOCUMENT ANALYZER</h1>
-              <span className="px-2 py-0.5 bg-amber-900 text-amber-400 text-xs font-mono">BETA</span>
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <FileText className="w-5 h-5 text-blue-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900">Document Analyzer</h1>
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-mono rounded-full border border-amber-200">
+                BETA
+              </span>
             </div>
           </div>
-          <p className="text-slate-400 text-sm font-mono">
+          <p className="text-slate-500 text-sm">
             AI-powered analysis of legal documents with automatic deadline extraction
           </p>
         </div>
@@ -214,12 +217,12 @@ export default function DocumentAnalyzerPage() {
               onDragOver={handleDrag}
               onDrop={handleDrop}
               className={`
-                border-2 border-dashed p-8 text-center transition-all cursor-pointer
+                border-2 border-dashed p-8 text-center transition-all cursor-pointer rounded-xl
                 ${dragActive
-                  ? 'border-cyan-500 bg-cyan-900/20'
+                  ? 'border-blue-400 bg-blue-50'
                   : file
-                    ? 'border-emerald-600 bg-emerald-900/10'
-                    : 'border-slate-700 bg-slate-900 hover:border-slate-500'
+                    ? 'border-green-400 bg-green-50'
+                    : 'border-slate-300 bg-white hover:border-slate-400'
                 }
               `}
               onClick={() => fileInputRef.current?.click()}
@@ -234,9 +237,11 @@ export default function DocumentAnalyzerPage() {
 
               {file ? (
                 <div className="space-y-3">
-                  <FileText className="w-12 h-12 text-emerald-400 mx-auto" />
-                  <p className="font-mono text-white">{file.name}</p>
-                  <p className="text-sm text-slate-400 font-mono">
+                  <div className="w-12 h-12 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-green-600" />
+                  </div>
+                  <p className="font-medium text-slate-900">{file.name}</p>
+                  <p className="text-sm text-slate-500">
                     {(file.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                   <button
@@ -244,18 +249,20 @@ export default function DocumentAnalyzerPage() {
                       e.stopPropagation();
                       reset();
                     }}
-                    className="text-slate-400 hover:text-red-400 text-sm font-mono"
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
                   >
-                    REMOVE
+                    Remove file
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <Upload className={`w-12 h-12 mx-auto ${dragActive ? 'text-cyan-400' : 'text-slate-500'}`} />
-                  <p className="font-mono text-slate-300">
+                  <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${dragActive ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                    <Upload className={`w-6 h-6 ${dragActive ? 'text-blue-600' : 'text-slate-500'}`} />
+                  </div>
+                  <p className="font-medium text-slate-700">
                     Drop PDF here or click to select
                   </p>
-                  <p className="text-xs text-slate-500 font-mono">
+                  <p className="text-xs text-slate-500">
                     Supported: Legal filings, orders, motions, complaints
                   </p>
                 </div>
@@ -264,11 +271,11 @@ export default function DocumentAnalyzerPage() {
 
             {/* Error Display */}
             {error && (
-              <div className="bg-red-900/30 border border-red-800 p-4 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="bg-red-50 border border-red-200 p-4 flex items-start gap-3 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-mono text-red-400 text-sm">ERROR</p>
-                  <p className="text-sm text-red-300">{error}</p>
+                  <p className="font-medium text-red-700 text-sm">Error</p>
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               </div>
             )}
@@ -278,10 +285,10 @@ export default function DocumentAnalyzerPage() {
               onClick={analyzeDocument}
               disabled={!file || stage !== 'idle'}
               className={`
-                w-full py-4 font-mono font-bold text-lg transition-all flex items-center justify-center gap-3
+                w-full py-4 font-semibold text-lg transition-all flex items-center justify-center gap-3 rounded-lg
                 ${file && stage === 'idle'
-                  ? 'bg-cyan-600 hover:bg-cyan-500 text-white'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }
               `}
             >
@@ -293,7 +300,7 @@ export default function DocumentAnalyzerPage() {
               ) : (
                 <>
                   <Sparkles className="w-5 h-5" />
-                  <span>ANALYZE DOCUMENT</span>
+                  <span>Analyze Document</span>
                 </>
               )}
             </button>
@@ -301,38 +308,43 @@ export default function DocumentAnalyzerPage() {
             {/* Progress Bar */}
             {stage !== 'idle' && stage !== 'complete' && stage !== 'error' && (
               <div className="space-y-2">
-                <div className="h-2 bg-slate-800 overflow-hidden">
+                <div className="h-2 bg-slate-200 overflow-hidden rounded-full">
                   <div
-                    className="h-full bg-cyan-500 transition-all duration-300"
+                    className="h-full bg-blue-600 transition-all duration-300 rounded-full"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-xs font-mono text-slate-500">
+                <div className="flex justify-between text-xs text-slate-500">
                   <span>{STAGE_MESSAGES[stage]}</span>
                   <span>{progress}%</span>
                 </div>
               </div>
             )}
 
-            {/* Analysis Terminal Log */}
+            {/* Analysis Progress Log */}
             {stage !== 'idle' && (
-              <div className="bg-slate-900 border border-slate-700 p-4 font-mono text-xs">
-                <div className="text-slate-500 mb-2">[ANALYSIS LOG]</div>
-                <div className="space-y-1">
-                  <div className={progress >= 10 ? 'text-emerald-400' : 'text-slate-600'}>
-                    {progress >= 10 ? '>' : ' '} Upload received
+              <div className="bg-white border border-slate-200 p-4 rounded-lg">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Analysis Progress</div>
+                <div className="space-y-2">
+                  <div className={`flex items-center gap-2 text-sm ${progress >= 10 ? 'text-green-600' : 'text-slate-400'}`}>
+                    {progress >= 10 ? <CheckCircle className="w-4 h-4" /> : <div className="w-4 h-4 border-2 border-slate-300 rounded-full" />}
+                    <span>Upload received</span>
                   </div>
-                  <div className={progress >= 30 ? 'text-emerald-400' : 'text-slate-600'}>
-                    {progress >= 30 ? '>' : ' '} PDF parsed successfully
+                  <div className={`flex items-center gap-2 text-sm ${progress >= 30 ? 'text-green-600' : 'text-slate-400'}`}>
+                    {progress >= 30 ? <CheckCircle className="w-4 h-4" /> : <div className="w-4 h-4 border-2 border-slate-300 rounded-full" />}
+                    <span>PDF parsed successfully</span>
                   </div>
-                  <div className={progress >= 60 ? 'text-emerald-400' : 'text-slate-600'}>
-                    {progress >= 60 ? '>' : ' '} AI analysis complete
+                  <div className={`flex items-center gap-2 text-sm ${progress >= 60 ? 'text-green-600' : 'text-slate-400'}`}>
+                    {progress >= 60 ? <CheckCircle className="w-4 h-4" /> : <div className="w-4 h-4 border-2 border-slate-300 rounded-full" />}
+                    <span>AI analysis complete</span>
                   </div>
-                  <div className={progress >= 90 ? 'text-emerald-400' : 'text-slate-600'}>
-                    {progress >= 90 ? '>' : ' '} Deadlines extracted
+                  <div className={`flex items-center gap-2 text-sm ${progress >= 90 ? 'text-green-600' : 'text-slate-400'}`}>
+                    {progress >= 90 ? <CheckCircle className="w-4 h-4" /> : <div className="w-4 h-4 border-2 border-slate-300 rounded-full" />}
+                    <span>Deadlines extracted</span>
                   </div>
-                  <div className={stage === 'complete' ? 'text-emerald-400' : 'text-slate-600'}>
-                    {stage === 'complete' ? '>' : ' '} Ready
+                  <div className={`flex items-center gap-2 text-sm ${stage === 'complete' ? 'text-green-600' : 'text-slate-400'}`}>
+                    {stage === 'complete' ? <CheckCircle className="w-4 h-4" /> : <div className="w-4 h-4 border-2 border-slate-300 rounded-full" />}
+                    <span>Ready</span>
                   </div>
                 </div>
               </div>
@@ -344,46 +356,46 @@ export default function DocumentAnalyzerPage() {
             {result ? (
               <>
                 {/* Success Header */}
-                <div className="bg-emerald-900/30 border border-emerald-800 p-4 flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div className="bg-green-50 border border-green-200 p-4 flex items-start gap-3 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-mono text-emerald-400 text-sm">ANALYSIS COMPLETE</p>
-                    <p className="text-sm text-emerald-300">
+                    <p className="font-medium text-green-700 text-sm">Analysis Complete</p>
+                    <p className="text-sm text-green-600">
                       {result.is_new_case ? 'New case created' : 'Attached to existing case'}
                     </p>
                   </div>
                 </div>
 
                 {/* Case Info */}
-                <div className="bg-slate-900 border border-slate-700">
-                  <div className="bg-slate-800 border-b border-slate-700 px-4 py-2">
-                    <span className="font-mono text-sm text-slate-300">CASE INFORMATION</span>
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-100 border-b border-slate-200 px-4 py-2">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Case Information</span>
                   </div>
                   <div className="p-4 space-y-3">
                     <div className="flex items-center gap-3">
-                      <Scale className="w-4 h-4 text-slate-500" />
-                      <span className="text-slate-400 text-sm">Case Number:</span>
-                      <span className="font-mono text-cyan-400">{result.case_number || 'Not detected'}</span>
+                      <Scale className="w-4 h-4 text-slate-400" />
+                      <span className="text-slate-500 text-sm">Case Number:</span>
+                      <span className="font-medium text-blue-600">{result.case_number || 'Not detected'}</span>
                     </div>
                     {result.analysis.court && (
                       <div className="flex items-center gap-3">
-                        <Building className="w-4 h-4 text-slate-500" />
-                        <span className="text-slate-400 text-sm">Court:</span>
-                        <span className="font-mono text-white">{result.analysis.court}</span>
+                        <Building className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-500 text-sm">Court:</span>
+                        <span className="font-medium text-slate-900">{result.analysis.court}</span>
                       </div>
                     )}
                     {result.analysis.document_type && (
                       <div className="flex items-center gap-3">
-                        <FileText className="w-4 h-4 text-slate-500" />
-                        <span className="text-slate-400 text-sm">Document Type:</span>
-                        <span className="font-mono text-white">{result.analysis.document_type}</span>
+                        <FileText className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-500 text-sm">Document Type:</span>
+                        <span className="font-medium text-slate-900">{result.analysis.document_type}</span>
                       </div>
                     )}
                     {result.analysis.filing_date && (
                       <div className="flex items-center gap-3">
-                        <Calendar className="w-4 h-4 text-slate-500" />
-                        <span className="text-slate-400 text-sm">Filing Date:</span>
-                        <span className="font-mono text-white">{result.analysis.filing_date}</span>
+                        <Calendar className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-500 text-sm">Filing Date:</span>
+                        <span className="font-medium text-slate-900">{result.analysis.filing_date}</span>
                       </div>
                     )}
                   </div>
@@ -391,17 +403,21 @@ export default function DocumentAnalyzerPage() {
 
                 {/* Parties */}
                 {result.analysis.parties && result.analysis.parties.length > 0 && (
-                  <div className="bg-slate-900 border border-slate-700">
-                    <div className="bg-slate-800 border-b border-slate-700 px-4 py-2">
-                      <span className="font-mono text-sm text-slate-300">PARTIES ({result.analysis.parties.length})</span>
+                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="bg-slate-100 border-b border-slate-200 px-4 py-2">
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        Parties ({result.analysis.parties.length})
+                      </span>
                     </div>
                     <div className="p-4">
                       <div className="space-y-2">
                         {result.analysis.parties.map((party, idx) => (
                           <div key={idx} className="flex items-center gap-3">
-                            <User className="w-4 h-4 text-slate-500" />
-                            <span className="font-mono text-white">{party.name}</span>
-                            <span className="text-xs text-slate-500 uppercase">{party.role}</span>
+                            <User className="w-4 h-4 text-slate-400" />
+                            <span className="font-medium text-slate-900">{party.name}</span>
+                            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full uppercase">
+                              {party.role}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -410,27 +426,27 @@ export default function DocumentAnalyzerPage() {
                 )}
 
                 {/* Extracted Deadlines */}
-                <div className="bg-slate-900 border border-slate-700">
-                  <div className="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
-                    <span className="font-mono text-sm text-slate-300">
-                      DEADLINES EXTRACTED ({result.deadlines_extracted})
+                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-100 border-b border-slate-200 px-4 py-2 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      Deadlines Extracted ({result.deadlines_extracted})
                     </span>
-                    <Clock className="w-4 h-4 text-cyan-400" />
+                    <Clock className="w-4 h-4 text-blue-600" />
                   </div>
                   <div className="p-4">
                     {result.analysis.deadlines_mentioned && result.analysis.deadlines_mentioned.length > 0 ? (
                       <div className="space-y-3">
                         {result.analysis.deadlines_mentioned.slice(0, 5).map((deadline, idx) => (
-                          <div key={idx} className="border-l-2 border-slate-700 pl-3 py-1">
-                            <p className="text-sm text-white">{deadline.description}</p>
+                          <div key={idx} className="border-l-2 border-blue-300 pl-3 py-1">
+                            <p className="text-sm text-slate-700">{deadline.description}</p>
                             <div className="flex items-center gap-3 mt-1">
                               {deadline.deadline_date && (
-                                <span className="font-mono text-xs text-cyan-400">
+                                <span className="font-mono text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                                   {deadline.deadline_date}
                                 </span>
                               )}
                               {deadline.priority && (
-                                <span className={`font-mono text-xs uppercase ${getPriorityColor(deadline.priority)}`}>
+                                <span className={`text-xs uppercase px-2 py-0.5 rounded font-medium ${getPriorityColor(deadline.priority)}`}>
                                   {deadline.priority}
                                 </span>
                               )}
@@ -438,8 +454,8 @@ export default function DocumentAnalyzerPage() {
                           </div>
                         ))}
                         {result.analysis.deadlines_mentioned.length > 5 && (
-                          <p className="text-xs text-slate-500 font-mono">
-                            +{result.analysis.deadlines_mentioned.length - 5} more
+                          <p className="text-xs text-slate-500">
+                            +{result.analysis.deadlines_mentioned.length - 5} more deadlines
                           </p>
                         )}
                       </div>
@@ -451,13 +467,13 @@ export default function DocumentAnalyzerPage() {
 
                 {/* AI Summary */}
                 {result.ai_summary && (
-                  <div className="bg-slate-900 border border-slate-700">
-                    <div className="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      <span className="font-mono text-sm text-slate-300">AI SUMMARY</span>
+                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="bg-slate-100 border-b border-slate-200 px-4 py-2 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">AI Summary</span>
                     </div>
                     <div className="p-4">
-                      <p className="text-sm text-slate-300 leading-relaxed">{result.ai_summary}</p>
+                      <p className="text-sm text-slate-700 leading-relaxed">{result.ai_summary}</p>
                     </div>
                   </div>
                 )}
@@ -466,27 +482,29 @@ export default function DocumentAnalyzerPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={navigateToCase}
-                    className="flex-1 bg-cyan-600 hover:bg-cyan-500 py-3 font-mono font-bold flex items-center justify-center gap-2 transition-colors"
+                    className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-3 font-semibold flex items-center justify-center gap-2 transition-colors rounded-lg"
                   >
-                    <span>GO TO CASE</span>
+                    <span>Go to Case</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
                   <button
                     onClick={reset}
-                    className="px-6 bg-slate-700 hover:bg-slate-600 py-3 font-mono transition-colors"
+                    className="px-6 bg-white border border-slate-300 hover:bg-slate-50 py-3 font-medium text-slate-700 transition-colors rounded-lg"
                   >
-                    ANALYZE ANOTHER
+                    Analyze Another
                   </button>
                 </div>
               </>
             ) : (
               /* Empty State */
-              <div className="bg-slate-900 border border-slate-700 p-12 text-center">
-                <FileText className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <p className="text-slate-500 font-mono text-sm">
+              <div className="bg-white border border-slate-200 p-12 text-center rounded-xl">
+                <div className="w-16 h-16 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                  <FileText className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-slate-600 font-medium">
                   Upload a document to begin analysis
                 </p>
-                <p className="text-slate-600 font-mono text-xs mt-2">
+                <p className="text-slate-400 text-sm mt-2">
                   Results will appear here
                 </p>
               </div>
@@ -496,24 +514,30 @@ export default function DocumentAnalyzerPage() {
 
         {/* Features */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-900 border border-slate-800 p-4">
-            <Scale className="w-5 h-5 text-cyan-400 mb-2" />
-            <h3 className="font-mono text-sm font-bold text-white mb-1">Case Detection</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-white border border-slate-200 p-4 rounded-lg">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center mb-3">
+              <Scale className="w-5 h-5 text-blue-600" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Case Detection</h3>
+            <p className="text-xs text-slate-500">
               Automatically extracts case number, court, jurisdiction, and parties
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 p-4">
-            <Clock className="w-5 h-5 text-amber-400 mb-2" />
-            <h3 className="font-mono text-sm font-bold text-white mb-1">Deadline Extraction</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-white border border-slate-200 p-4 rounded-lg">
+            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center mb-3">
+              <Clock className="w-5 h-5 text-amber-600" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Deadline Extraction</h3>
+            <p className="text-xs text-slate-500">
               AI identifies response deadlines, hearing dates, and filing requirements
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 p-4">
-            <AlertTriangle className="w-5 h-5 text-rose-400 mb-2" />
-            <h3 className="font-mono text-sm font-bold text-white mb-1">Priority Classification</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-white border border-slate-200 p-4 rounded-lg">
+            <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center mb-3">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <h3 className="font-semibold text-slate-900 mb-1">Priority Classification</h3>
+            <p className="text-xs text-slate-500">
               Deadlines categorized as Fatal, Critical, Important, or Standard
             </p>
           </div>
