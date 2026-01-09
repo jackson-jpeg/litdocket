@@ -22,8 +22,8 @@ class DeadlineChain(Base):
     # Parent deadline that triggered this chain
     parent_deadline_id = Column(String(36), ForeignKey("deadlines.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    # Trigger information (trigger_code column removed - doesn't exist in DB)
-    trigger_type = Column(String(50))  # trial_date, service_completed, etc.
+    # Trigger information removed - columns don't exist in DB (trigger_code, trigger_type)
+    # If you need trigger info, get it from parent_deadline.trigger_event
 
     # Template used to generate this chain
     template_id = Column(String(36), ForeignKey("deadline_templates.id", ondelete="SET NULL"), nullable=True)
