@@ -10,9 +10,10 @@ env/
 dist/
 build/
 
-# Database
+# Database - NEVER commit SQLite files (causes data loss on Railway)
 *.db
 *.sqlite3
+**/backups/*.db
 
 # Firebase credentials (NEVER commit these!)
 **/firebase-service-account.json
