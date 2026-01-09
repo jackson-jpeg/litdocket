@@ -8,5 +8,6 @@
     "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
-  }
+  },
+  "_rebuild_trigger": "2026-01-09-22-20-FORCE"
 }
