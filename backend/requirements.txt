@@ -37,3 +37,6 @@ firebase-admin==6.4.0
 
 # Utils
 python-dotenv==1.0.0
+
+# Security
+slowapi==0.1.9  # Rate limiting

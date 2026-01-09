@@ -1,6 +1,9 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import logging
 import time
 import traceback
@@ -9,6 +12,12 @@ from app.config import settings
 from app.database import engine
 from app.models import Base
 from app.api.v1.router import api_router
+from app.middleware.security import (
+    limiter,
+    SecurityHeadersMiddleware,
+    rate_limit_exceeded_handler,
+    TRUSTED_HOSTS,
+)
 # WebSocket disabled for MVP - can re-enable for production
 # from app.websocket.routes import websocket_endpoint
 
@@ -24,6 +33,21 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
+
+# =============================================================================
+# SECURITY MIDDLEWARE (ORDER MATTERS!)
+# =============================================================================
+
+# 1. Rate Limiter - Register with app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+# 2. Security Headers Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 3. Trusted Host Middleware (only in production)
+if not settings.DEBUG:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
 
 # CORS middleware - Strict Production Configuration
 # Explicit origins list to avoid any config loading issues

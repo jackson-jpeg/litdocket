@@ -2,7 +2,7 @@
 Authentication API endpoints
 """
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -16,6 +16,7 @@ from app.utils.auth import (
     get_current_user
 )
 from app.config import settings
+from app.middleware.security import limiter
 
 
 router = APIRouter()
@@ -51,7 +52,9 @@ class FirebaseTokenRequest(BaseModel):
 
 
 @router.post("/login/firebase", response_model=Token)
+@limiter.limit("5/minute")  # Strict rate limit for auth endpoints
 async def login_with_firebase(
+    request: Request,  # Required for rate limiter
     token_data: FirebaseTokenRequest,
     db: Session = Depends(get_db)
 ):
@@ -155,7 +158,8 @@ async def login_with_firebase(
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")  # Strict rate limit for auth endpoints
+async def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
     """
     Register a new user
     
@@ -193,7 +197,9 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")  # Strict rate limit for auth endpoints
 async def login(
+    request: Request,  # Required for rate limiter
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
@@ -262,8 +268,10 @@ class CompleteSignupResponse(BaseModel):
 
 
 @router.post("/signup/complete", response_model=CompleteSignupResponse)
+@limiter.limit("5/minute")  # Strict rate limit for auth endpoints
 async def complete_signup(
-    request: CompleteSignupRequest,
+    request: Request,  # Required for rate limiter
+    signup_request: CompleteSignupRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -294,13 +302,13 @@ async def complete_signup(
         if dev_auth_bypass and settings.DEBUG:
             logger.warning("DEV_AUTH_BYPASS enabled in complete_signup")
             try:
-                unverified_payload = jose_jwt.decode(request.id_token, options={"verify_signature": False})
+                unverified_payload = jose_jwt.decode(signup_request.id_token, options={"verify_signature": False})
                 email = unverified_payload.get('email') or 'dev@docketassist.com'
             except Exception:
                 email = 'dev@docketassist.com'
         else:
             firebase_service._initialize_firebase()
-            decoded_token = firebase_auth.verify_id_token(request.id_token)
+            decoded_token = firebase_auth.verify_id_token(signup_request.id_token)
             email = decoded_token.get('email')
 
         if not email:
@@ -318,12 +326,12 @@ async def complete_signup(
             )
 
         # Update user profile
-        if request.full_name:
-            user.full_name = request.full_name
-        if request.firm_name:
-            user.firm_name = request.firm_name
-        if request.jurisdictions:
-            user.jurisdictions = request.jurisdictions
+        if signup_request.full_name:
+            user.full_name = signup_request.full_name
+        if signup_request.firm_name:
+            user.firm_name = signup_request.firm_name
+        if signup_request.jurisdictions:
+            user.jurisdictions = signup_request.jurisdictions
 
         db.commit()
         db.refresh(user)

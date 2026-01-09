@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, Query
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, List
@@ -16,6 +16,7 @@ from app.models.deadline import Deadline
 from app.models.document import Document
 from app.models.document_tag import Tag, DocumentTag
 from app.utils.auth import get_current_user
+from app.middleware.security import limiter, validate_pdf_magic_number
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -49,7 +50,9 @@ class BulkUploadResult(BaseModel):
 
 
 @router.post("/upload")
+@limiter.limit("10/minute")  # Rate limit uploads to prevent abuse
 async def upload_document(
+    request: Request,  # Required for rate limiter
     file: UploadFile = File(...),
     case_id: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
@@ -81,7 +84,7 @@ async def upload_document(
             if not case:
                 raise HTTPException(status_code=404, detail="Case not found or access denied")
 
-        # Validate file type
+        # Validate file extension
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
@@ -90,6 +93,14 @@ async def upload_document(
             pdf_bytes = await file.read()
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+
+        # SECURITY: Validate PDF magic number to prevent malicious file uploads
+        if not validate_pdf_magic_number(pdf_bytes):
+            logger.warning(f"Invalid PDF magic number for file {file.filename} from user {current_user.id}")
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file format. File does not appear to be a valid PDF."
+            )
 
         # Analyze document
         doc_service = DocumentService(db)
