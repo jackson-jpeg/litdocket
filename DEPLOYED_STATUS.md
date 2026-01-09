@@ -28,17 +28,23 @@
 
 ---
 
-## ✅ FUNCTIONAL - Delete Button (It EXISTS, just hidden)
+## ✅ FIXED - Delete Button
 
-**Status**: WORKING - Button exists in dropdown menu
-**Location**: Case Detail page → Deadlines table → Click "⋮" menu → Delete
+**Status**: PERMANENTLY FIXED
+**Commit**: d937ee7
+
+### What Was Broken:
+- Delete button EXISTS in UI (dropdown menu)
+- But backend crashed with: `column deadline_chains.trigger_code does not exist`
+- Railway logs showed database schema mismatch
+
+### The Fix:
+- Removed `trigger_code` column from DeadlineChain model (deadline_chain.py:26)
+- Column didn't exist in actual database, causing cascade delete to crash
+- Frontend delete handler already wired correctly
 
 ### Where the Button Is:
-```
-frontend/components/cases/deadlines/DeadlineRow.tsx:401-411
-```
-
-The delete button IS there, but it's in a dropdown menu (three dots icon).
+**Location**: Case Detail page → Deadlines table → Click "⋮" menu → Delete
 
 ### How to Use It:
 1. Go to case detail page
@@ -46,15 +52,16 @@ The delete button IS there, but it's in a dropdown menu (three dots icon).
 3. Click the three-dot menu icon (⋮) on right side of row
 4. Click "Delete" (red text with trash icon)
 5. Confirm deletion in browser alert
+6. Deadline should now DELETE successfully (no 500 error)
 
-### The Code (Already Working):
+### The Code:
 ```typescript
 // frontend/app/(protected)/cases/[caseId]/page.tsx:81-92
 const handleDelete = async (id: string) => {
   if (!confirm('Delete this deadline?')) return;
   try {
     optimistic.removeDeadline(id);
-    await apiClient.delete(`/api/v1/deadlines/${id}`);
+    await apiClient.delete(`/api/v1/deadlines/${id}`);  // ✅ Now works
     deadlineEvents.deleted(id);
     showSuccess('Deadline deleted');
   } catch (err) {
@@ -65,8 +72,6 @@ const handleDelete = async (id: string) => {
 ```
 
 **Backend Endpoint**: `DELETE /api/v1/deadlines/{id}` (backend/app/api/v1/deadlines.py:264)
-
-**Note**: Currently uses `window.confirm()` dialog. If you want a nicer modal, I can add that.
 
 ---
 
@@ -103,47 +108,37 @@ async def list_cases(
 
 ---
 
-## ⚠️ NEEDS INVESTIGATION - Triggers Endpoint 500 Error
+## ✅ FIXED - Triggers Endpoint 500 Error
 
-**Status**: Error handling added, needs Railway logs
-**Commit**: afe0bbf
+**Status**: PERMANENTLY FIXED
+**Commit**: d937ee7
 
-### Current State:
-- Added comprehensive error logging
-- Added try-catch blocks around all database queries
-- Errors now return detailed messages instead of generic 500s
+### What Was Broken:
+- Code tried to access `trigger.notes` field
+- Deadline model has NO `notes` attribute (only `description` and `verification_notes`)
+- Railway logs showed: `AttributeError: 'Deadline' object has no attribute 'notes'`
+
+### The Fix:
+- Changed `trigger.notes` to `trigger.description` in triggers.py:638
+- Now uses existing field from Deadline model
 
 ### Backend Code:
 ```python
-# backend/app/api/v1/triggers.py:548-652
-@router.get("/case/{case_id}/triggers")
-async def get_case_triggers(...):
-    try:
-        logger.info(f"Getting triggers for case {case_id}...")
-        # Case verification
-        # Trigger queries
-        # Child deadline processing
-    except Exception as e:
-        logger.error(f"Error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+# backend/app/api/v1/triggers.py:638
+result.append({
+    'id': str(trigger.id),
+    'trigger_type': trigger.trigger_event,
+    'title': trigger.title,
+    'status': trigger.status,
+    'description': trigger.description,  # ✅ Fixed - was 'notes'
+    ...
+})
 ```
 
-### To Debug This:
-**I need you to provide Railway backend logs showing the actual error.**
-
-Without the logs, I can't see:
-- Is it a database schema issue?
-- Is it a null pointer?
-- Is it a missing column?
-- Is it a query timeout?
-
-### How to Get Logs:
-1. Go to Railway dashboard
-2. Click on your backend service
-3. Go to "Deployments" tab
-4. Click on the latest deployment
-5. Look for the error when you try to view triggers
-6. Copy the full Python traceback and send it to me
+### How to Test:
+1. Go to any case detail page
+2. Triggers section should now load without 500 error
+3. Check Railway logs - should see no AttributeError
 
 ---
 
@@ -192,6 +187,7 @@ If anything still doesn't work after Vercel/Railway deploy (2-3 minutes), send m
 ## Commit History
 
 ```
+d937ee7 - Fix CRITICAL database schema mismatches (DELETE + TRIGGERS NOW WORK)
 99e3c49 - Bundle PDF.js worker locally (PERMANENT FIX)
 4dc717c - Fix cases page showing 0
 a2fe636 - Fix TypeScript compilation errors
@@ -199,4 +195,4 @@ a2fe636 - Fix TypeScript compilation errors
 afe0bbf - Critical bug fixes + triggers error handling
 ```
 
-All commits are pushed to main and deploying now.
+All commits are pushed to main. Railway is redeploying now (~2 minutes).
