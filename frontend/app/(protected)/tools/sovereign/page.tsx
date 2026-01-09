@@ -1,15 +1,17 @@
 'use client';
 
 /**
- * Sovereign Graph Engine Demo Page
+ * Deadline Calculator - Federal/State Date Computation
  *
- * Full demonstration of the jurisdictional knowledge graph system:
- * - Jurisdiction tree navigation
- * - Rule set selection with cascading dependencies
- * - Date calculator with holiday awareness
+ * Sovereign Design System:
+ * - Dark terminal aesthetic
+ * - Dense data display
+ * - Full audit trail
+ * - Zero radius
  */
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { SovereignTreeGrid, SelectionState } from '@/components/sovereign';
 import {
   SovereignCalculator,
@@ -17,8 +19,19 @@ import {
   CountingMethod,
   ServiceMethod,
 } from '@/lib/sovereign-calculator';
+import {
+  Calculator,
+  ArrowLeft,
+  Calendar,
+  Clock,
+  CheckCircle,
+  ChevronRight,
+  Info,
+} from 'lucide-react';
 
-export default function SovereignDemoPage() {
+export default function DeadlineCalculatorPage() {
+  const router = useRouter();
+
   // Selection state from tree grid
   const [selection, setSelection] = useState<SelectionState | null>(null);
 
@@ -55,384 +68,264 @@ export default function SovereignDemoPage() {
   const holidays = calculator.getHolidays();
 
   return (
-    <div className="sovereign-demo">
-      <div className="demo-header">
-        <h1 className="font-serif text-2xl mb-2">Sovereign Graph Engine</h1>
-        <p className="text-ink-secondary text-sm">
-          "Graph Theory, Not Code Lists" - The jurisdictional knowledge graph for
-          legal deadline management.
-        </p>
-      </div>
-
-      {/* Main Grid */}
-      <div className="demo-grid">
-        {/* Left Column: Tree Grid */}
-        <div className="tree-section">
-          <div className="section-header">
-            <h2 className="font-serif">Jurisdiction Navigator</h2>
-            <p className="text-xs text-ink-muted">
-              Select a court to see applicable rule sets
-            </p>
-          </div>
-          <div className="tree-container">
-            <SovereignTreeGrid
-              onSelectionChange={handleSelectionChange}
-              showRuleDetails={true}
-            />
-          </div>
-        </div>
-
-        {/* Right Column: Calculator */}
-        <div className="calculator-section">
-          <div className="section-header">
-            <h2 className="font-serif">Deadline Calculator</h2>
-            <p className="text-xs text-ink-muted">
-              Calculate deadlines with holiday awareness
-            </p>
-          </div>
-
-          <div className="calculator-form panel">
-            <div className="panel-header">Calculate Deadline</div>
-            <div className="panel-body">
-              {/* Trigger Date */}
-              <div className="form-group">
-                <label className="form-label">Trigger Date</label>
-                <input
-                  type="date"
-                  value={triggerDate}
-                  onChange={(e) => setTriggerDate(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              {/* Days */}
-              <div className="form-group">
-                <label className="form-label">
-                  Days (negative = before trigger)
-                </label>
-                <input
-                  type="number"
-                  value={days}
-                  onChange={(e) => setDays(parseInt(e.target.value) || 0)}
-                  className="input"
-                />
-              </div>
-
-              {/* Counting Method */}
-              <div className="form-group">
-                <label className="form-label">Counting Method</label>
-                <select
-                  value={countingMethod}
-                  onChange={(e) =>
-                    setCountingMethod(e.target.value as CountingMethod)
-                  }
-                  className="input"
-                >
-                  <option value="CALENDAR">Calendar Days</option>
-                  <option value="BUSINESS">Business Days</option>
-                  <option value="COURT">Court Days</option>
-                  <option value="RETROGRADE">Retrograde (Before Trigger)</option>
-                </select>
-              </div>
-
-              {/* Service Method */}
-              <div className="form-group">
-                <label className="form-label">Service Method</label>
-                <select
-                  value={serviceMethod}
-                  onChange={(e) =>
-                    setServiceMethod(e.target.value as ServiceMethod)
-                  }
-                  className="input"
-                >
-                  <option value="PERSONAL">Personal Service (0 days)</option>
-                  <option value="CERTIFIED_MAIL">
-                    Certified Mail (+3 days Federal, +5 FL)
-                  </option>
-                  <option value="FIRST_CLASS_MAIL">
-                    First Class Mail (+3 days Federal, +5 FL)
-                  </option>
-                  <option value="ELECTRONIC">Electronic (+3 days Federal, 0 FL)</option>
-                </select>
-              </div>
-
-              {/* Calculate Button */}
-              <button
-                onClick={handleCalculate}
-                className="btn btn-primary btn-raised w-full mt-4"
-              >
-                Calculate Deadline
-              </button>
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* Header */}
+      <header className="bg-slate-900 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={() => router.push('/tools')}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3">
+              <Calculator className="w-6 h-6 text-cyan-400" />
+              <h1 className="text-2xl font-mono font-bold">DEADLINE CALCULATOR</h1>
+              <span className="px-2 py-0.5 bg-emerald-900 text-emerald-400 text-xs font-mono">ACTIVE</span>
             </div>
           </div>
+          <p className="text-slate-400 text-sm font-mono">
+            Calculate deadlines with federal/state holiday awareness, service day extensions, and full audit trail
+          </p>
+        </div>
+      </header>
 
-          {/* Calculation Result */}
-          {calculationResult && (
-            <div className="result-panel panel mt-4">
-              <div className="panel-header">
-                <span className="font-mono">CALCULATION RESULT</span>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: Tree Grid */}
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-700">
+              <div className="bg-slate-800 border-b border-slate-700 px-4 py-3">
+                <span className="font-mono text-sm text-slate-300">JURISDICTION TREE</span>
+                <p className="text-xs text-slate-500 mt-1">Select court to see applicable rule sets</p>
               </div>
-              <div className="panel-body">
-                {/* Deadline */}
-                <div className="result-row highlight">
-                  <span className="result-label">DEADLINE DATE:</span>
-                  <span className="result-value font-mono text-lg">
-                    {calculationResult.deadlineDate.toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </span>
+              <div className="p-4 max-h-[500px] overflow-y-auto">
+                <SovereignTreeGrid
+                  onSelectionChange={handleSelectionChange}
+                  showRuleDetails={true}
+                />
+              </div>
+            </div>
+
+            {/* Selection Summary */}
+            {selection && selection.selectedRuleSets.size > 0 && (
+              <div className="bg-cyan-900/30 border border-cyan-800 p-4">
+                <p className="text-sm font-mono text-cyan-400">
+                  {selection.selectedRuleSets.size} rule sets selected
+                  {selection.lockedRuleSets.size > 0 && (
+                    <span className="text-slate-400">
+                      {' '}(including {selection.lockedRuleSets.size} dependencies)
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Calculator */}
+          <div className="space-y-4">
+            {/* Calculator Form */}
+            <div className="bg-slate-900 border border-slate-700">
+              <div className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-cyan-400" />
+                <span className="font-mono text-sm text-slate-300">CALCULATE DEADLINE</span>
+              </div>
+              <div className="p-4 space-y-4">
+                {/* Trigger Date */}
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 uppercase mb-2">
+                    Trigger Date
+                  </label>
+                  <input
+                    type="date"
+                    value={triggerDate}
+                    onChange={(e) => setTriggerDate(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 text-white font-mono px-3 py-2 focus:outline-none focus:border-cyan-500"
+                  />
                 </div>
 
-                {/* Details */}
-                <div className="result-details">
-                  <div className="result-row">
-                    <span className="result-label">Trigger Date:</span>
-                    <span className="result-value font-mono">
-                      {calculationResult.triggerDate.toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="result-row">
-                    <span className="result-label">Base Days:</span>
-                    <span className="result-value font-mono">
-                      {calculationResult.baseDays}
-                    </span>
-                  </div>
-                  <div className="result-row">
-                    <span className="result-label">Service Days Added:</span>
-                    <span className="result-value font-mono">
-                      +{calculationResult.serviceDaysAdded}
-                    </span>
-                  </div>
-                  <div className="result-row">
-                    <span className="result-label">Weekends Skipped:</span>
-                    <span className="result-value font-mono">
-                      {calculationResult.weekendsSkipped}
-                    </span>
-                  </div>
-                  <div className="result-row">
-                    <span className="result-label">Holidays Skipped:</span>
-                    <span className="result-value font-mono">
-                      {calculationResult.holidaysSkipped}
-                    </span>
-                  </div>
-                  <div className="result-row">
-                    <span className="result-label">Counting Method:</span>
-                    <span className="result-value font-mono">
-                      {calculationResult.countingMethod}
-                    </span>
-                  </div>
+                {/* Days */}
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 uppercase mb-2">
+                    Days (negative = before trigger)
+                  </label>
+                  <input
+                    type="number"
+                    value={days}
+                    onChange={(e) => setDays(parseInt(e.target.value) || 0)}
+                    className="w-full bg-slate-800 border border-slate-600 text-white font-mono px-3 py-2 focus:outline-none focus:border-cyan-500"
+                  />
                 </div>
 
-                {/* Audit Log */}
-                <div className="audit-log">
-                  <div className="audit-header">AUDIT LOG</div>
-                  {calculationResult.auditLog.map((entry, idx) => (
-                    <div key={idx} className="audit-entry">
-                      <span className="audit-step">{entry.step}.</span>
-                      <span className="audit-action">[{entry.action}]</span>
-                      <span className="audit-notes">{entry.notes}</span>
+                {/* Counting Method */}
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 uppercase mb-2">
+                    Counting Method
+                  </label>
+                  <select
+                    value={countingMethod}
+                    onChange={(e) => setCountingMethod(e.target.value as CountingMethod)}
+                    className="w-full bg-slate-800 border border-slate-600 text-white font-mono px-3 py-2 focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="CALENDAR">Calendar Days</option>
+                    <option value="BUSINESS">Business Days</option>
+                    <option value="COURT">Court Days</option>
+                    <option value="RETROGRADE">Retrograde (Before Trigger)</option>
+                  </select>
+                </div>
+
+                {/* Service Method */}
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 uppercase mb-2">
+                    Service Method
+                  </label>
+                  <select
+                    value={serviceMethod}
+                    onChange={(e) => setServiceMethod(e.target.value as ServiceMethod)}
+                    className="w-full bg-slate-800 border border-slate-600 text-white font-mono px-3 py-2 focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="PERSONAL">Personal Service (0 days)</option>
+                    <option value="CERTIFIED_MAIL">Certified Mail (+3 days Federal, +5 FL)</option>
+                    <option value="FIRST_CLASS_MAIL">First Class Mail (+3 days Federal, +5 FL)</option>
+                    <option value="ELECTRONIC">Electronic (+3 days Federal, 0 FL)</option>
+                  </select>
+                </div>
+
+                {/* Calculate Button */}
+                <button
+                  onClick={handleCalculate}
+                  className="w-full bg-cyan-600 hover:bg-cyan-500 py-3 font-mono font-bold text-white transition-colors flex items-center justify-center gap-2"
+                >
+                  <Calculator className="w-4 h-4" />
+                  CALCULATE DEADLINE
+                </button>
+              </div>
+            </div>
+
+            {/* Calculation Result */}
+            {calculationResult && (
+              <div className="bg-slate-900 border border-slate-700">
+                <div className="bg-emerald-900 border-b border-emerald-800 px-4 py-3 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="font-mono text-sm text-emerald-300">CALCULATION RESULT</span>
+                </div>
+                <div className="p-4 space-y-4">
+                  {/* Main Result */}
+                  <div className="bg-slate-800 p-4 border-l-4 border-cyan-500">
+                    <p className="text-xs font-mono text-slate-400 uppercase mb-1">Deadline Date</p>
+                    <p className="text-2xl font-mono font-bold text-white">
+                      {calculationResult.deadlineDate.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+
+                  {/* Details Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-800 p-3">
+                      <p className="text-xs font-mono text-slate-500 uppercase">Trigger Date</p>
+                      <p className="font-mono text-white">
+                        {calculationResult.triggerDate.toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="bg-slate-800 p-3">
+                      <p className="text-xs font-mono text-slate-500 uppercase">Base Days</p>
+                      <p className="font-mono text-white">{calculationResult.baseDays}</p>
+                    </div>
+                    <div className="bg-slate-800 p-3">
+                      <p className="text-xs font-mono text-slate-500 uppercase">Service Days Added</p>
+                      <p className="font-mono text-cyan-400">+{calculationResult.serviceDaysAdded}</p>
+                    </div>
+                    <div className="bg-slate-800 p-3">
+                      <p className="text-xs font-mono text-slate-500 uppercase">Counting Method</p>
+                      <p className="font-mono text-white">{calculationResult.countingMethod}</p>
+                    </div>
+                    <div className="bg-slate-800 p-3">
+                      <p className="text-xs font-mono text-slate-500 uppercase">Weekends Skipped</p>
+                      <p className="font-mono text-amber-400">{calculationResult.weekendsSkipped}</p>
+                    </div>
+                    <div className="bg-slate-800 p-3">
+                      <p className="text-xs font-mono text-slate-500 uppercase">Holidays Skipped</p>
+                      <p className="font-mono text-amber-400">{calculationResult.holidaysSkipped}</p>
+                    </div>
+                  </div>
+
+                  {/* Audit Log */}
+                  <details className="bg-slate-800 border border-slate-700">
+                    <summary className="px-4 py-2 cursor-pointer text-sm font-mono text-slate-300">
+                      AUDIT LOG ({calculationResult.auditLog.length} steps)
+                    </summary>
+                    <div className="px-4 pb-3 space-y-1">
+                      {calculationResult.auditLog.map((entry, idx) => (
+                        <div key={idx} className="text-xs font-mono flex gap-2">
+                          <span className="text-slate-600">{entry.step}.</span>
+                          <span className="text-cyan-500">[{entry.action}]</span>
+                          <span className="text-slate-400">{entry.notes}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              </div>
+            )}
+
+            {/* Holiday Calendar */}
+            <details className="bg-slate-900 border border-slate-700">
+              <summary className="bg-slate-800 border-b border-slate-700 px-4 py-3 cursor-pointer flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <span className="font-mono text-sm text-slate-300">
+                  FEDERAL HOLIDAYS {new Date().getFullYear()}
+                </span>
+              </summary>
+              <div className="p-4 max-h-64 overflow-y-auto">
+                <div className="space-y-2">
+                  {holidays.map((holiday, idx) => (
+                    <div key={idx} className="flex items-center gap-4 text-sm">
+                      <span className="font-mono text-slate-500 w-20">
+                        {holiday.date.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <span className="text-slate-300">{holiday.name}</span>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Holiday Calendar */}
-          <div className="holiday-panel panel mt-4">
-            <div className="panel-header">
-              <span>Federal Holidays {new Date().getFullYear()}</span>
-            </div>
-            <div className="panel-body">
-              <div className="holiday-list">
-                {holidays.map((holiday, idx) => (
-                  <div key={idx} className="holiday-item">
-                    <span className="holiday-date font-mono">
-                      {holiday.date.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </span>
-                    <span className="holiday-name">{holiday.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </details>
           </div>
         </div>
-      </div>
 
-      {/* Selection Summary */}
-      {selection && selection.selectedRuleSets.size > 0 && (
-        <div className="selection-summary panel mt-4">
-          <div className="panel-header">Selection Summary</div>
-          <div className="panel-body">
-            <p className="text-sm">
-              <strong>{selection.selectedRuleSets.size}</strong> rule sets selected
-              (including <strong>{selection.lockedRuleSets.size}</strong> dependencies)
+        {/* Feature Cards */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900 border border-slate-800 p-4">
+            <Calendar className="w-5 h-5 text-cyan-400 mb-2" />
+            <h3 className="font-mono text-sm font-bold text-white mb-1">Holiday Awareness</h3>
+            <p className="text-xs text-slate-400">
+              Automatically skips federal and state holidays in calculations
+            </p>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 p-4">
+            <Clock className="w-5 h-5 text-amber-400 mb-2" />
+            <h3 className="font-mono text-sm font-bold text-white mb-1">Service Extensions</h3>
+            <p className="text-xs text-slate-400">
+              Adds correct service days based on Federal vs Florida rules
+            </p>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 p-4">
+            <Info className="w-5 h-5 text-rose-400 mb-2" />
+            <h3 className="font-mono text-sm font-bold text-white mb-1">Full Audit Trail</h3>
+            <p className="text-xs text-slate-400">
+              Every calculation step logged for professional documentation
             </p>
           </div>
         </div>
-      )}
-
-      {/* Styles */}
-      <style jsx>{`
-        .sovereign-demo {
-          padding: 0;
-          max-width: 100%;
-        }
-
-        .demo-header {
-          margin-bottom: 20px;
-          padding-bottom: 16px;
-          border-bottom: 2px solid var(--grid-line);
-        }
-
-        .demo-grid {
-          display: grid;
-          grid-template-columns: 1fr 400px;
-          gap: 20px;
-          height: calc(100vh - 200px);
-          min-height: 600px;
-        }
-
-        .tree-section {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-        }
-
-        .calculator-section {
-          display: flex;
-          flex-direction: column;
-          overflow-y: auto;
-        }
-
-        .section-header {
-          margin-bottom: 12px;
-        }
-
-        .section-header h2 {
-          font-size: 16px;
-          margin-bottom: 4px;
-        }
-
-        .tree-container {
-          flex: 1;
-          min-height: 0;
-        }
-
-        .form-group {
-          margin-bottom: 12px;
-        }
-
-        .form-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 600;
-          margin-bottom: 4px;
-          color: var(--ink-secondary);
-        }
-
-        .result-panel .panel-header {
-          background-color: var(--navy);
-          color: white;
-        }
-
-        .result-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 6px 0;
-          border-bottom: 1px solid var(--grid-line);
-        }
-
-        .result-row.highlight {
-          background-color: #EEF2FF;
-          padding: 12px;
-          margin: -16px -16px 12px -16px;
-          border-bottom: 2px solid var(--navy);
-        }
-
-        .result-label {
-          font-size: 11px;
-          color: var(--ink-secondary);
-          text-transform: uppercase;
-        }
-
-        .result-value {
-          font-weight: 600;
-        }
-
-        .result-details {
-          margin-top: 12px;
-        }
-
-        .audit-log {
-          margin-top: 16px;
-          padding-top: 12px;
-          border-top: 1px solid var(--grid-line);
-        }
-
-        .audit-header {
-          font-size: 10px;
-          font-weight: 600;
-          color: var(--ink-muted);
-          margin-bottom: 8px;
-        }
-
-        .audit-entry {
-          font-size: 11px;
-          font-family: 'JetBrains Mono', monospace;
-          padding: 2px 0;
-          color: var(--ink-secondary);
-        }
-
-        .audit-step {
-          color: var(--ink-muted);
-          margin-right: 4px;
-        }
-
-        .audit-action {
-          color: var(--navy);
-          margin-right: 8px;
-        }
-
-        .holiday-list {
-          max-height: 200px;
-          overflow-y: auto;
-        }
-
-        .holiday-item {
-          display: flex;
-          gap: 12px;
-          padding: 4px 0;
-          font-size: 12px;
-          border-bottom: 1px dotted var(--grid-line);
-        }
-
-        .holiday-date {
-          width: 60px;
-          color: var(--ink-muted);
-        }
-
-        .selection-summary {
-          background-color: #EEF2FF;
-        }
-
-        @media (max-width: 1024px) {
-          .demo-grid {
-            grid-template-columns: 1fr;
-            height: auto;
-          }
-
-          .tree-container {
-            height: 400px;
-          }
-        }
-      `}</style>
+      </main>
     </div>
   );
 }
