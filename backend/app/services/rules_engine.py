@@ -1494,6 +1494,128 @@ class RulesEngine:
 
         return applicable
 
+    def match_document_to_trigger(
+        self,
+        document_type: str,
+        jurisdiction: str = "florida_state",
+        court_type: str = "civil"
+    ) -> Dict[str, Any]:
+        """
+        SINGLE SOURCE OF TRUTH: Map document types to trigger events.
+
+        This is the authoritative method for determining if a document type
+        triggers rule-based deadline generation. Called by deadline_service.py
+        to avoid hardcoded duplicate logic.
+
+        Args:
+            document_type: Type of document (e.g., "Complaint", "Motion to Dismiss")
+            jurisdiction: "florida_state" or "federal"
+            court_type: "civil", "criminal", or "appellate"
+
+        Returns:
+            Dict with:
+                - matches_trigger: bool
+                - trigger_type: TriggerType or None
+                - trigger_type_str: str (for API responses)
+                - rule_set_code: str (e.g., "FL:RCP")
+                - expected_deadlines: int
+                - trigger_description: str
+                - matched_pattern: str (which keyword matched)
+        """
+        doc_type_lower = (document_type or "").lower()
+
+        # Document type to TriggerType mapping
+        # This is the SINGLE SOURCE OF TRUTH - no duplicates elsewhere
+        DOCUMENT_PATTERNS = [
+            # Complaint/Summons/Petition → COMPLAINT_SERVED
+            {
+                "patterns": ["complaint", "summons", "petition"],
+                "trigger_type": TriggerType.COMPLAINT_SERVED,
+                "description": "Commencement of Action - generates Answer deadline and filing requirements",
+            },
+            # Trial notices → TRIAL_DATE
+            {
+                "patterns": ["trial notice", "notice of trial", "order setting trial", "trial order"],
+                "trigger_type": TriggerType.TRIAL_DATE,
+                "description": "Trial Date Set - generates pretrial deadlines (witness lists, exhibits, jury instructions)",
+            },
+            # Motions → MOTION_FILED
+            {
+                "patterns": ["motion to dismiss", "motion for summary judgment", "motion to compel"],
+                "trigger_type": TriggerType.MOTION_FILED,
+                "exclude_patterns": ["response", "opposition", "reply"],
+                "description": "Motion Filed - generates Response deadline",
+            },
+            # Discovery → DISCOVERY_COMMENCED
+            {
+                "patterns": ["interrogator", "request for production", "request for admission", "rfp", "rfa"],
+                "trigger_type": TriggerType.DISCOVERY_COMMENCED,
+                "exclude_patterns": ["response", "answer"],
+                "description": "Discovery Request - generates 30-day response deadline",
+            },
+            # Orders → ORDER_ENTERED
+            {
+                "patterns": ["order granting", "order denying", "final judgment", "judgment"],
+                "trigger_type": TriggerType.ORDER_ENTERED,
+                "description": "Order Entered - generates post-judgment and appeal deadlines",
+            },
+            # Hearing → HEARING_SCHEDULED
+            {
+                "patterns": ["notice of hearing", "hearing notice", "scheduling order"],
+                "trigger_type": TriggerType.HEARING_SCHEDULED,
+                "description": "Hearing Scheduled - generates hearing prep deadlines",
+            },
+        ]
+
+        # Check each pattern
+        for pattern_info in DOCUMENT_PATTERNS:
+            patterns = pattern_info["patterns"]
+            exclude_patterns = pattern_info.get("exclude_patterns", [])
+
+            # Check if any pattern matches
+            matched_pattern = None
+            for pattern in patterns:
+                if pattern in doc_type_lower:
+                    matched_pattern = pattern
+                    break
+
+            if not matched_pattern:
+                continue
+
+            # Check exclusions
+            if any(excl in doc_type_lower for excl in exclude_patterns):
+                continue
+
+            trigger_type = pattern_info["trigger_type"]
+
+            # Get applicable rules to count expected deadlines
+            applicable_rules = self.get_applicable_rules(jurisdiction, court_type, trigger_type)
+            expected_deadlines = sum(len(r.dependent_deadlines) for r in applicable_rules)
+
+            # Determine rule set code
+            rule_set_code = "FL:RCP" if jurisdiction == "florida_state" else "FRCP"
+
+            return {
+                "matches_trigger": True,
+                "trigger_type": trigger_type,
+                "trigger_type_str": trigger_type.value,
+                "rule_set_code": rule_set_code,
+                "expected_deadlines": expected_deadlines,
+                "trigger_description": pattern_info["description"],
+                "matched_pattern": matched_pattern,
+            }
+
+        # No match found
+        return {
+            "matches_trigger": False,
+            "trigger_type": None,
+            "trigger_type_str": None,
+            "rule_set_code": None,
+            "expected_deadlines": 0,
+            "trigger_description": "No standard rule template found - will extract deadlines from document text",
+            "matched_pattern": None,
+        }
+
     def calculate_dependent_deadlines(
         self,
         trigger_date: date,
