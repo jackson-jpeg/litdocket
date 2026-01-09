@@ -47,6 +47,7 @@ export interface Deadline {
   is_dependent?: boolean;
   trigger_event?: string;
   source_document?: string;
+  service_method?: string;  // 'electronic' | 'mail' | 'personal'
   created_at: string;
 }
 
