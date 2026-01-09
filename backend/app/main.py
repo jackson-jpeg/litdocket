@@ -26,9 +26,18 @@ app = FastAPI(
 )
 
 # CORS middleware - Strict Production Configuration
+# Explicit origins list to avoid any config loading issues
+CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://litdocket.com",
+    "https://www.litdocket.com",
+    "https://litdocket-production.up.railway.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
