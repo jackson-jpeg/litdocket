@@ -10,8 +10,8 @@ import re
 from app.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
-from app.utils.florida_holidays import is_business_day, adjust_to_business_day, get_all_court_holidays
-from app.utils.florida_jurisdictions import identify_jurisdiction, get_applicable_rules
+from app.utils.florida_holidays import is_business_day, adjust_to_business_day
+from app.utils.florida_jurisdictions import identify_jurisdiction  # get_applicable_rules removed - using rules_engine
 from app.services.rules_engine import rules_engine, TriggerType
 
 

@@ -17,6 +17,9 @@ import enum
 
 from app.database import Base
 
+# Import centralized enums (SINGLE SOURCE OF TRUTH)
+from app.models.enums import TriggerType, DeadlinePriority, CalculationMethod
+
 
 class JurisdictionType(enum.Enum):
     """Types of jurisdictions"""
@@ -45,41 +48,6 @@ class DependencyType(enum.Enum):
     INHERITS = "inherits"         # Child inherits from parent
     SUPPLEMENTS = "supplements"   # Adds to but doesn't replace
     OVERRIDES = "overrides"       # Local rule overrides parent on conflict
-
-
-class TriggerType(enum.Enum):
-    """Types of trigger events for deadline calculation"""
-    CASE_FILED = "case_filed"
-    SERVICE_COMPLETED = "service_completed"
-    COMPLAINT_SERVED = "complaint_served"
-    ANSWER_DUE = "answer_due"
-    DISCOVERY_COMMENCED = "discovery_commenced"
-    DISCOVERY_DEADLINE = "discovery_deadline"
-    DISPOSITIVE_MOTIONS_DUE = "dispositive_motions_due"
-    PRETRIAL_CONFERENCE = "pretrial_conference"
-    TRIAL_DATE = "trial_date"
-    HEARING_SCHEDULED = "hearing_scheduled"
-    MOTION_FILED = "motion_filed"
-    ORDER_ENTERED = "order_entered"
-    APPEAL_FILED = "appeal_filed"
-    MEDIATION_SCHEDULED = "mediation_scheduled"
-    CUSTOM_TRIGGER = "custom_trigger"
-
-
-class DeadlinePriority(enum.Enum):
-    """Deadline priority levels"""
-    INFORMATIONAL = "informational"
-    STANDARD = "standard"
-    IMPORTANT = "important"
-    CRITICAL = "critical"
-    FATAL = "fatal"  # Missing = malpractice
-
-
-class CalculationMethod(enum.Enum):
-    """How to calculate deadline dates"""
-    CALENDAR_DAYS = "calendar_days"
-    COURT_DAYS = "court_days"      # Excludes weekends and holidays
-    BUSINESS_DAYS = "business_days"
 
 
 class Jurisdiction(Base):

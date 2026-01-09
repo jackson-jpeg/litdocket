@@ -10,14 +10,16 @@ Supports both:
 2. Database-loaded rule templates (from jurisdiction system)
 """
 # CRITICAL: 'Any' must be imported for type hints on line 2369+
-from typing import Dict, List, Optional, Tuple, Any, Union, TYPE_CHECKING
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from datetime import date, timedelta
 from dataclasses import dataclass
-from enum import Enum
 import logging
 
+# Import centralized enums (SINGLE SOURCE OF TRUTH)
+from app.models.enums import TriggerType, DeadlinePriority
+
 # Import authoritative legal rules constants
-from app.constants.legal_rules import get_service_extension_days, get_rule_citation
+from app.constants.legal_rules import get_service_extension_days
 from app.utils.deadline_calculator import (
     AuthoritativeDeadlineCalculator,
     CalculationMethod,
@@ -29,32 +31,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
-class DeadlinePriority(Enum):
-    """Deadline priority levels"""
-    INFORMATIONAL = "informational"  # FYI only
-    STANDARD = "standard"  # Normal deadline
-    IMPORTANT = "important"  # Needs attention
-    CRITICAL = "critical"  # Mission critical
-    FATAL = "fatal"  # Missing this = malpractice
-
-
-class TriggerType(Enum):
-    """Types of trigger events"""
-    CASE_FILED = "case_filed"
-    SERVICE_COMPLETED = "service_completed"
-    COMPLAINT_SERVED = "complaint_served"
-    ANSWER_DUE = "answer_due"
-    DISCOVERY_COMMENCED = "discovery_commenced"
-    DISCOVERY_DEADLINE = "discovery_deadline"
-    DISPOSITIVE_MOTIONS_DUE = "dispositive_motions_due"
-    PRETRIAL_CONFERENCE = "pretrial_conference"
-    TRIAL_DATE = "trial_date"
-    HEARING_SCHEDULED = "hearing_scheduled"
-    MOTION_FILED = "motion_filed"
-    ORDER_ENTERED = "order_entered"
-    APPEAL_FILED = "appeal_filed"
-    CUSTOM_TRIGGER = "custom_trigger"
+# Re-export enums for backwards compatibility
+# Other modules can still do: from app.services.rules_engine import TriggerType
+__all__ = ['TriggerType', 'DeadlinePriority', 'rules_engine', 'RulesEngine']
 
 
 @dataclass
@@ -1621,8 +1600,8 @@ class RulesEngine:
         trigger_date: date,
         rule_template: RuleTemplate,
         service_method: str = "email",
-        case_context: Optional[Dict] = None
-    ) -> List[Dict]:
+        case_context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Calculate all dependent deadlines from a trigger event with 10/10 legal defensibility
 
@@ -2316,7 +2295,7 @@ class RulesEngine:
 
         return db_templates
 
-    def _map_rule_set_to_jurisdiction(self, rule_set) -> str:
+    def _map_rule_set_to_jurisdiction(self, rule_set: Any) -> str:
         """Map a RuleSet to a jurisdiction string for the rules engine"""
         code = rule_set.code.upper()
 
@@ -2456,8 +2435,8 @@ class DatabaseRulesEngine:
         trigger_date: date,
         rule_template: RuleTemplate,
         service_method: str = "email",
-        case_context: Optional[Dict] = None
-    ) -> List[Dict]:
+        case_context: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """Calculate deadlines (delegates to base engine)"""
         return self._base_engine.calculate_dependent_deadlines(
             trigger_date, rule_template, service_method, case_context
@@ -2724,7 +2703,7 @@ class DatabaseRulesEngine:
 
         return rule_sets
 
-    def _resolve_rule_set_dependencies(self, rule_sets: List) -> List:
+    def _resolve_rule_set_dependencies(self, rule_sets: List[Any]) -> List[Any]:
         """
         Resolve dependencies and build complete list of rule sets.
 
@@ -2760,7 +2739,7 @@ class DatabaseRulesEngine:
 
         return resolved
 
-    def _convert_db_template_to_dataclass(self, db_template) -> Optional[RuleTemplate]:
+    def _convert_db_template_to_dataclass(self, db_template: Any) -> Optional[RuleTemplate]:
         """Convert a database RuleTemplate to the dataclass RuleTemplate"""
         try:
             from app.models.jurisdiction import RuleTemplateDeadline
@@ -2812,7 +2791,7 @@ class DatabaseRulesEngine:
             logger.error(f"Error converting DB template {db_template.id}: {e}")
             return None
 
-    def _map_case_jurisdiction(self, case) -> str:
+    def _map_case_jurisdiction(self, case: Any) -> str:
         """Map case jurisdiction field to rules engine jurisdiction string"""
         juris = (case.jurisdiction or '').lower()
         if juris in ['federal', 'florida_federal']:
@@ -2825,8 +2804,8 @@ class DatabaseRulesEngine:
 
     def detect_conflicts(
         self,
-        rule_set_a,
-        rule_set_b,
+        rule_set_a: Any,
+        rule_set_b: Any,
         trigger_type: Optional[TriggerType] = None
     ) -> List[Dict[str, Any]]:
         """
@@ -2959,7 +2938,7 @@ class DatabaseRulesEngine:
                 normalized = normalized[:-len(suffix)]
         return normalized.replace('  ', ' ')
 
-    def _resolve_conflict(self, rule_set_a, rule_set_b) -> str:
+    def _resolve_conflict(self, rule_set_a: Any, rule_set_b: Any) -> str:
         """
         Determine which rule set takes precedence in a conflict.
 
