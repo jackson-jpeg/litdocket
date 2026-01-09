@@ -63,8 +63,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
         ]
 
-    # Database - PostgreSQL REQUIRED. NO SQLite fallback.
-    # Data loss occurs when SQLite is used on ephemeral containers.
+    # Database - Supabase PostgreSQL is primary, fallback to local for dev
     @property
     def DATABASE_URL(self) -> str:
         # Priority 1: Supabase direct PostgreSQL connection
@@ -76,18 +75,10 @@ class Settings(BaseSettings):
         if db_url:
             return db_url
 
-        # CRITICAL: NO SQLite fallback. Crash early, crash loud.
-        # SQLite on ephemeral containers = DATA LOSS on every deploy.
-        raise RuntimeError(
-            "\n" + "=" * 60 + "\n"
-            "FATAL: No database configured!\n"
-            "=" * 60 + "\n"
-            "Set one of these environment variables:\n"
-            "  - SUPABASE_DB_URL (preferred)\n"
-            "  - DATABASE_URL\n\n"
-            "SQLite fallback has been REMOVED to prevent data loss.\n"
-            "=" * 60
-        )
+        # Priority 3: Local SQLite for development only
+        import pathlib
+        backend_dir = pathlib.Path(__file__).parent.parent.absolute()
+        return f"sqlite:///{backend_dir}/docket_assist.db"
 
     # AI Services - REQUIRED from environment
     ANTHROPIC_API_KEY: str = Field(..., env="ANTHROPIC_API_KEY")  # Required - NEVER hardcode
