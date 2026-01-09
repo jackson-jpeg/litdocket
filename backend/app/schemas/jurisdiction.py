@@ -409,6 +409,51 @@ class TriggerEventResponse(BaseModel):
     rule_sets_applied: List[str]
 
 
+# ============================================================
+# Hierarchy Schemas (CompuLaw-style cascading dropdowns)
+# ============================================================
+
+class HierarchyNode(BaseModel):
+    """A node in the jurisdiction hierarchy tree"""
+    id: str
+    code: str
+    name: str
+    level: int  # 1=System, 2=Jurisdiction, 3=Court, 4=Judge
+    level_name: str  # "system", "jurisdiction", "court", "judge"
+    parent_id: Optional[str] = None
+    children: List['HierarchyNode'] = []
+    metadata: Optional[Dict[str, Any]] = None
+    rule_set_codes: List[str] = []  # Applicable rule sets at this level
+
+
+class JurisdictionHierarchyResponse(BaseModel):
+    """Full jurisdiction hierarchy for cascading dropdowns"""
+    systems: List[HierarchyNode]
+    last_updated: datetime
+
+
+class CaseJurisdictionUpdate(BaseModel):
+    """Request to update a case's jurisdiction (triggers Retroactive Ripple)"""
+    jurisdiction_id: Optional[str] = None
+    court_location_id: Optional[str] = None
+    judge: Optional[str] = None
+    # If true, recalculate all deadlines with new jurisdiction's rules
+    recalculate_deadlines: bool = True
+
+
+class JurisdictionChangeResult(BaseModel):
+    """Result of a jurisdiction change with Retroactive Ripple"""
+    case_id: str
+    previous_jurisdiction: Optional[str]
+    new_jurisdiction: Optional[str]
+    deadlines_updated: int
+    deadlines_removed: int
+    deadlines_added: int
+    audit_message: str
+    warnings: List[str] = []
+
+
 # Fix forward references
+HierarchyNode.model_rebuild()
 JurisdictionWithChildren.model_rebuild()
 RuleSetWithDependencies.model_rebuild()

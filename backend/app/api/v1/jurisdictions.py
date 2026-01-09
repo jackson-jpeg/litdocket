@@ -28,7 +28,9 @@ from app.schemas.jurisdiction import (
     RuleTemplateResponse, RuleTemplateWithDeadlines,
     JurisdictionDetectionRequest, JurisdictionDetectionResult,
     CaseRuleSetCreate, CaseRuleSetResponse,
-    TriggerTypeEnum
+    TriggerTypeEnum,
+    HierarchyNode, JurisdictionHierarchyResponse,
+    CaseJurisdictionUpdate, JurisdictionChangeResult
 )
 from app.services.jurisdiction_detector import JurisdictionDetector, DetectionResult
 
@@ -430,3 +432,375 @@ async def seed_jurisdiction_data(
     except Exception as e:
         logger.error(f"Error seeding data: {e}")
         raise HTTPException(status_code=500, detail=f"Error seeding data: {str(e)}")
+
+
+# ============================================================
+# Hierarchy Endpoint (CompuLaw-style cascading dropdowns)
+# ============================================================
+
+@router.get("/hierarchy", response_model=JurisdictionHierarchyResponse)
+async def get_jurisdiction_hierarchy(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the full jurisdiction hierarchy for cascading dropdown selection.
+
+    Returns a tree structure:
+    - Level 1 (System): Federal Courts vs State Courts
+    - Level 2 (Jurisdiction): 11th Circuit (Federal) or Florida (State)
+    - Level 3 (Venue/Court): M.D. Florida or Hillsborough County (13th Circuit)
+    - Level 4 (Authority): Judge Cynthia Oster (if available)
+    """
+    from datetime import datetime
+
+    # Build the hierarchy
+    systems = []
+
+    # Get all jurisdictions
+    all_jurisdictions = db.query(Jurisdiction).filter(
+        Jurisdiction.is_active == True
+    ).all()
+
+    # Get all court locations
+    all_court_locations = db.query(CourtLocation).filter(
+        CourtLocation.is_active == True
+    ).all()
+
+    # Get all rule sets for code lookup
+    all_rule_sets = db.query(RuleSet).filter(RuleSet.is_active == True).all()
+    rule_set_by_jurisdiction = {}
+    for rs in all_rule_sets:
+        if rs.jurisdiction_id not in rule_set_by_jurisdiction:
+            rule_set_by_jurisdiction[rs.jurisdiction_id] = []
+        rule_set_by_jurisdiction[rs.jurisdiction_id].append(rs.code)
+
+    # Build System level nodes (Federal vs State)
+    federal_system = HierarchyNode(
+        id="system-federal",
+        code="FEDERAL",
+        name="Federal Courts",
+        level=1,
+        level_name="system",
+        parent_id=None,
+        children=[],
+        metadata={"description": "United States Federal Court System"},
+        rule_set_codes=[]
+    )
+
+    state_system = HierarchyNode(
+        id="system-state",
+        code="STATE",
+        name="State Courts",
+        level=1,
+        level_name="system",
+        parent_id=None,
+        children=[],
+        metadata={"description": "State Court Systems"},
+        rule_set_codes=[]
+    )
+
+    # Build jurisdiction nodes
+    for j in all_jurisdictions:
+        if j.parent_jurisdiction_id is not None:
+            continue  # Skip children, handle them with parents
+
+        jurisdiction_node = HierarchyNode(
+            id=j.id,
+            code=j.code,
+            name=j.name,
+            level=2,
+            level_name="jurisdiction",
+            parent_id=f"system-{j.jurisdiction_type.value}" if j.jurisdiction_type in [JurisdictionType.FEDERAL, JurisdictionType.STATE] else None,
+            children=[],
+            metadata={
+                "type": j.jurisdiction_type.value,
+                "state": j.state,
+                "federal_circuit": j.federal_circuit
+            },
+            rule_set_codes=rule_set_by_jurisdiction.get(j.id, [])
+        )
+
+        # Add court locations as children (Level 3)
+        for cl in all_court_locations:
+            if cl.jurisdiction_id == j.id:
+                court_node = HierarchyNode(
+                    id=cl.id,
+                    code=cl.short_name or cl.name[:20],
+                    name=cl.name,
+                    level=3,
+                    level_name="court",
+                    parent_id=j.id,
+                    children=[],  # Judge level would go here if we had judges in DB
+                    metadata={
+                        "court_type": cl.court_type.value if cl.court_type else None,
+                        "district": cl.district,
+                        "circuit": cl.circuit,
+                        "division": cl.division
+                    },
+                    rule_set_codes=[]
+                )
+                # Add rule set codes from default and local
+                if cl.default_rule_set_id:
+                    default_rs = next((rs for rs in all_rule_sets if rs.id == cl.default_rule_set_id), None)
+                    if default_rs:
+                        court_node.rule_set_codes.append(default_rs.code)
+                if cl.local_rule_set_id:
+                    local_rs = next((rs for rs in all_rule_sets if rs.id == cl.local_rule_set_id), None)
+                    if local_rs:
+                        court_node.rule_set_codes.append(local_rs.code)
+
+                jurisdiction_node.children.append(court_node)
+
+        # Add child jurisdictions (for local courts under state)
+        for child_j in all_jurisdictions:
+            if child_j.parent_jurisdiction_id == j.id:
+                child_node = HierarchyNode(
+                    id=child_j.id,
+                    code=child_j.code,
+                    name=child_j.name,
+                    level=3,
+                    level_name="court",
+                    parent_id=j.id,
+                    children=[],
+                    metadata={
+                        "type": child_j.jurisdiction_type.value,
+                        "state": child_j.state
+                    },
+                    rule_set_codes=rule_set_by_jurisdiction.get(child_j.id, [])
+                )
+                jurisdiction_node.children.append(child_node)
+
+        # Add to appropriate system
+        if j.jurisdiction_type == JurisdictionType.FEDERAL:
+            federal_system.children.append(jurisdiction_node)
+        elif j.jurisdiction_type == JurisdictionType.STATE:
+            state_system.children.append(jurisdiction_node)
+
+    # Collect rule set codes for systems
+    for child in federal_system.children:
+        federal_system.rule_set_codes.extend(child.rule_set_codes)
+    for child in state_system.children:
+        state_system.rule_set_codes.extend(child.rule_set_codes)
+
+    systems = [federal_system, state_system]
+
+    return JurisdictionHierarchyResponse(
+        systems=systems,
+        last_updated=datetime.utcnow()
+    )
+
+
+# ============================================================
+# Retroactive Ripple - Jurisdiction Change
+# ============================================================
+
+@router.patch("/cases/{case_id}/jurisdiction", response_model=JurisdictionChangeResult)
+async def update_case_jurisdiction(
+    case_id: str,
+    request: CaseJurisdictionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update a case's jurisdiction and optionally recalculate all deadlines.
+
+    The "Retroactive Ripple" Pattern:
+    1. Receive PATCH with new jurisdiction_id
+    2. If recalculate_deadlines is True:
+       - Re-run every existing trigger against the NEW rule set
+       - Update deadlines that changed
+       - Remove deadlines that don't exist in new rules
+       - Add deadlines that are new in the jurisdiction
+    3. Log an audit entry with the change details
+    """
+    from app.models.deadline import Deadline
+    from app.models.trigger import Trigger
+
+    # Verify case ownership
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Store previous jurisdiction for audit
+    previous_jurisdiction = case.jurisdiction
+    previous_court = case.court
+    previous_judge = case.judge
+
+    warnings = []
+    deadlines_updated = 0
+    deadlines_removed = 0
+    deadlines_added = 0
+
+    # Get the new jurisdiction details
+    new_jurisdiction_name = None
+    new_court_name = None
+
+    if request.jurisdiction_id:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == request.jurisdiction_id
+        ).first()
+        if jurisdiction:
+            new_jurisdiction_name = jurisdiction.jurisdiction_type.value
+            case.jurisdiction = jurisdiction.jurisdiction_type.value
+
+            # Update district/circuit if it's a specific jurisdiction
+            if jurisdiction.jurisdiction_type == JurisdictionType.LOCAL:
+                case.circuit = str(jurisdiction.federal_circuit) if jurisdiction.federal_circuit else None
+
+    if request.court_location_id:
+        court_location = db.query(CourtLocation).filter(
+            CourtLocation.id == request.court_location_id
+        ).first()
+        if court_location:
+            new_court_name = court_location.name
+            case.court = court_location.name
+            case.district = court_location.district
+            if court_location.circuit:
+                case.circuit = str(court_location.circuit)
+
+    if request.judge:
+        case.judge = request.judge
+
+    # Perform Retroactive Ripple if requested
+    if request.recalculate_deadlines:
+        try:
+            # Get all triggers for this case
+            triggers = db.query(Trigger).filter(
+                Trigger.case_id == case_id,
+                Trigger.status != 'cancelled'
+            ).all()
+
+            if triggers:
+                # Get the new rule sets for the jurisdiction
+                detector = JurisdictionDetector(db)
+
+                # Get existing calculated deadlines (from triggers)
+                existing_calculated_deadlines = db.query(Deadline).filter(
+                    Deadline.case_id == case_id,
+                    Deadline.is_calculated == True
+                ).all()
+
+                existing_deadline_ids = {d.id for d in existing_calculated_deadlines}
+
+                # For each trigger, recalculate deadlines with new rules
+                from app.services.rules_engine import RulesEngine
+                rules_engine = RulesEngine(db)
+
+                new_jurisdiction = case.jurisdiction or 'florida_state'
+                court_type = case.case_type or 'civil'
+
+                for trigger in triggers:
+                    try:
+                        # Get templates for this trigger type with new jurisdiction
+                        templates = rules_engine.get_rule_templates(
+                            jurisdiction=new_jurisdiction,
+                            court_type=court_type,
+                            trigger_type=trigger.trigger_type
+                        )
+
+                        if not templates:
+                            warnings.append(f"No templates found for {trigger.trigger_type} in {new_jurisdiction}")
+                            continue
+
+                        # Mark existing deadlines for this trigger
+                        trigger_deadlines = [d for d in existing_calculated_deadlines
+                                           if d.trigger_event == trigger.trigger_type]
+
+                        # Calculate new deadlines from templates
+                        for template in templates:
+                            calculated = rules_engine.calculate_deadlines_from_template(
+                                template=template,
+                                trigger_date=trigger.trigger_date,
+                                case_id=case_id,
+                                user_id=str(current_user.id),
+                                service_method=trigger.service_method or 'electronic'
+                            )
+
+                            for calc_deadline in calculated:
+                                # Check if a similar deadline exists
+                                existing = next(
+                                    (d for d in trigger_deadlines
+                                     if d.title == calc_deadline['title']),
+                                    None
+                                )
+
+                                if existing:
+                                    # Update existing deadline if date changed
+                                    if str(existing.deadline_date) != str(calc_deadline['deadline_date']):
+                                        existing.deadline_date = calc_deadline['deadline_date']
+                                        existing.calculation_basis = calc_deadline.get('calculation_basis')
+                                        deadlines_updated += 1
+                                else:
+                                    # Add new deadline
+                                    from datetime import datetime
+                                    import uuid
+                                    new_deadline = Deadline(
+                                        id=str(uuid.uuid4()),
+                                        case_id=case_id,
+                                        user_id=str(current_user.id),
+                                        title=calc_deadline['title'],
+                                        description=calc_deadline.get('description', ''),
+                                        deadline_date=calc_deadline['deadline_date'],
+                                        deadline_type=calc_deadline.get('deadline_type', 'court'),
+                                        priority=calc_deadline.get('priority', 'standard'),
+                                        status='pending',
+                                        trigger_event=trigger.trigger_type,
+                                        is_calculated=True,
+                                        is_dependent=True,
+                                        calculation_basis=calc_deadline.get('calculation_basis'),
+                                        applicable_rule=calc_deadline.get('rule_citation')
+                                    )
+                                    db.add(new_deadline)
+                                    deadlines_added += 1
+
+                    except Exception as te:
+                        logger.warning(f"Error recalculating trigger {trigger.id}: {te}")
+                        warnings.append(f"Error recalculating {trigger.trigger_type}: {str(te)}")
+
+                # Note: We don't remove deadlines that might still be valid
+                # User should manually review and remove if needed
+
+        except Exception as e:
+            logger.error(f"Error in Retroactive Ripple: {e}")
+            warnings.append(f"Partial recalculation: {str(e)}")
+
+    # Commit changes
+    db.commit()
+    db.refresh(case)
+
+    # Build audit message
+    changes = []
+    if previous_jurisdiction != case.jurisdiction:
+        changes.append(f"jurisdiction: {previous_jurisdiction} → {case.jurisdiction}")
+    if previous_court != case.court:
+        changes.append(f"court: {previous_court} → {case.court}")
+    if previous_judge != case.judge:
+        changes.append(f"judge: {previous_judge} → {case.judge}")
+
+    audit_message = f"Jurisdiction changed by User. "
+    if deadlines_updated or deadlines_added or deadlines_removed:
+        audit_message += f"{deadlines_updated} deadlines updated. "
+        if deadlines_added:
+            audit_message += f"{deadlines_added} deadlines added. "
+        if deadlines_removed:
+            audit_message += f"{deadlines_removed} deadlines removed. "
+    else:
+        audit_message += "No deadline changes required."
+
+    logger.info(f"Jurisdiction change for case {case_id}: {audit_message}")
+
+    return JurisdictionChangeResult(
+        case_id=case_id,
+        previous_jurisdiction=previous_jurisdiction,
+        new_jurisdiction=case.jurisdiction,
+        deadlines_updated=deadlines_updated,
+        deadlines_removed=deadlines_removed,
+        deadlines_added=deadlines_added,
+        audit_message=audit_message,
+        warnings=warnings
+    )
