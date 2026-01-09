@@ -6,493 +6,528 @@
 @import 'react-pdf/dist/Page/AnnotationLayer.css';
 @import 'react-pdf/dist/Page/TextLayer.css';
 
-/* Google Fonts - IBM Plex Mono for data, Merriweather for display */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Merriweather:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap');
+/* Google Fonts - Sovereign Typography Stack */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Merriweather:wght@400;700;900&display=swap');
 
 /* ============================================
-   LEGACY MODERN DESIGN SYSTEM
-   "Utilitarian Authority" - Windows 95/IBM OS2 Aesthetic
+   SOVEREIGN DESIGN SYSTEM
+   "Density is Reliability" - Neo-Enterprise
    ============================================ */
 
 :root {
-  /* Surface colors - Enterprise Greys */
-  --surface: #ECE9D8;
-  --surface-light: #F5F5F5;
-  --surface-panel: #FFFFFF;
-  --surface-dark: #D4D0C8;
+  /* Paper & Steel Palette */
+  --canvas: #ECE9D8;
+  --steel: #F2F2F2;
+  --paper: #FFFCF9;
+  --paper-white: #FFFFFF;
 
-  /* Primary - Navy/IBM Blue */
-  --navy: #000080;
-  --navy-deep: #003366;
-  --navy-light: #4169E1;
+  /* Ink */
+  --ink: #111111;
+  --ink-secondary: #555555;
+  --ink-muted: #888888;
 
-  /* Status - Dark, Professional */
-  --status-filed: #006400;
-  --status-overdue: #8B0000;
-  --status-warning: #B8860B;
-  --status-info: #000080;
+  /* Accents */
+  --navy: #0A2540;
+  --navy-light: #1a3a5c;
+  --navy-dark: #061829;
+  --alert: #B91C1C;
+  --amber: #D97706;
+  --success: #15803D;
 
-  /* Bevel borders for 3D effects */
-  --bevel-light: #FFFFFF;
-  --bevel-dark: #808080;
-  --bevel-darker: #404040;
-  --bevel-highlight: #DFDFDF;
+  /* Grid */
+  --grid-line: #E5E5E5;
+  --grid-header: #F5F5F5;
+  --grid-zebra: #F9FAFB;
 
-  /* Enterprise greys */
-  --grey-900: #161616;
-  --grey-800: #262626;
-  --grey-700: #393939;
-  --grey-600: #525252;
-  --grey-500: #6f6f6f;
-  --grey-400: #8d8d8d;
-  --grey-300: #a8a8a8;
-  --grey-200: #c6c6c6;
-  --grey-100: #e0e0e0;
-  --grey-50: #f4f4f4;
+  /* Terminal */
+  --terminal-bg: #1E1E1E;
+  --terminal-green: #10B981;
+  --terminal-amber: #F59E0B;
+
+  /* Micro-borders for depth */
+  --border-light: #D4D4D4;
+  --border-dark: #888888;
 }
 
 /* ============================================
    BASE STYLES
    ============================================ */
 
+* {
+  /* Enforce zero radius globally */
+  border-radius: 0 !important;
+}
+
+html {
+  overflow: hidden;
+  height: 100%;
+}
+
 body {
-  color: var(--grey-900);
-  background-color: var(--surface);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  color: var(--ink);
+  background-color: var(--canvas);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  height: 100%;
+  overflow: hidden;
 }
 
-/* Serif for headings - authoritative, like court orders */
-h1, h2, h3, h4, h5, h6, .font-serif, .font-display {
-  font-family: 'Merriweather', Georgia, 'Times New Roman', Times, serif;
+/* Authority Font - Serif for headings */
+h1, h2, h3, .font-serif, .font-display {
+  font-family: 'Merriweather', Georgia, serif;
   font-weight: 700;
+  color: var(--ink);
 }
 
-/* Monospace for data, numbers, dates, docket numbers */
-.font-mono, .data-value, .docket-number {
-  font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
+/* Data Font - Monospace for numbers, dates, codes */
+.font-mono, code, .data-value, .case-number, .date-display {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-feature-settings: 'tnum' 1; /* Tabular numbers */
 }
 
 /* ============================================
-   COMPONENT LAYER - LEGACY MODERN COMPONENTS
+   COMPONENT LAYER
    ============================================ */
 
 @layer components {
+
   /* ==========================================
-     BEVELED BUTTONS - 3D Windows 95 Style
+     BUTTONS - Sovereign Style
      ========================================== */
-  .btn-beveled {
+
+  .btn {
     @apply inline-flex items-center justify-center px-4 py-2;
     @apply text-sm font-medium;
-    @apply bg-surface-dark text-grey-900;
-    border: 2px solid;
-    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+    @apply transition-none; /* No smooth transitions - instant feedback */
+    border: 1px solid var(--border-dark);
     cursor: pointer;
-    transition: none; /* No smooth transitions - instant feedback */
   }
 
-  .btn-beveled:hover {
-    @apply bg-surface;
+  .btn-primary {
+    @apply btn;
+    background-color: var(--navy);
+    color: white;
+    border-color: var(--navy-dark);
   }
 
-  .btn-beveled:active {
-    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
-    @apply bg-surface-dark;
+  .btn-primary:hover {
+    background-color: var(--navy-light);
   }
 
-  .btn-beveled:disabled {
-    @apply opacity-50 cursor-not-allowed;
+  .btn-primary:active {
+    background-color: var(--navy-dark);
   }
 
-  /* Primary Navy Button */
-  .btn-beveled-primary {
-    @apply btn-beveled;
-    @apply bg-navy text-white;
-    border-color: #4169E1 #00004d #00004d #4169E1;
+  .btn-secondary {
+    @apply btn;
+    background-color: var(--steel);
+    color: var(--ink);
   }
 
-  .btn-beveled-primary:hover {
-    @apply bg-navy-deep;
+  .btn-secondary:hover {
+    background-color: var(--grid-header);
   }
 
-  .btn-beveled-primary:active {
-    border-color: #00004d #4169E1 #4169E1 #00004d;
+  .btn-danger {
+    @apply btn;
+    background-color: var(--alert);
+    color: white;
+    border-color: #991B1B;
   }
 
-  /* Danger Button */
-  .btn-beveled-danger {
-    @apply btn-beveled;
-    @apply bg-overdue text-white;
-    border-color: #CD5C5C #4d0000 #4d0000 #CD5C5C;
+  /* Micro-border depth effect */
+  .btn-raised {
+    border-top: 1px solid var(--border-light);
+    border-left: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-dark);
+    border-right: 1px solid var(--border-dark);
+  }
+
+  .btn-raised:active {
+    border-top: 1px solid var(--border-dark);
+    border-left: 1px solid var(--border-dark);
+    border-bottom: 1px solid var(--border-light);
+    border-right: 1px solid var(--border-light);
   }
 
   /* ==========================================
-     BEVELED INPUTS - Inset 3D Style
+     INPUTS - Inset depth
      ========================================== */
-  .input-beveled {
+
+  .input {
     @apply w-full px-3 py-2 text-sm;
-    @apply bg-surface-panel text-grey-900;
-    border: 2px solid;
-    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+    background-color: var(--paper-white);
+    color: var(--ink);
+    border-top: 1px solid var(--border-dark);
+    border-left: 1px solid var(--border-dark);
+    border-bottom: 1px solid var(--border-light);
+    border-right: 1px solid var(--border-light);
   }
 
-  .input-beveled:focus {
+  .input:focus {
     outline: 2px solid var(--navy);
     outline-offset: -2px;
   }
 
-  .input-beveled::placeholder {
-    color: var(--grey-400);
+  .input::placeholder {
+    color: var(--ink-muted);
   }
 
   /* ==========================================
-     BEVELED PANELS - Outset 3D Style
+     PANELS & CARDS
      ========================================== */
-  .panel-beveled {
-    @apply bg-surface-dark;
-    border: 2px solid;
-    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+
+  .panel {
+    background-color: var(--paper-white);
+    border: 1px solid var(--grid-line);
   }
 
-  .panel-inset {
-    @apply bg-surface-panel;
-    border: 2px solid;
-    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+  .panel-header {
+    @apply px-4 py-3;
+    @apply font-serif font-bold;
+    background-color: var(--grid-header);
+    border-bottom: 1px solid var(--grid-line);
+    color: var(--ink);
+  }
+
+  .panel-body {
+    @apply p-4;
+  }
+
+  /* Raised panel with depth */
+  .panel-raised {
+    @apply panel;
+    border-top: 1px solid var(--border-light);
+    border-left: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--border-dark);
+    border-right: 1px solid var(--border-dark);
   }
 
   /* ==========================================
-     DATA TABLES - Strict Grid Lines
+     DATA TABLES - The Data Grid
      ========================================== */
+
   .data-table {
     @apply w-full text-sm;
     border-collapse: collapse;
-    border: 1px solid var(--grey-400);
+    background-color: var(--paper-white);
   }
 
   .data-table th {
     @apply text-left font-semibold text-xs uppercase tracking-wider;
     @apply px-3 py-2;
-    @apply text-grey-800;
-    background-color: var(--surface-dark);
-    border: 1px solid var(--grey-400);
+    @apply sticky top-0;
+    color: var(--ink-secondary);
+    background-color: var(--grid-header);
+    border-bottom: 2px solid var(--grid-line);
+    border-right: 1px solid var(--grid-line);
+  }
+
+  .data-table th:last-child {
+    border-right: none;
   }
 
   .data-table td {
-    @apply px-3 py-2;
-    @apply text-grey-900;
-    background-color: var(--surface-panel);
-    border: 1px solid var(--grey-300);
+    @apply px-3 py-1;
+    color: var(--ink);
+    border-bottom: 1px solid var(--grid-line);
+    border-right: 1px solid var(--grid-line);
+  }
+
+  .data-table td:last-child {
+    border-right: none;
+  }
+
+  /* Zebra striping */
+  .data-table tr:nth-child(even) td {
+    background-color: var(--grid-zebra);
   }
 
   .data-table tr:hover td {
-    background-color: var(--surface);
+    background-color: #EEF2FF;
   }
 
-  /* Alternating rows */
-  .data-table tr:nth-child(even) td {
-    background-color: var(--grey-50);
+  /* Status flag - 4px left border */
+  .data-table tr.status-critical td:first-child {
+    border-left: 4px solid var(--alert);
   }
 
-  /* ==========================================
-     ENTERPRISE CARDS - Sharp Edges
-     ========================================== */
-  .enterprise-card {
-    @apply bg-surface-panel;
-    border: 1px solid var(--grey-300);
+  .data-table tr.status-warning td:first-child {
+    border-left: 4px solid var(--amber);
   }
 
-  .enterprise-card-header {
-    @apply px-4 py-3;
-    @apply font-serif font-bold text-grey-900;
-    background-color: var(--surface-dark);
-    border-bottom: 1px solid var(--grey-300);
-  }
-
-  .enterprise-card-body {
-    @apply px-4 py-3;
+  .data-table tr.status-success td:first-child {
+    border-left: 4px solid var(--success);
   }
 
   /* ==========================================
-     STATUS BADGES - Muted Professional Colors
+     SIDEBAR NAVIGATION - File Explorer Style
      ========================================== */
+
+  .sidebar {
+    background-color: var(--steel);
+    border-right: 1px solid var(--grid-line);
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-2 px-3 py-2;
+    @apply text-sm;
+    color: var(--ink);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+
+  .sidebar-item:hover {
+    background-color: var(--canvas);
+  }
+
+  /* INVERTED SELECTION - Classic file explorer */
+  .sidebar-item.active {
+    background-color: var(--navy);
+    color: white;
+    border-left-color: var(--navy);
+  }
+
+  .sidebar-item.active:hover {
+    background-color: var(--navy-light);
+  }
+
+  /* Tree guide lines */
+  .sidebar-tree-line {
+    border-left: 1px dotted var(--ink-muted);
+    margin-left: 10px;
+    padding-left: 12px;
+  }
+
+  /* ==========================================
+     STATUS BADGES - Flat, no pills
+     ========================================== */
+
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5;
+    @apply text-xs font-medium uppercase tracking-wide;
     border: 1px solid;
   }
 
-  .badge-critical, .badge-overdue {
+  .badge-critical {
     @apply badge;
-    background-color: #FFEBEE;
-    color: var(--status-overdue);
-    border-color: var(--status-overdue);
+    background-color: #FEE2E2;
+    color: var(--alert);
+    border-color: var(--alert);
   }
 
   .badge-warning {
     @apply badge;
-    background-color: #FFF8E1;
-    color: var(--status-warning);
-    border-color: var(--status-warning);
+    background-color: #FEF3C7;
+    color: var(--amber);
+    border-color: var(--amber);
   }
 
-  .badge-success, .badge-filed {
+  .badge-success {
     @apply badge;
-    background-color: #E8F5E9;
-    color: var(--status-filed);
-    border-color: var(--status-filed);
+    background-color: #D1FAE5;
+    color: var(--success);
+    border-color: var(--success);
   }
 
   .badge-info {
     @apply badge;
-    background-color: #E3F2FD;
-    color: var(--status-info);
-    border-color: var(--status-info);
+    background-color: #E0E7FF;
+    color: var(--navy);
+    border-color: var(--navy);
   }
 
   .badge-neutral {
     @apply badge;
-    background-color: var(--grey-100);
-    color: var(--grey-700);
-    border-color: var(--grey-400);
+    background-color: var(--steel);
+    color: var(--ink-secondary);
+    border-color: var(--border-dark);
   }
 
   /* ==========================================
-     TREE VIEW - Classic Folder Style
+     AI TERMINAL - System Console
      ========================================== */
-  .tree-view {
-    @apply text-sm font-mono;
+
+  .terminal {
+    background-color: var(--terminal-bg);
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--terminal-green);
   }
 
-  .tree-node {
-    @apply flex items-center gap-2 py-1 px-2;
+  .terminal-collapsed {
+    @apply flex items-center justify-between px-4 py-2;
+    background-color: var(--terminal-bg);
+    border-top: 1px solid #333;
     cursor: pointer;
   }
 
-  .tree-node:hover {
-    background-color: var(--surface);
+  .terminal-collapsed:hover {
+    background-color: #2a2a2a;
   }
 
-  .tree-node.selected {
+  .terminal-expanded {
+    @apply p-4;
+    background-color: var(--terminal-bg);
+    border-top: 1px solid #333;
+    height: 200px;
+    overflow-y: auto;
+  }
+
+  .terminal-prompt {
+    color: var(--terminal-green);
+  }
+
+  .terminal-prompt::before {
+    content: '> ';
+    color: var(--terminal-amber);
+  }
+
+  .terminal-input {
+    @apply w-full px-0 py-1;
+    background: transparent;
+    border: none;
+    color: var(--terminal-green);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    caret-color: var(--terminal-green);
+  }
+
+  /* Blinking cursor */
+  .terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background-color: var(--terminal-green);
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* ==========================================
+     COCKPIT LAYOUT - Fixed Viewport
+     ========================================== */
+
+  .cockpit {
+    @apply h-screen w-screen overflow-hidden;
+    @apply flex flex-col;
+    background-color: var(--canvas);
+  }
+
+  .cockpit-header {
+    @apply flex items-center justify-between px-4;
+    height: 48px;
     background-color: var(--navy);
     color: white;
+    flex-shrink: 0;
   }
 
-  .tree-connector {
-    border-left: 1px dotted var(--grey-400);
-    margin-left: 8px;
-    padding-left: 16px;
+  .cockpit-body {
+    @apply flex flex-1 overflow-hidden;
   }
 
-  .tree-icon {
-    @apply w-4 h-4;
-    color: var(--grey-600);
+  .cockpit-sidebar {
+    @apply flex-shrink-0 overflow-y-auto;
+    width: 240px;
   }
 
-  /* ==========================================
-     COMMAND BAR - CLI/Terminal Style
-     ========================================== */
-  .command-bar {
-    @apply fixed bottom-0 left-0 right-0;
-    @apply px-4 py-2;
-    @apply font-mono text-sm;
-    background-color: var(--grey-900);
-    border-top: 2px solid var(--grey-700);
-    z-index: 50;
+  .cockpit-main {
+    @apply flex-1 overflow-hidden flex flex-col;
   }
 
-  .command-bar-input {
-    @apply w-full px-3 py-2;
-    @apply font-mono text-sm;
-    @apply bg-grey-800 text-green-400;
-    border: 1px solid var(--grey-600);
+  .cockpit-content {
+    @apply flex-1 overflow-auto p-4;
+    background-color: var(--canvas);
   }
 
-  .command-bar-input::placeholder {
-    color: var(--grey-500);
-  }
-
-  .command-bar-input:focus {
-    outline: 1px solid var(--navy-light);
-    outline-offset: 0;
-  }
-
-  .command-prompt {
-    @apply text-green-400 font-mono mr-2;
+  .cockpit-terminal {
+    @apply flex-shrink-0;
   }
 
   /* ==========================================
-     WINDOW FRAME - OS/2 Warp Style
+     SCROLLBARS - Thin, Professional
      ========================================== */
-  .window-frame {
-    @apply panel-beveled;
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
 
-  .window-titlebar {
-    @apply px-3 py-1;
-    @apply font-bold text-sm text-white;
-    background: linear-gradient(90deg, var(--navy) 0%, var(--navy-deep) 100%);
-    border-bottom: 1px solid var(--bevel-dark);
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--steel);
   }
 
-  .window-titlebar-text {
-    @apply font-sans font-bold;
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border-dark);
+    border: 1px solid var(--steel);
   }
 
-  .window-content {
-    @apply p-2;
-    background-color: var(--surface);
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-muted);
   }
 
   /* ==========================================
-     MENU BAR - Classic Style
+     PRIORITY INDICATORS - Left border
      ========================================== */
-  .menu-bar {
-    @apply flex items-center gap-1 px-2 py-1;
-    background-color: var(--surface-dark);
-    border-bottom: 1px solid var(--grey-300);
-  }
 
-  .menu-item {
-    @apply px-3 py-1 text-sm;
-    cursor: pointer;
-  }
-
-  .menu-item:hover {
-    @apply bg-navy text-white;
-  }
-
-  /* ==========================================
-     SCROLLBARS - Classic Style
-     ========================================== */
-  .classic-scrollbar::-webkit-scrollbar {
-    width: 16px;
-    height: 16px;
-  }
-
-  .classic-scrollbar::-webkit-scrollbar-track {
-    background: var(--surface);
-    border: 1px solid var(--grey-300);
-  }
-
-  .classic-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--surface-dark);
-    border: 2px solid;
-    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
-  }
-
-  .classic-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--grey-300);
-  }
-
-  /* ==========================================
-     PRIORITY INDICATORS
-     ========================================== */
   .priority-fatal {
-    border-left: 4px solid var(--status-overdue);
+    border-left: 4px solid var(--alert) !important;
   }
 
   .priority-critical {
-    border-left: 4px solid #CD5C5C;
+    border-left: 4px solid #DC2626 !important;
   }
 
   .priority-important {
-    border-left: 4px solid var(--status-warning);
+    border-left: 4px solid var(--amber) !important;
   }
 
   .priority-standard {
-    border-left: 4px solid var(--grey-400);
+    border-left: 4px solid var(--border-dark) !important;
   }
 
   .priority-informational {
-    border-left: 4px solid var(--grey-300);
+    border-left: 4px solid var(--border-light) !important;
   }
 
   /* ==========================================
-     CHECKBOX - Classic Style
+     MODAL / DIALOG
      ========================================== */
-  .checkbox-classic {
-    @apply w-4 h-4 flex items-center justify-center;
-    border: 2px solid;
-    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
-    background-color: var(--surface-panel);
-    cursor: pointer;
+
+  .modal-overlay {
+    @apply fixed inset-0 z-50;
+    background-color: rgba(0, 0, 0, 0.5);
   }
 
-  .checkbox-classic.checked {
-    background-color: var(--navy);
+  .modal {
+    @apply fixed z-50;
+    @apply bg-white;
+    border: 1px solid var(--border-dark);
+    box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.2);
+    max-width: 90vw;
+    max-height: 90vh;
   }
 
-  .checkbox-classic.auto-selected {
-    background-color: var(--navy);
-    opacity: 0.6;
-  }
-
-  /* ==========================================
-     TREE GRID - Windows Explorer Style
-     ========================================== */
-  .tree-grid {
-    @apply text-sm font-mono;
-    border: 1px solid var(--grey-400);
-  }
-
-  .tree-grid-header {
-    @apply flex items-center gap-2 px-3 py-1;
-    @apply text-xs font-semibold uppercase tracking-wider;
-    @apply text-grey-600;
-    background-color: var(--surface-dark);
-    border-bottom: 1px solid var(--grey-300);
-  }
-
-  .tree-grid-row {
-    @apply flex items-center gap-2 py-1 px-2;
-    cursor: pointer;
-    border-bottom: 1px solid var(--grey-200);
-  }
-
-  .tree-grid-row:hover {
-    background-color: var(--surface);
-  }
-
-  .tree-grid-row.selected {
+  .modal-header {
+    @apply flex items-center justify-between px-4 py-3;
+    @apply font-serif font-bold;
     background-color: var(--navy);
     color: white;
   }
 
-  .tree-grid-row.auto-selected {
-    background-color: var(--surface);
-    font-style: italic;
+  .modal-body {
+    @apply p-4 overflow-auto;
+    max-height: calc(90vh - 120px);
   }
 
-  /* ==========================================
-     ALERT BANNERS
-     ========================================== */
-  .alert-warning {
-    @apply px-3 py-2;
-    background-color: #FFF8E1;
-    border: 1px solid var(--status-warning);
-    border-left: 4px solid var(--status-warning);
-  }
-
-  .alert-danger {
-    @apply px-3 py-2;
-    background-color: #FFEBEE;
-    border: 1px solid var(--status-overdue);
-    border-left: 4px solid var(--status-overdue);
-  }
-
-  .alert-info {
-    @apply px-3 py-2;
-    background-color: #E3F2FD;
-    border: 1px solid var(--status-info);
-    border-left: 4px solid var(--status-info);
-  }
-
-  .alert-success {
-    @apply px-3 py-2;
-    background-color: #E8F5E9;
-    border: 1px solid var(--status-filed);
-    border-left: 4px solid var(--status-filed);
+  .modal-footer {
+    @apply flex items-center justify-end gap-2 px-4 py-3;
+    background-color: var(--grid-header);
+    border-top: 1px solid var(--grid-line);
   }
 }
 
@@ -505,62 +540,32 @@ h1, h2, h3, h4, h5, h6, .font-serif, .font-display {
     text-wrap: balance;
   }
 
-  /* Dense spacing utilities */
-  .space-dense {
-    @apply space-y-1;
-  }
+  /* Quick background utilities */
+  .bg-canvas { background-color: var(--canvas); }
+  .bg-steel { background-color: var(--steel); }
+  .bg-paper { background-color: var(--paper); }
+  .bg-paper-white { background-color: var(--paper-white); }
 
-  .space-compact {
-    @apply space-y-2;
-  }
-
-  /* Surface utilities */
-  .bg-surface {
-    background-color: var(--surface);
-  }
-
-  .bg-surface-panel {
-    background-color: var(--surface-panel);
-  }
-
-  .bg-surface-dark {
-    background-color: var(--surface-dark);
-  }
-
-  /* Text colors */
-  .text-navy {
-    color: var(--navy);
-  }
-
-  .text-filed {
-    color: var(--status-filed);
-  }
-
-  .text-overdue {
-    color: var(--status-overdue);
-  }
+  /* Text utilities */
+  .text-ink { color: var(--ink); }
+  .text-ink-secondary { color: var(--ink-secondary); }
+  .text-ink-muted { color: var(--ink-muted); }
+  .text-navy { color: var(--navy); }
+  .text-alert { color: var(--alert); }
+  .text-amber { color: var(--amber); }
 
   /* Border utilities */
-  .border-bevel-outset {
-    border: 2px solid;
-    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
-  }
-
-  .border-bevel-inset {
-    border: 2px solid;
-    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
-  }
+  .border-grid { border-color: var(--grid-line); }
 }
 
 /* ============================================
-   PRINT STYLES - Legal Document Format
+   PRINT STYLES
    ============================================ */
 
 @media print {
   body {
-    font-family: 'Times New Roman', Times, serif;
+    font-family: 'Times New Roman', serif;
     font-size: 12pt;
-    line-height: 1.5;
     background: white;
     color: black;
   }
@@ -569,12 +574,14 @@ h1, h2, h3, h4, h5, h6, .font-serif, .font-display {
     display: none !important;
   }
 
-  .data-table {
-    border: 1px solid black;
+  .cockpit-sidebar,
+  .cockpit-terminal,
+  .cockpit-header {
+    display: none !important;
   }
 
-  .data-table th,
-  .data-table td {
-    border: 1px solid black;
+  .cockpit-content {
+    overflow: visible;
+    height: auto;
   }
 }

@@ -1,5 +1,10 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * SOVEREIGN DESIGN SYSTEM
+ * "Density is Reliability" - Neo-Enterprise / Informational Brutalism
+ */
+
 const config: Config = {
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -7,7 +12,7 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    // Override default border radius - ZERO RADIUS POLICY
+    // ZERO RADIUS POLICY - No exceptions
     borderRadius: {
       'none': '0',
       'sm': '0',
@@ -21,81 +26,70 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        // Serif for headings - authoritative, like court orders
-        serif: ['Georgia', 'Times New Roman', 'Times', 'serif'],
+        // Authority Font (Serif) - Headers, Case Titles, Legal Citations
+        serif: ['Merriweather', 'Georgia', 'Times New Roman', 'serif'],
         display: ['Merriweather', 'Georgia', 'Times New Roman', 'serif'],
-        // System sans-serif for body/data
+        // Utility Font (Sans) - UI Labels, Navigation, Buttons
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Arial', 'sans-serif'],
-        // Monospace for docket numbers, dates, data
-        mono: ['IBM Plex Mono', 'Consolas', 'Monaco', 'monospace'],
+        // Data Font (Mono) - Dates, Case Numbers, Statutes
+        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
       },
       colors: {
         // ============================================
-        // LEGACY MODERN / UTILITARIAN AUTHORITY PALETTE
+        // THE "PAPER & STEEL" PALETTE
         // ============================================
 
-        // Surface colors - "Enterprise Greys"
-        surface: {
-          DEFAULT: '#ECE9D8',  // Classic Windows warm grey
-          light: '#F5F5F5',    // Alternative light surface
-          panel: '#FFFFFF',    // Data entry areas only
-          dark: '#D4D0C8',     // Windows 95 style
+        // The Canvas (Backgrounds)
+        steel: '#F2F2F2',           // App Chrome - Neutral Grey
+        paper: '#FFFCF9',           // Data Surfaces - Warm White
+        canvas: '#ECE9D8',          // Classic Windows warm grey (USER SELECTED)
+
+        // The Ink (Typography)
+        ink: {
+          DEFAULT: '#111111',       // Primary Text - Near Black
+          secondary: '#555555',     // Secondary Text - Graphite
+          muted: '#888888',         // Muted text
         },
 
-        // Primary action - IBM/Navy Blue
+        // Accent Colors
         navy: {
-          DEFAULT: '#000080',  // Classic Navy Blue
-          deep: '#003366',     // IBM Deep Blue
-          light: '#4169E1',    // Royal Blue for hover
-          dark: '#00004d',     // Darker navy for active
+          DEFAULT: '#0A2540',       // The "Firm" color - Headers/Primary Buttons
+          light: '#1a3a5c',         // Hover state
+          dark: '#061829',          // Active/pressed state
         },
+        alert: '#B91C1C',           // Critical deadlines - deeply saturated
+        amber: '#D97706',           // Warnings - Court Amber
 
-        // Status accents - MUTED, PROFESSIONAL
-        filed: '#006400',      // Dark Green - for "Filed" status
-        overdue: '#8B0000',    // Dark Red - for "Overdue" status
-
-        // Enterprise color system (enhanced)
-        enterprise: {
-          blue: {
-            50: '#e8f1ff',
-            100: '#d0e2ff',
-            200: '#a6c8ff',
-            300: '#78a9ff',
-            400: '#4589ff',
-            500: '#0f62fe',    // IBM Blue primary
-            600: '#0043ce',
-            700: '#002d9c',
-            800: '#001d6c',
-            900: '#001141',
-          },
-          grey: {
-            50: '#f4f4f4',
-            100: '#e0e0e0',
-            200: '#c6c6c6',
-            300: '#a8a8a8',
-            400: '#8d8d8d',
-            500: '#6f6f6f',
-            600: '#525252',
-            700: '#393939',
-            800: '#262626',
-            900: '#161616',
-          },
-        },
-
-        // Status colors - muted, professional (no neon)
+        // Status Colors (muted, professional)
         status: {
-          critical: '#8B0000',   // Dark Red (was #da1e28)
-          warning: '#B8860B',    // Dark Goldenrod (was #f1c21b)
-          success: '#006400',    // Dark Green (was #198038)
-          info: '#000080',       // Navy Blue (was #0043ce)
+          critical: '#B91C1C',
+          warning: '#D97706',
+          success: '#15803D',
+          info: '#0A2540',
+          pending: '#6B7280',
         },
 
-        // Bevel border colors for 3D effects
-        bevel: {
-          light: '#FFFFFF',      // Top/left highlight
-          dark: '#808080',       // Bottom/right shadow
-          darker: '#404040',     // Deeper shadow
-          highlight: '#DFDFDF',  // Subtle highlight
+        // Legacy surface colors (for compatibility)
+        surface: {
+          DEFAULT: '#ECE9D8',
+          light: '#F2F2F2',
+          panel: '#FFFFFF',
+          dark: '#D4D0C8',
+        },
+
+        // Grid colors for data tables
+        grid: {
+          line: '#E5E5E5',
+          header: '#F5F5F5',
+          zebra: '#F9FAFB',
+        },
+
+        // Terminal colors for AI dock
+        terminal: {
+          bg: '#1E1E1E',
+          green: '#10B981',
+          amber: '#F59E0B',
+          text: '#D4D4D4',
         },
       },
       spacing: {
@@ -103,15 +97,22 @@ const config: Config = {
         '88': '22rem',
       },
       fontSize: {
-        // Default to smaller, denser text
         'xxs': ['10px', { lineHeight: '14px' }],
-        'xs': ['12px', { lineHeight: '16px' }],
-        'sm': ['14px', { lineHeight: '20px' }],
+        'xs': ['11px', { lineHeight: '16px' }],
+        'sm': ['13px', { lineHeight: '20px' }],
+        'base': ['14px', { lineHeight: '22px' }],
       },
       boxShadow: {
-        // No blur shadows - use borders instead
+        // Hard shadows only - no blur
         'none': 'none',
-        'inset': 'inset 0 0 0 1px',
+        'hard': '4px 4px 0px 0px #000000',
+        'hard-sm': '2px 2px 0px 0px #000000',
+        'hard-navy': '4px 4px 0px 0px #0A2540',
+      },
+      // Fixed viewport heights for cockpit layout
+      height: {
+        'screen-minus-header': 'calc(100vh - 48px)',
+        'screen-minus-header-terminal': 'calc(100vh - 48px - 40px)',
       },
     },
   },
