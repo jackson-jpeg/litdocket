@@ -10,7 +10,7 @@ from app.models.user import User
 from app.models.deadline import Deadline
 from app.models.case import Case
 from app.utils.auth import get_current_user  # Real JWT authentication
-from app.schemas.deadline import DeadlineCreate, DeadlineReschedule
+from app.schemas.deadline import DeadlineCreate, DeadlineReschedule, DeadlineUpdate
 from app.services.case_summary_service import CaseSummaryService
 # WebSocket disabled for MVP
 # from app.websocket.events import event_handler
@@ -531,6 +531,109 @@ async def reschedule_deadline(
         'new_date': deadline.deadline_date.isoformat(),
         'is_manually_overridden': deadline.is_manually_overridden,
         'message': f"Deadline rescheduled to {deadline.deadline_date.strftime('%B %d, %Y')}"
+    }
+
+
+@router.patch("/{deadline_id}")
+async def update_deadline(
+    deadline_id: str,
+    update_data: DeadlineUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update deadline fields (title, description, priority, etc.)
+
+    This endpoint allows full editing of deadline metadata.
+    For date changes, prefer using /reschedule endpoint for better audit trail.
+    """
+    # Get deadline with ownership check
+    deadline = db.query(Deadline).filter(
+        Deadline.id == deadline_id,
+        Deadline.user_id == str(current_user.id)
+    ).first()
+
+    if not deadline:
+        raise HTTPException(status_code=404, detail="Deadline not found")
+
+    # Track what changed for audit
+    changes = []
+
+    # Update fields if provided
+    if update_data.title is not None:
+        old_title = deadline.title
+        deadline.title = update_data.title
+        changes.append(f"title: '{old_title}' → '{update_data.title}'")
+
+    if update_data.description is not None:
+        deadline.description = update_data.description
+        changes.append("description updated")
+
+    if update_data.deadline_date is not None:
+        old_date = deadline.deadline_date
+        deadline.deadline_date = update_data.deadline_date
+        # Mark as manually overridden if date changed
+        if old_date != update_data.deadline_date:
+            deadline.is_manually_overridden = True
+            deadline.auto_recalculate = False
+            changes.append(f"date: {old_date} → {update_data.deadline_date}")
+
+    if update_data.priority is not None:
+        old_priority = deadline.priority
+        deadline.priority = update_data.priority
+        changes.append(f"priority: {old_priority} → {update_data.priority}")
+
+    if update_data.status is not None:
+        old_status = deadline.status
+        deadline.status = update_data.status
+        changes.append(f"status: {old_status} → {update_data.status}")
+
+    if update_data.deadline_type is not None:
+        deadline.deadline_type = update_data.deadline_type
+        changes.append("deadline_type updated")
+
+    if update_data.applicable_rule is not None:
+        deadline.applicable_rule = update_data.applicable_rule
+        changes.append("applicable_rule updated")
+
+    if update_data.party_role is not None:
+        deadline.party_role = update_data.party_role
+        changes.append("party_role updated")
+
+    if update_data.action_required is not None:
+        deadline.action_required = update_data.action_required
+        changes.append("action_required updated")
+
+    # Update modification tracking
+    deadline.modified_by = current_user.email
+    deadline.modification_reason = f"Fields updated: {', '.join(changes)}"
+
+    db.commit()
+    db.refresh(deadline)
+
+    logger.info(f"Deadline {deadline_id} updated by user {current_user.id}: {changes}")
+
+    # Update case summary
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=str(deadline.case_id),
+            event_type="deadline_updated",
+            event_details={
+                "deadline_id": str(deadline.id),
+                "title": deadline.title,
+                "changes": changes
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
+
+    return {
+        'success': True,
+        'deadline_id': str(deadline.id),
+        'changes': changes,
+        'message': f"Deadline updated successfully"
     }
 
 

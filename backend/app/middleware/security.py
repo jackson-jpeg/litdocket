@@ -73,6 +73,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
 
+        # CRITICAL FIX for Firebase Auth Popup:
+        # Allow popups from same origin (our app) to communicate back
+        # This prevents the "Cross-Origin-Opener-Policy blocked" error
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+
         # Security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"

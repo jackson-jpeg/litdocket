@@ -33,6 +33,20 @@ class CaseCreate(BaseModel):
     parties: Optional[List[dict]] = None
 
 
+class CaseUpdate(BaseModel):
+    """Schema for updating case fields"""
+    title: Optional[str] = None
+    court: Optional[str] = None
+    judge: Optional[str] = None
+    case_type: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    district: Optional[str] = None
+    circuit: Optional[str] = None
+    parties: Optional[List[dict]] = None
+    case_metadata: Optional[dict] = None
+    filing_date: Optional[str] = None
+
+
 class TemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -225,6 +239,104 @@ async def update_case_status(
         'success': True,
         'case_id': case_id,
         'new_status': status
+    }
+
+
+@router.patch("/{case_id}")
+async def update_case(
+    case_id: str,
+    update_data: CaseUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update case fields (title, court, judge, parties, etc.)
+
+    This endpoint allows full editing of case metadata.
+    Ownership is verified - users can only update their own cases.
+    """
+    # Get case with ownership check
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Track what changed for audit
+    changes = []
+
+    # Update fields if provided
+    if update_data.title is not None:
+        old_title = case.title
+        case.title = update_data.title
+        changes.append(f"title: '{old_title}' → '{update_data.title}'")
+
+    if update_data.court is not None:
+        old_court = case.court
+        case.court = update_data.court
+        changes.append(f"court: '{old_court}' → '{update_data.court}'")
+
+    if update_data.judge is not None:
+        old_judge = case.judge
+        case.judge = update_data.judge
+        changes.append(f"judge: '{old_judge}' → '{update_data.judge}'")
+
+    if update_data.case_type is not None:
+        old_type = case.case_type
+        case.case_type = update_data.case_type
+        changes.append(f"case_type: '{old_type}' → '{update_data.case_type}'")
+
+    if update_data.jurisdiction is not None:
+        old_jurisdiction = case.jurisdiction
+        case.jurisdiction = update_data.jurisdiction
+        changes.append(f"jurisdiction: '{old_jurisdiction}' → '{update_data.jurisdiction}'")
+
+    if update_data.district is not None:
+        case.district = update_data.district
+        changes.append("district updated")
+
+    if update_data.circuit is not None:
+        case.circuit = update_data.circuit
+        changes.append("circuit updated")
+
+    if update_data.parties is not None:
+        case.parties = update_data.parties
+        changes.append(f"parties updated ({len(update_data.parties)} parties)")
+
+    if update_data.case_metadata is not None:
+        case.case_metadata = update_data.case_metadata
+        changes.append("case_metadata updated")
+
+    if update_data.filing_date is not None:
+        case.filing_date = update_data.filing_date
+        changes.append(f"filing_date: {update_data.filing_date}")
+
+    db.commit()
+    db.refresh(case)
+
+    logger.info(f"Case {case_id} updated by user {current_user.id}: {changes}")
+
+    # Update case summary to reflect changes
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=case_id,
+            event_type="case_updated",
+            event_details={
+                "changes": changes
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
+
+    return {
+        'success': True,
+        'case_id': case_id,
+        'changes': changes,
+        'message': f"Case updated successfully"
     }
 
 

@@ -162,25 +162,25 @@ export default function SmartEventEntry({
     const generatePreview = async () => {
       setPreviewLoading(true);
       try {
-        // Call backend to get preview
-        const response = await apiClient.get('/api/v1/triggers/preview', {
-          params: {
-            trigger_type: selectedEvent.trigger_type,
-            trigger_date: triggerDate,
-            jurisdiction: rulesSource,
-            court_type: courtType,
-            service_method: serviceMethod,
-          },
+        // Call backend to get preview (POST request per backend API)
+        const response = await apiClient.post('/api/v1/triggers/preview', {
+          trigger_type: selectedEvent.trigger_type,
+          trigger_date: triggerDate,
+          jurisdiction: rulesSource,
+          court_type: courtType,
+          service_method: serviceMethod,
         });
 
-        const deadlines = response.data.map((d: any, index: number) => ({
+        // Backend returns { success, trigger_type, trigger_date, deadlines: [...] }
+        const deadlineData = response.data.deadlines || [];
+        const deadlines = deadlineData.map((d: any, index: number) => ({
           id: `preview-${index}`,
           title: d.title,
           calculated_date: d.deadline_date,
           override_date: null,
           priority: d.priority,
           rule_citation: d.rule_citation,
-          days_from_trigger: d.days_from_trigger,
+          days_from_trigger: d.days_from_trigger || 0,
           is_overridden: false,
           include: true,
         }));

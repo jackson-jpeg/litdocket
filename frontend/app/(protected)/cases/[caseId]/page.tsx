@@ -95,7 +95,11 @@ export default function CaseRoomPage() {
     try {
       const dateStr = newDate.toISOString().split('T')[0];
       optimistic.updateDeadlineDate(id, dateStr);
-      await apiClient.patch(`/api/v1/deadlines/${id}`, { deadline_date: dateStr });
+      // Use correct reschedule endpoint with proper schema
+      await apiClient.patch(`/api/v1/deadlines/${id}/reschedule`, {
+        new_date: dateStr,
+        reason: 'Rescheduled via calendar'
+      });
       deadlineEvents.updated({ id, deadline_date: dateStr });
       showSuccess('Deadline rescheduled');
     } catch (err) {
