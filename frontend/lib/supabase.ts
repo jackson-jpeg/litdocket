@@ -303,10 +303,14 @@ export async function getCaseRuleSets(caseId: string): Promise<(RuleSet & { assi
     return [];
   }
 
-  return (data || []).map(d => ({
-    ...d.rule_set,
-    assignment_method: d.assignment_method,
-  }));
+  // Supabase returns joined data with complex types; cast appropriately
+  return (data || []).map((d) => {
+    const row = d as unknown as { rule_set: RuleSet; assignment_method: string };
+    return {
+      ...row.rule_set,
+      assignment_method: row.assignment_method,
+    };
+  });
 }
 
 /**
@@ -357,7 +361,8 @@ export function subscribeToRuleSets(
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'rule_sets' },
-      (payload) => callback(payload as any)
+      (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) =>
+        callback(payload as unknown as { eventType: string; new: RuleSet; old: RuleSet })
     )
     .subscribe();
 }
@@ -373,7 +378,8 @@ export function subscribeToJurisdictions(
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'jurisdictions' },
-      (payload) => callback(payload as any)
+      (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) =>
+        callback(payload as unknown as { eventType: string; new: Jurisdiction; old: Jurisdiction })
     )
     .subscribe();
 }

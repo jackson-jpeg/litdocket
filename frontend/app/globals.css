@@ -407,6 +407,93 @@ h1, h2, h3, h4, h5, h6, .font-serif, .font-display {
   .priority-informational {
     border-left: 4px solid var(--grey-300);
   }
+
+  /* ==========================================
+     CHECKBOX - Classic Style
+     ========================================== */
+  .checkbox-classic {
+    @apply w-4 h-4 flex items-center justify-center;
+    border: 2px solid;
+    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+    background-color: var(--surface-panel);
+    cursor: pointer;
+  }
+
+  .checkbox-classic.checked {
+    background-color: var(--navy);
+  }
+
+  .checkbox-classic.auto-selected {
+    background-color: var(--navy);
+    opacity: 0.6;
+  }
+
+  /* ==========================================
+     TREE GRID - Windows Explorer Style
+     ========================================== */
+  .tree-grid {
+    @apply text-sm font-mono;
+    border: 1px solid var(--grey-400);
+  }
+
+  .tree-grid-header {
+    @apply flex items-center gap-2 px-3 py-1;
+    @apply text-xs font-semibold uppercase tracking-wider;
+    @apply text-grey-600;
+    background-color: var(--surface-dark);
+    border-bottom: 1px solid var(--grey-300);
+  }
+
+  .tree-grid-row {
+    @apply flex items-center gap-2 py-1 px-2;
+    cursor: pointer;
+    border-bottom: 1px solid var(--grey-200);
+  }
+
+  .tree-grid-row:hover {
+    background-color: var(--surface);
+  }
+
+  .tree-grid-row.selected {
+    background-color: var(--navy);
+    color: white;
+  }
+
+  .tree-grid-row.auto-selected {
+    background-color: var(--surface);
+    font-style: italic;
+  }
+
+  /* ==========================================
+     ALERT BANNERS
+     ========================================== */
+  .alert-warning {
+    @apply px-3 py-2;
+    background-color: #FFF8E1;
+    border: 1px solid var(--status-warning);
+    border-left: 4px solid var(--status-warning);
+  }
+
+  .alert-danger {
+    @apply px-3 py-2;
+    background-color: #FFEBEE;
+    border: 1px solid var(--status-overdue);
+    border-left: 4px solid var(--status-overdue);
+  }
+
+  .alert-info {
+    @apply px-3 py-2;
+    background-color: #E3F2FD;
+    border: 1px solid var(--status-info);
+    border-left: 4px solid var(--status-info);
+  }
+
+  .alert-success {
+    @apply px-3 py-2;
+    background-color: #E8F5E9;
+    border: 1px solid var(--status-filed);
+    border-left: 4px solid var(--status-filed);
+  }
 }
 
 /* ============================================
