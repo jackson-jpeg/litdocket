@@ -1,7 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Search, X, FileText, Calendar, Folder, Loader2, ExternalLink } from 'lucide-react';
+/**
+ * GlobalSearch V2 - Command Center
+ *
+ * Sovereign Design System:
+ * - Dark header with terminal-style input
+ * - Dense columnar table results
+ * - Full keyboard navigation
+ * - Zero radius, high density
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api-client';
 
@@ -11,6 +20,16 @@ interface SearchResult {
   documents: any[];
   deadlines: any[];
   total_results: number;
+}
+
+interface FlatResult {
+  type: 'CASE' | 'DOC' | 'DEADLINE';
+  id: string;
+  case_id?: string;
+  identifier: string;
+  title: string;
+  status: string;
+  meta: string;
 }
 
 interface GlobalSearchProps {
@@ -23,44 +42,44 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'cases' | 'documents' | 'deadlines'>('all');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'CASE' | 'DOC' | 'DEADLINE'>('ALL');
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout>();
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
 
+  // Focus input when opened
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+      setSelectedIndex(0);
     }
   }, [isOpen]);
 
+  // Debounced search
   useEffect(() => {
     if (query.length >= 2) {
-      // Debounce search
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-
-      debounceTimer.current = setTimeout(() => {
-        performSearch();
-      }, 300);
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(performSearch, 200);
     } else {
       setResults(null);
     }
-
     return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   }, [query]);
 
+  // Reset selection when results change
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [results, activeFilter]);
+
   const performSearch = async () => {
     if (query.length < 2) return;
-
     setLoading(true);
     try {
       const response = await apiClient.get('/api/v1/search/', {
-        params: { q: query, limit: 20 }
+        params: { q: query, limit: 50 }
       });
       setResults(response.data);
     } catch (err) {
@@ -70,267 +89,259 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     }
   };
 
-  const handleClose = () => {
-    setQuery('');
-    setResults(null);
-    setActiveTab('all');
-    onClose();
+  // Flatten results into single list for keyboard navigation
+  const getFlatResults = useCallback((): FlatResult[] => {
+    if (!results) return [];
+
+    const flat: FlatResult[] = [];
+
+    if (activeFilter === 'ALL' || activeFilter === 'CASE') {
+      results.cases.forEach(c => flat.push({
+        type: 'CASE',
+        id: c.id,
+        identifier: c.case_number || c.id.slice(0, 8),
+        title: c.title || 'Untitled Case',
+        status: c.status || 'active',
+        meta: c.court || c.jurisdiction || ''
+      }));
+    }
+
+    if (activeFilter === 'ALL' || activeFilter === 'DOC') {
+      results.documents.forEach(d => flat.push({
+        type: 'DOC',
+        id: d.id,
+        case_id: d.case_id,
+        identifier: d.file_name?.slice(0, 20) || d.id.slice(0, 8),
+        title: d.document_type || d.file_name || 'Document',
+        status: d.document_type || 'file',
+        meta: d.case_number || ''
+      }));
+    }
+
+    if (activeFilter === 'ALL' || activeFilter === 'DEADLINE') {
+      results.deadlines.forEach(d => flat.push({
+        type: 'DEADLINE',
+        id: d.id,
+        case_id: d.case_id,
+        identifier: d.deadline_date ? new Date(d.deadline_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD',
+        title: d.title || 'Deadline',
+        status: d.priority || 'standard',
+        meta: d.case_number || ''
+      }));
+    }
+
+    return flat;
+  }, [results, activeFilter]);
+
+  const flatResults = getFlatResults();
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      handleClose();
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => Math.min(prev + 1, flatResults.length - 1));
+      scrollToSelected(selectedIndex + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => Math.max(prev - 1, 0));
+      scrollToSelected(selectedIndex - 1);
+    } else if (e.key === 'Enter' && flatResults.length > 0) {
+      e.preventDefault();
+      navigateToResult(flatResults[selectedIndex]);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      // Cycle through filters
+      const filters: Array<'ALL' | 'CASE' | 'DOC' | 'DEADLINE'> = ['ALL', 'CASE', 'DOC', 'DEADLINE'];
+      const currentIdx = filters.indexOf(activeFilter);
+      setActiveFilter(filters[(currentIdx + 1) % filters.length]);
+    }
+  }, [flatResults, selectedIndex, activeFilter]);
+
+  const scrollToSelected = (index: number) => {
+    if (resultsContainerRef.current) {
+      const rows = resultsContainerRef.current.querySelectorAll('tr[data-result]');
+      if (rows[index]) {
+        rows[index].scrollIntoView({ block: 'nearest' });
+      }
+    }
   };
 
-  const handleResultClick = (type: string, id: string) => {
-    if (type === 'case') {
-      router.push(`/cases/${id}`);
-    } else if (type === 'document' || type === 'deadline') {
-      // Navigate to the case (documents and deadlines belong to cases)
-      const item = type === 'document'
-        ? results?.documents.find(d => d.id === id)
-        : results?.deadlines.find(d => d.id === id);
-      if (item?.case_id) {
-        router.push(`/cases/${item.case_id}`);
-      }
+  const navigateToResult = (result: FlatResult) => {
+    if (result.type === 'CASE') {
+      router.push(`/cases/${result.id}`);
+    } else {
+      router.push(`/cases/${result.case_id}`);
     }
     handleClose();
   };
 
-  const getVisibleResults = () => {
-    if (!results) return { cases: [], documents: [], deadlines: [] };
+  const handleClose = () => {
+    setQuery('');
+    setResults(null);
+    setActiveFilter('ALL');
+    setSelectedIndex(0);
+    onClose();
+  };
 
-    switch (activeTab) {
-      case 'cases':
-        return { cases: results.cases, documents: [], deadlines: [] };
-      case 'documents':
-        return { cases: [], documents: results.documents, deadlines: [] };
-      case 'deadlines':
-        return { cases: [], documents: [], deadlines: results.deadlines };
-      default:
-        return results;
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'CASE': return 'text-cyan-400';
+      case 'DOC': return 'text-amber-400';
+      case 'DEADLINE': return 'text-rose-400';
+      default: return 'text-slate-400';
     }
+  };
+
+  const getStatusColor = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === 'fatal' || s === 'critical') return 'text-red-500';
+    if (s === 'important' || s === 'high') return 'text-amber-500';
+    if (s === 'active' || s === 'pending') return 'text-emerald-500';
+    if (s === 'completed') return 'text-slate-500';
+    return 'text-slate-400';
   };
 
   if (!isOpen) return null;
 
-  const visibleResults = getVisibleResults();
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 pt-20" onClick={handleClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[600px] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        {/* Search Input */}
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+    <div
+      className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 pt-16"
+      onClick={handleClose}
+    >
+      <div
+        className="bg-slate-900 border border-slate-700 w-full max-w-4xl mx-4 flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
+      >
+        {/* Terminal Header */}
+        <div className="bg-slate-800 border-b border-slate-700 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-emerald-400 font-mono text-sm">&gt;_</span>
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search cases, documents, deadlines..."
-              className="w-full pl-10 pr-10 py-3 text-lg border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="search cases, documents, deadlines..."
+              className="flex-1 bg-transparent text-white font-mono text-sm placeholder-slate-500 focus:outline-none"
+              spellCheck={false}
             />
-            {query && (
-              <button
-                onClick={() => setQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-100 rounded"
-              >
-                <X className="w-4 h-4 text-slate-400" />
-              </button>
+            {loading && (
+              <span className="text-slate-500 font-mono text-xs animate-pulse">SEARCHING...</span>
             )}
           </div>
-
-          {/* Tabs */}
-          {results && (
-            <div className="flex items-center gap-2 mt-3">
-              <button
-                onClick={() => setActiveTab('all')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === 'all'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                All ({results.total_results})
-              </button>
-              <button
-                onClick={() => setActiveTab('cases')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === 'cases'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                Cases ({results.cases.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('documents')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === 'documents'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                Documents ({results.documents.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('deadlines')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === 'deadlines'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                Deadlines ({results.deadlines.length})
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Results */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        {/* Filter Tabs */}
+        <div className="bg-slate-850 border-b border-slate-700 px-4 py-2 flex items-center gap-1">
+          {(['ALL', 'CASE', 'DOC', 'DEADLINE'] as const).map((filter) => {
+            const count = filter === 'ALL'
+              ? (results?.total_results || 0)
+              : filter === 'CASE'
+                ? (results?.cases.length || 0)
+                : filter === 'DOC'
+                  ? (results?.documents.length || 0)
+                  : (results?.deadlines.length || 0);
+
+            return (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`px-3 py-1 font-mono text-xs transition-colors ${
+                  activeFilter === filter
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+              >
+                {filter} <span className="text-slate-500">({count})</span>
+              </button>
+            );
+          })}
+          <span className="ml-auto text-slate-600 font-mono text-xs">TAB to cycle</span>
+        </div>
+
+        {/* Results Table */}
+        <div
+          ref={resultsContainerRef}
+          className="flex-1 overflow-y-auto max-h-[400px] bg-slate-900"
+        >
+          {query.length < 2 && (
+            <div className="p-8 text-center">
+              <p className="text-slate-500 font-mono text-sm">TYPE TO SEARCH</p>
+              <p className="text-slate-600 font-mono text-xs mt-2">min 2 characters</p>
             </div>
           )}
 
-          {!loading && query.length < 2 && (
-            <div className="text-center py-12">
-              <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">Type at least 2 characters to search</p>
+          {query.length >= 2 && !loading && flatResults.length === 0 && (
+            <div className="p-8 text-center">
+              <p className="text-slate-500 font-mono text-sm">NO RESULTS</p>
+              <p className="text-slate-600 font-mono text-xs mt-2">"{query}"</p>
             </div>
           )}
 
-          {!loading && query.length >= 2 && results && results.total_results === 0 && (
-            <div className="text-center py-12">
-              <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">No results found for "{query}"</p>
-            </div>
-          )}
-
-          {!loading && results && results.total_results > 0 && (
-            <div className="space-y-4">
-              {/* Cases */}
-              {visibleResults.cases.length > 0 && (
-                <div>
-                  {activeTab === 'all' && (
-                    <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                      <Folder className="w-4 h-4" />
-                      Cases
-                    </h3>
-                  )}
-                  <div className="space-y-2">
-                    {visibleResults.cases.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleResultClick('case', item.id)}
-                        className="w-full text-left p-3 border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-slate-900">{item.case_number}</p>
-                            <p className="text-sm text-slate-600 mt-0.5">{item.title}</p>
-                            <p className="text-xs text-slate-500 mt-1">{item.court}</p>
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-slate-400" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Documents */}
-              {visibleResults.documents.length > 0 && (
-                <div>
-                  {activeTab === 'all' && (
-                    <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Documents
-                    </h3>
-                  )}
-                  <div className="space-y-2">
-                    {visibleResults.documents.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleResultClick('document', item.id)}
-                        className="w-full text-left p-3 border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-slate-900 text-sm">{item.file_name}</p>
-                            {item.document_type && (
-                              <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
-                                {item.document_type}
-                              </span>
-                            )}
-                            {item.ai_summary && (
-                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.ai_summary}</p>
-                            )}
-                            {item.case_number && (
-                              <p className="text-xs text-slate-400 mt-1">Case: {item.case_number}</p>
-                            )}
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-slate-400" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Deadlines */}
-              {visibleResults.deadlines.length > 0 && (
-                <div>
-                  {activeTab === 'all' && (
-                    <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Deadlines
-                    </h3>
-                  )}
-                  <div className="space-y-2">
-                    {visibleResults.deadlines.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleResultClick('deadline', item.id)}
-                        className="w-full text-left p-3 border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-slate-900 text-sm">{item.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {item.deadline_date && (
-                                <span className="text-xs text-slate-600">
-                                  {new Date(item.deadline_date).toLocaleDateString()}
-                                </span>
-                              )}
-                              <span className={`text-xs px-2 py-0.5 rounded ${
-                                item.priority === 'fatal' || item.priority === 'critical'
-                                  ? 'bg-red-100 text-red-700'
-                                  : item.priority === 'important' || item.priority === 'high'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {item.priority}
-                              </span>
-                            </div>
-                            {item.case_number && (
-                              <p className="text-xs text-slate-400 mt-1">Case: {item.case_number}</p>
-                            )}
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-slate-400" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+          {flatResults.length > 0 && (
+            <table className="w-full font-mono text-sm">
+              <thead className="bg-slate-800 sticky top-0">
+                <tr className="text-slate-400 text-xs uppercase">
+                  <th className="text-left px-4 py-2 w-20">Type</th>
+                  <th className="text-left px-4 py-2 w-32">ID</th>
+                  <th className="text-left px-4 py-2">Title</th>
+                  <th className="text-left px-4 py-2 w-24">Status</th>
+                  <th className="text-left px-4 py-2 w-32">Case</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flatResults.map((result, idx) => (
+                  <tr
+                    key={`${result.type}-${result.id}`}
+                    data-result
+                    onClick={() => navigateToResult(result)}
+                    className={`cursor-pointer border-b border-slate-800 transition-colors ${
+                      idx === selectedIndex
+                        ? 'bg-slate-700 text-white'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    <td className={`px-4 py-2 ${getTypeColor(result.type)}`}>
+                      {result.type}
+                    </td>
+                    <td className="px-4 py-2 text-slate-400 truncate max-w-[120px]">
+                      {result.identifier}
+                    </td>
+                    <td className="px-4 py-2 truncate max-w-[300px]">
+                      {result.title}
+                    </td>
+                    <td className={`px-4 py-2 ${getStatusColor(result.status)}`}>
+                      {result.status.toUpperCase()}
+                    </td>
+                    <td className="px-4 py-2 text-slate-500 truncate max-w-[120px]">
+                      {result.meta || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-slate-200 bg-slate-50 rounded-b-xl">
-          <p className="text-xs text-slate-500 text-center">
-            Press <kbd className="px-2 py-0.5 bg-white border border-slate-300 rounded text-xs">ESC</kbd> to close
-          </p>
+        <div className="bg-slate-800 border-t border-slate-700 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-slate-500 font-mono text-xs">
+            <span><kbd className="px-1 bg-slate-700 text-slate-300">↑↓</kbd> navigate</span>
+            <span><kbd className="px-1 bg-slate-700 text-slate-300">↵</kbd> select</span>
+            <span><kbd className="px-1 bg-slate-700 text-slate-300">TAB</kbd> filter</span>
+            <span><kbd className="px-1 bg-slate-700 text-slate-300">ESC</kbd> close</span>
+          </div>
+          {flatResults.length > 0 && (
+            <span className="text-slate-500 font-mono text-xs">
+              {selectedIndex + 1}/{flatResults.length}
+            </span>
+          )}
         </div>
       </div>
     </div>
