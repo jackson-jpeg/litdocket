@@ -15,30 +15,36 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Validate configuration
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+// Check if Supabase is configured
+const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+// Validate configuration (warn but don't throw)
+if (!isSupabaseConfigured) {
   console.warn(
     '[Supabase] Missing configuration. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'
   );
 }
 
-// Create Supabase client
-export const supabase: SupabaseClient = createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-    // Enable real-time subscriptions
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
+// Create Supabase client only if configured, otherwise create a placeholder
+// This allows the app to build even without Supabase env vars
+export const supabase: SupabaseClient = isSupabaseConfigured
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
       },
-    },
-  }
-);
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    })
+  : (createClient('https://placeholder.supabase.co', 'placeholder-key', {
+      auth: { persistSession: false },
+    }) as SupabaseClient);
+
+// Export helper to check if Supabase is available
+export const isSupabaseAvailable = isSupabaseConfigured;
 
 // ============================================
 // Type Definitions
