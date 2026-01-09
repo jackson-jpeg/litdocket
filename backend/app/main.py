@@ -56,13 +56,24 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
     logger.error(traceback.format_exc())
 
-    return JSONResponse(
+    # Get origin from request
+    origin = request.headers.get("origin", "")
+
+    # Build response with CORS headers
+    response = JSONResponse(
         status_code=500,
         content={
             "detail": "Internal server error",
             "error": str(exc) if settings.DEBUG else "An unexpected error occurred"
         }
     )
+
+    # Add CORS headers manually for error responses
+    if origin in CORS_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
+    return response
 
 
 # Request timing middleware

@@ -40,10 +40,9 @@ from app.models.jurisdiction import (
     JurisdictionType,
     CourtType,
     DependencyType,
-    TriggerType,
-    DeadlinePriority,
-    CalculationMethod,
 )
+# Centralized enums (SINGLE SOURCE OF TRUTH)
+from app.models.enums import TriggerType, DeadlinePriority, CalculationMethod
 
 __all__ = [
     "Base",
