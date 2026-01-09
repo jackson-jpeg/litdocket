@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { Zap, Plus, AlertTriangle, RefreshCw } from 'lucide-react';
-import type { Trigger, Deadline } from '@/hooks/useCaseData';
+import type { Trigger } from '@/hooks/useCaseData';
 import TriggerCard from './TriggerCard';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 
 interface TriggerEventsPanelProps {
   triggers: Trigger[];
-  deadlines: Deadline[];
   caseId: string;
   onAddTrigger?: () => void;
   onEditTrigger?: (trigger: Trigger) => void;
@@ -18,7 +17,6 @@ interface TriggerEventsPanelProps {
 
 export default function TriggerEventsPanel({
   triggers,
-  deadlines,
   caseId,
   onAddTrigger,
   onEditTrigger,
@@ -105,7 +103,6 @@ export default function TriggerEventsPanel({
             <TriggerCard
               key={trigger.id}
               trigger={trigger}
-              deadlines={deadlines}
               onEdit={onEditTrigger}
               onRecalculate={handleRecalculate}
               onDelete={handleDelete}

@@ -13,11 +13,10 @@ import {
   Check,
   CornerDownRight
 } from 'lucide-react';
-import type { Trigger, Deadline } from '@/hooks/useCaseData';
+import type { Trigger } from '@/hooks/useCaseData';
 
 interface TriggerCardProps {
   trigger: Trigger;
-  deadlines: Deadline[];
   onEdit?: (trigger: Trigger) => void;
   onRecalculate?: (triggerId: string) => void;
   onDelete?: (triggerId: string) => void;
@@ -26,7 +25,6 @@ interface TriggerCardProps {
 
 export default function TriggerCard({
   trigger,
-  deadlines,
   onEdit,
   onRecalculate,
   onDelete,
@@ -35,8 +33,9 @@ export default function TriggerCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
-  const childDeadlines = deadlines.filter(d => d.trigger_event === trigger.trigger_type);
-  const overdueCount = childDeadlines.filter(d => d.status === 'pending' && new Date(d.deadline_date!) < new Date()).length;
+  // V2: Use pre-calculated nested data from API (no client-side filtering)
+  const childDeadlines = trigger.child_deadlines || [];
+  const overdueCount = trigger.status_summary?.overdue || 0;
 
   // Strict Date Formatting
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', {
@@ -153,35 +152,34 @@ export default function TriggerCard({
                   </tr>
                 </thead>
                 <tbody className="font-mono text-xs">
-                  {childDeadlines
-                    .sort((a, b) => new Date(a.deadline_date!).getTime() - new Date(b.deadline_date!).getTime())
-                    .map(dl => {
-                      const isOverdue = dl.status === 'pending' && new Date(dl.deadline_date!) < new Date();
-                      const isDone = dl.status === 'completed';
+                  {childDeadlines.map(dl => {
+                    // V2: Use pre-calculated is_overdue from API
+                    const isOverdue = dl.is_overdue;
+                    const isDone = dl.status === 'completed';
 
-                      return (
-                        <tr key={dl.id} className={`group hover:bg-white transition-colors ${isDone ? 'opacity-50' : ''}`}>
-                          <td className="py-2 align-top">
-                            {isOverdue ? (
-                              <AlertTriangle className="w-3 h-3 text-red-600" />
-                            ) : isDone ? (
-                              <Check className="w-3 h-3 text-green-600" />
-                            ) : (
-                              <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>
-                            )}
-                          </td>
-                          <td className={`py-2 align-top font-medium ${isOverdue ? 'text-red-700' : 'text-slate-700'}`}>
-                            {dl.deadline_date ? formatDate(dl.deadline_date) : 'TBD'}
-                          </td>
-                          <td className="py-2 align-top font-sans text-slate-800 pr-4">
-                            {dl.title}
-                          </td>
-                          <td className="py-2 align-top text-right text-slate-400 truncate max-w-[150px]" title={dl.applicable_rule}>
-                            {dl.applicable_rule?.split(' ')[0] || 'RULE'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    return (
+                      <tr key={dl.id} className={`group hover:bg-white transition-colors ${isDone ? 'opacity-50' : ''}`}>
+                        <td className="py-2 align-top">
+                          {isOverdue ? (
+                            <AlertTriangle className="w-3 h-3 text-red-600" />
+                          ) : isDone ? (
+                            <Check className="w-3 h-3 text-green-600" />
+                          ) : (
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>
+                          )}
+                        </td>
+                        <td className={`py-2 align-top font-medium ${isOverdue ? 'text-red-700' : 'text-slate-700'}`}>
+                          {dl.deadline_date ? formatDate(dl.deadline_date) : 'TBD'}
+                        </td>
+                        <td className="py-2 align-top font-sans text-slate-800 pr-4">
+                          {dl.title}
+                        </td>
+                        <td className="py-2 align-top text-right text-slate-400 truncate max-w-[150px]" title={dl.applicable_rule}>
+                          {dl.applicable_rule?.split(' ')[0] || 'RULE'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

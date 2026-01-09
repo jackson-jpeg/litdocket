@@ -51,14 +51,45 @@ export interface Deadline {
   created_at: string;
 }
 
+// Status summary for frontend badges (pre-calculated by backend)
+export interface TriggerStatusSummary {
+  overdue: number;
+  pending: number;
+  completed: number;
+  cancelled: number;
+  total: number;
+}
+
+// Child deadline in nested trigger response
+export interface TriggerChildDeadline {
+  id: string;
+  title: string;
+  description?: string;
+  deadline_date: string | null;
+  priority: string;
+  status: string;
+  is_overdue: boolean;
+  applicable_rule?: string;
+  calculation_basis?: string;
+  party_role?: string;
+  action_required?: string;
+  is_manually_overridden: boolean;
+  auto_recalculate: boolean;
+}
+
 export interface Trigger {
   id: string;
   trigger_type: string;
   trigger_date: string;
   title: string;
-  dependent_deadlines_count: number;
-  status?: string;  // Optional: pending, completed, cancelled
+  status?: string;
+  notes?: string;
   created_at: string;
+  // V2 Nested Structure for Sovereign UI
+  status_summary: TriggerStatusSummary;
+  child_deadlines: TriggerChildDeadline[];
+  // Legacy field for backwards compatibility
+  dependent_deadlines_count: number;
 }
 
 export interface CaseSummary {
