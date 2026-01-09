@@ -13,6 +13,7 @@ import {
   Scale,
   User,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import { CalendarDeadline } from '@/hooks/useCalendarDeadlines';
 
@@ -20,15 +21,19 @@ interface DeadlineDetailModalProps {
   deadline: CalendarDeadline | null;
   onClose: () => void;
   onComplete: (deadlineId: string) => Promise<void>;
+  onDelete?: (deadlineId: string) => Promise<void>;
 }
 
 export default function DeadlineDetailModal({
   deadline,
   onClose,
   onComplete,
+  onDelete,
 }: DeadlineDetailModalProps) {
   const router = useRouter();
   const [completing, setCompleting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!deadline) return null;
 
@@ -87,6 +92,20 @@ export default function DeadlineDetailModal({
 
   const goToCase = () => {
     router.push(`/cases/${deadline.case_id}`);
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(deadline.id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete deadline:', error);
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   return (
@@ -214,13 +233,26 @@ export default function DeadlineDetailModal({
 
         {/* Footer Actions */}
         <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
-          <button
-            onClick={goToCase}
-            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span className="text-sm font-medium">Go to Case</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToCase}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span className="text-sm font-medium">Go to Case</span>
+            </button>
+
+            {onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Delete</span>
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <button
@@ -245,6 +277,52 @@ export default function DeadlineDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800">
+                Delete Deadline?
+              </h3>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-6">
+              Are you sure you want to delete <span className="font-medium text-slate-800">"{deadline.title}"</span>? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {deleting ? 'Deleting...' : 'Delete Deadline'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

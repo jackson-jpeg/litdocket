@@ -95,6 +95,20 @@ export default function CalendarPage() {
     }
   }, [updateDeadlineStatus, showSuccess, showError]);
 
+  // Handle delete deadline
+  const handleDeleteDeadline = useCallback(async (deadlineId: string) => {
+    try {
+      await apiClient.delete(`/api/v1/deadlines/${deadlineId}`);
+      showSuccess('Deadline deleted successfully');
+      deadlineEvents.deleted({ id: deadlineId });
+      refetch(); // Refresh calendar data
+    } catch (err) {
+      console.error('Failed to delete deadline:', err);
+      showError('Failed to delete deadline');
+      throw err; // Re-throw so modal can handle it
+    }
+  }, [showSuccess, showError, refetch]);
+
   // Handle iCal export
   const handleExportICal = useCallback(async () => {
     try {
@@ -265,6 +279,7 @@ export default function CalendarPage() {
         deadline={selectedDeadline}
         onClose={() => setSelectedDeadline(null)}
         onComplete={handleCompleteDeadline}
+        onDelete={handleDeleteDeadline}
       />
 
       <CreateDeadlineModal
