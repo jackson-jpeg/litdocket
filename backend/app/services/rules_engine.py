@@ -9,7 +9,7 @@ Supports both:
 1. Hardcoded rule templates (legacy, always available)
 2. Database-loaded rule templates (from jurisdiction system)
 """
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING
 from datetime import date, timedelta
 from dataclasses import dataclass
 from enum import Enum
