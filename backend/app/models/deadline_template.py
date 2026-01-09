@@ -67,4 +67,4 @@ class DeadlineTemplate(Base):
 
     # Relationships
     creator = relationship("User", back_populates="deadline_templates")
-    chains = relationship("DeadlineChain", back_populates="template")
+    # chains relationship removed - DeadlineChain.template_id doesn't exist in DB

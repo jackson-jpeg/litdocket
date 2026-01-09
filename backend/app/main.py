@@ -1,5 +1,5 @@
-# Force rebuild: 2026-01-09 22:30 - CRITICAL: Removed trigger_type from deadline_chains model
-print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.8 (FINAL SCHEMA FIX) ---")
+# Force rebuild: 2026-01-09 23:25 - STRIPPED DeadlineChain to bare minimum (id, case_id, parent_deadline_id)
+print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.9 (BARE MINIMUM SCHEMA) ---")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
