@@ -28,6 +28,23 @@ from app.models.document_tag import Tag, DocumentTag
 # Case Templates
 from app.models.case_template import CaseTemplate
 
+# CompuLaw-style Jurisdiction and Rule System
+from app.models.jurisdiction import (
+    Jurisdiction,
+    RuleSet,
+    RuleSetDependency,
+    CourtLocation,
+    RuleTemplate,
+    RuleTemplateDeadline,
+    CaseRuleSet,
+    JurisdictionType,
+    CourtType,
+    DependencyType,
+    TriggerType,
+    DeadlinePriority,
+    CalculationMethod,
+)
+
 __all__ = [
     "Base",
     "User",
@@ -55,4 +72,18 @@ __all__ = [
     "DocumentTag",
     # Case Templates
     "CaseTemplate",
+    # CompuLaw-style Jurisdiction System
+    "Jurisdiction",
+    "RuleSet",
+    "RuleSetDependency",
+    "CourtLocation",
+    "RuleTemplate",
+    "RuleTemplateDeadline",
+    "CaseRuleSet",
+    "JurisdictionType",
+    "CourtType",
+    "DependencyType",
+    "TriggerType",
+    "DeadlinePriority",
+    "CalculationMethod",
 ]

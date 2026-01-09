@@ -4,11 +4,16 @@ Handles Florida State, Federal, and Local court rules with dependency chains
 
 This engine uses the AuthoritativeDeadlineCalculator to ensure every deadline
 includes complete rule citations and calculation basis for legal defensibility.
+
+Supports both:
+1. Hardcoded rule templates (legacy, always available)
+2. Database-loaded rule templates (from jurisdiction system)
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 from datetime import date, timedelta
 from dataclasses import dataclass
 from enum import Enum
+import logging
 
 # Import authoritative legal rules constants
 from app.constants.legal_rules import get_service_extension_days, get_rule_citation
@@ -17,6 +22,11 @@ from app.utils.deadline_calculator import (
     CalculationMethod,
     DeadlineCalculation
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 class DeadlinePriority(Enum):
@@ -2072,5 +2082,292 @@ class RulesEngine:
         self.rule_templates[fed_brief_rule.rule_id] = fed_brief_rule
 
 
-# Singleton instance
+    def load_templates_from_database(self, db: "Session") -> List[RuleTemplate]:
+        """
+        Load rule templates from the database jurisdiction system.
+
+        Converts database RuleTemplate models to the dataclass format
+        used by the rules engine for calculation.
+
+        Args:
+            db: SQLAlchemy database session
+
+        Returns:
+            List of RuleTemplate dataclasses loaded from database
+        """
+        from app.models.jurisdiction import (
+            RuleTemplate as DBRuleTemplate,
+            RuleTemplateDeadline as DBDeadline,
+            RuleSet,
+            TriggerType as DBTriggerType,
+            DeadlinePriority as DBPriority,
+            CalculationMethod as DBCalcMethod
+        )
+
+        db_templates = []
+
+        try:
+            # Get all active rule templates with their deadlines
+            templates = db.query(DBRuleTemplate).filter(
+                DBRuleTemplate.is_active == True
+            ).all()
+
+            for db_template in templates:
+                # Get the rule set for jurisdiction info
+                rule_set = db.query(RuleSet).filter(
+                    RuleSet.id == db_template.rule_set_id
+                ).first()
+
+                if not rule_set:
+                    continue
+
+                # Determine jurisdiction string from rule set
+                jurisdiction = self._map_rule_set_to_jurisdiction(rule_set)
+                court_type = self._map_court_type_to_string(rule_set.court_type.value if rule_set.court_type else "circuit")
+
+                # Convert trigger type
+                try:
+                    trigger_type = TriggerType(db_template.trigger_type.value)
+                except (ValueError, AttributeError):
+                    logger.warning(f"Unknown trigger type: {db_template.trigger_type}")
+                    continue
+
+                # Convert deadlines
+                dependent_deadlines = []
+                for db_deadline in db_template.deadlines:
+                    if not db_deadline.is_active:
+                        continue
+
+                    # Map priority
+                    priority_map = {
+                        "informational": DeadlinePriority.INFORMATIONAL,
+                        "standard": DeadlinePriority.STANDARD,
+                        "important": DeadlinePriority.IMPORTANT,
+                        "critical": DeadlinePriority.CRITICAL,
+                        "fatal": DeadlinePriority.FATAL,
+                    }
+                    priority = priority_map.get(
+                        db_deadline.priority.value if db_deadline.priority else "standard",
+                        DeadlinePriority.STANDARD
+                    )
+
+                    # Map calculation method
+                    calc_method = "calendar_days"
+                    if db_deadline.calculation_method:
+                        calc_method = db_deadline.calculation_method.value
+
+                    dependent_deadlines.append(DependentDeadline(
+                        name=db_deadline.name,
+                        description=db_deadline.description or "",
+                        days_from_trigger=db_deadline.days_from_trigger,
+                        priority=priority,
+                        party_responsible=db_deadline.party_responsible or "both",
+                        action_required=db_deadline.action_required or "",
+                        calculation_method=calc_method,
+                        add_service_method_days=db_deadline.add_service_days or False,
+                        rule_citation=db_deadline.rule_citation or "",
+                        notes=db_deadline.notes
+                    ))
+
+                if not dependent_deadlines:
+                    continue
+
+                # Create RuleTemplate dataclass
+                template = RuleTemplate(
+                    rule_id=f"DB_{rule_set.code}_{db_template.rule_code}",
+                    name=db_template.name,
+                    description=db_template.description or "",
+                    jurisdiction=jurisdiction,
+                    court_type=court_type,
+                    trigger_type=trigger_type,
+                    citation=db_template.citation or "",
+                    dependent_deadlines=dependent_deadlines
+                )
+
+                db_templates.append(template)
+
+            logger.info(f"Loaded {len(db_templates)} rule templates from database")
+
+        except Exception as e:
+            logger.error(f"Error loading templates from database: {e}")
+
+        return db_templates
+
+    def _map_rule_set_to_jurisdiction(self, rule_set) -> str:
+        """Map a RuleSet to a jurisdiction string for the rules engine"""
+        code = rule_set.code.upper()
+
+        # Federal rules
+        if code in ["FRCP", "FRAP", "FRBP"]:
+            return "federal"
+
+        # Florida state rules
+        if code.startswith("FL:"):
+            return "florida_state"
+
+        # Florida local rules
+        if "LOCAL" in code or code.startswith("FL-"):
+            return "florida_local"
+
+        # Default based on jurisdiction type
+        if rule_set.jurisdiction:
+            jtype = rule_set.jurisdiction.jurisdiction_type
+            if jtype and jtype.value == "federal":
+                return "federal"
+            elif jtype and jtype.value == "state":
+                return "florida_state"
+
+        return "florida_state"  # Default
+
+    def _map_court_type_to_string(self, court_type: str) -> str:
+        """Map database court type to rules engine court type string"""
+        mapping = {
+            "circuit": "civil",
+            "county": "civil",
+            "district": "civil",
+            "bankruptcy": "civil",
+            "appellate_state": "appellate",
+            "appellate_federal": "appellate",
+            "supreme_state": "appellate",
+            "supreme_federal": "appellate",
+        }
+        return mapping.get(court_type, "civil")
+
+    def get_all_templates_with_db(self, db: "Session") -> List[RuleTemplate]:
+        """
+        Get all templates including database-loaded ones.
+
+        Database templates take precedence over hardcoded templates
+        with matching rule_id prefixes.
+        """
+        # Start with hardcoded templates
+        all_templates = list(self.rule_templates.values())
+
+        # Load database templates
+        db_templates = self.load_templates_from_database(db)
+
+        # Add database templates (they won't conflict since IDs are prefixed with DB_)
+        all_templates.extend(db_templates)
+
+        return all_templates
+
+    def get_applicable_rules_with_db(
+        self,
+        db: "Session",
+        jurisdiction: str,
+        court_type: str,
+        trigger_type: TriggerType,
+        rule_set_ids: Optional[List[str]] = None
+    ) -> List[RuleTemplate]:
+        """
+        Get applicable rules including database-loaded ones.
+
+        Can optionally filter by specific rule set IDs (from jurisdiction detection).
+        """
+        # Get hardcoded templates
+        applicable = self.get_applicable_rules(jurisdiction, court_type, trigger_type)
+
+        # Load and filter database templates
+        db_templates = self.load_templates_from_database(db)
+
+        for template in db_templates:
+            if (template.jurisdiction == jurisdiction and
+                template.court_type == court_type and
+                template.trigger_type == trigger_type):
+
+                # If rule_set_ids provided, filter by them
+                if rule_set_ids:
+                    # Extract rule set code from template ID (DB_{code}_{rule_code})
+                    parts = template.rule_id.split("_", 2)
+                    if len(parts) >= 2:
+                        rule_set_code = parts[1]
+                        if rule_set_code not in rule_set_ids:
+                            continue
+
+                applicable.append(template)
+
+        return applicable
+
+
+class DatabaseRulesEngine:
+    """
+    A wrapper around RulesEngine that primarily uses database-loaded rules.
+
+    This class provides the same interface as RulesEngine but loads
+    rule templates from the jurisdiction system database tables.
+
+    Usage:
+        db_engine = DatabaseRulesEngine(db_session)
+        templates = db_engine.get_applicable_rules(jurisdiction, court_type, trigger_type)
+    """
+
+    def __init__(self, db: "Session"):
+        self.db = db
+        self._base_engine = rules_engine  # Use singleton for hardcoded templates
+        self._db_templates_cache: Optional[List[RuleTemplate]] = None
+
+    def _get_db_templates(self) -> List[RuleTemplate]:
+        """Get database templates with caching"""
+        if self._db_templates_cache is None:
+            self._db_templates_cache = self._base_engine.load_templates_from_database(self.db)
+        return self._db_templates_cache
+
+    def get_all_templates(self) -> List[RuleTemplate]:
+        """Get all templates including database ones"""
+        return self._base_engine.get_all_templates_with_db(self.db)
+
+    def get_applicable_rules(
+        self,
+        jurisdiction: str,
+        court_type: str,
+        trigger_type: TriggerType,
+        rule_set_codes: Optional[List[str]] = None
+    ) -> List[RuleTemplate]:
+        """Get applicable rules for given context"""
+        return self._base_engine.get_applicable_rules_with_db(
+            self.db, jurisdiction, court_type, trigger_type, rule_set_codes
+        )
+
+    def calculate_dependent_deadlines(
+        self,
+        trigger_date: date,
+        rule_template: RuleTemplate,
+        service_method: str = "email",
+        case_context: Optional[Dict] = None
+    ) -> List[Dict]:
+        """Calculate deadlines (delegates to base engine)"""
+        return self._base_engine.calculate_dependent_deadlines(
+            trigger_date, rule_template, service_method, case_context
+        )
+
+    def get_template_by_id(self, rule_id: str) -> Optional[RuleTemplate]:
+        """Get template by ID (checks both hardcoded and database)"""
+        # Check hardcoded first
+        template = self._base_engine.get_template_by_id(rule_id)
+        if template:
+            return template
+
+        # Check database templates
+        for t in self._get_db_templates():
+            if t.rule_id == rule_id:
+                return t
+
+        return None
+
+    def invalidate_cache(self):
+        """Invalidate the database templates cache"""
+        self._db_templates_cache = None
+
+
+# Singleton instance (for backwards compatibility with hardcoded rules)
 rules_engine = RulesEngine()
+
+
+def get_rules_engine_for_case(db: "Session", case_id: str) -> DatabaseRulesEngine:
+    """
+    Get a DatabaseRulesEngine configured for a specific case.
+
+    This function can be extended to auto-detect the case's jurisdiction
+    and pre-filter applicable rules.
+    """
+    return DatabaseRulesEngine(db)

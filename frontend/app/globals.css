@@ -6,105 +6,488 @@
 @import 'react-pdf/dist/Page/AnnotationLayer.css';
 @import 'react-pdf/dist/Page/TextLayer.css';
 
-/* IBM Plex Mono for data/numbers */
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+/* Google Fonts - IBM Plex Mono for data, Merriweather for display */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Merriweather:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap');
+
+/* ============================================
+   LEGACY MODERN DESIGN SYSTEM
+   "Utilitarian Authority" - Windows 95/IBM OS2 Aesthetic
+   ============================================ */
 
 :root {
-  /* Enterprise color tokens */
-  --enterprise-blue: #0f62fe;
-  --enterprise-blue-dark: #002d9c;
-  --enterprise-grey-900: #161616;
-  --enterprise-grey-800: #262626;
-  --enterprise-grey-700: #393939;
-  --enterprise-grey-600: #525252;
-  --enterprise-grey-500: #6f6f6f;
-  --enterprise-grey-400: #8d8d8d;
-  --enterprise-grey-300: #a8a8a8;
-  --enterprise-grey-200: #c6c6c6;
-  --enterprise-grey-100: #e0e0e0;
-  --enterprise-grey-50: #f4f4f4;
+  /* Surface colors - Enterprise Greys */
+  --surface: #ECE9D8;
+  --surface-light: #F5F5F5;
+  --surface-panel: #FFFFFF;
+  --surface-dark: #D4D0C8;
 
-  /* Status colors */
-  --status-critical: #da1e28;
-  --status-warning: #f1c21b;
-  --status-success: #198038;
+  /* Primary - Navy/IBM Blue */
+  --navy: #000080;
+  --navy-deep: #003366;
+  --navy-light: #4169E1;
+
+  /* Status - Dark, Professional */
+  --status-filed: #006400;
+  --status-overdue: #8B0000;
+  --status-warning: #B8860B;
+  --status-info: #000080;
+
+  /* Bevel borders for 3D effects */
+  --bevel-light: #FFFFFF;
+  --bevel-dark: #808080;
+  --bevel-darker: #404040;
+  --bevel-highlight: #DFDFDF;
+
+  /* Enterprise greys */
+  --grey-900: #161616;
+  --grey-800: #262626;
+  --grey-700: #393939;
+  --grey-600: #525252;
+  --grey-500: #6f6f6f;
+  --grey-400: #8d8d8d;
+  --grey-300: #a8a8a8;
+  --grey-200: #c6c6c6;
+  --grey-100: #e0e0e0;
+  --grey-50: #f4f4f4;
 }
 
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
 body {
-  color: var(--enterprise-grey-900);
-  background-color: var(--enterprise-grey-50);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  color: var(--grey-900);
+  background-color: var(--surface);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Serif for headings - professional legal feel */
-h1, h2, h3, h4, h5, h6, .font-serif {
-  font-family: Georgia, 'Times New Roman', Times, serif;
+/* Serif for headings - authoritative, like court orders */
+h1, h2, h3, h4, h5, h6, .font-serif, .font-display {
+  font-family: 'Merriweather', Georgia, 'Times New Roman', Times, serif;
+  font-weight: 700;
 }
 
-/* Monospace for data, numbers, dates */
-.font-mono, .data-value {
+/* Monospace for data, numbers, dates, docket numbers */
+.font-mono, .data-value, .docket-number {
   font-family: 'IBM Plex Mono', Consolas, Monaco, monospace;
 }
 
-/* Dense table styling */
+/* ============================================
+   COMPONENT LAYER - LEGACY MODERN COMPONENTS
+   ============================================ */
+
 @layer components {
+  /* ==========================================
+     BEVELED BUTTONS - 3D Windows 95 Style
+     ========================================== */
+  .btn-beveled {
+    @apply inline-flex items-center justify-center px-4 py-2;
+    @apply text-sm font-medium;
+    @apply bg-surface-dark text-grey-900;
+    border: 2px solid;
+    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+    cursor: pointer;
+    transition: none; /* No smooth transitions - instant feedback */
+  }
+
+  .btn-beveled:hover {
+    @apply bg-surface;
+  }
+
+  .btn-beveled:active {
+    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+    @apply bg-surface-dark;
+  }
+
+  .btn-beveled:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Primary Navy Button */
+  .btn-beveled-primary {
+    @apply btn-beveled;
+    @apply bg-navy text-white;
+    border-color: #4169E1 #00004d #00004d #4169E1;
+  }
+
+  .btn-beveled-primary:hover {
+    @apply bg-navy-deep;
+  }
+
+  .btn-beveled-primary:active {
+    border-color: #00004d #4169E1 #4169E1 #00004d;
+  }
+
+  /* Danger Button */
+  .btn-beveled-danger {
+    @apply btn-beveled;
+    @apply bg-overdue text-white;
+    border-color: #CD5C5C #4d0000 #4d0000 #CD5C5C;
+  }
+
+  /* ==========================================
+     BEVELED INPUTS - Inset 3D Style
+     ========================================== */
+  .input-beveled {
+    @apply w-full px-3 py-2 text-sm;
+    @apply bg-surface-panel text-grey-900;
+    border: 2px solid;
+    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+  }
+
+  .input-beveled:focus {
+    outline: 2px solid var(--navy);
+    outline-offset: -2px;
+  }
+
+  .input-beveled::placeholder {
+    color: var(--grey-400);
+  }
+
+  /* ==========================================
+     BEVELED PANELS - Outset 3D Style
+     ========================================== */
+  .panel-beveled {
+    @apply bg-surface-dark;
+    border: 2px solid;
+    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+  }
+
+  .panel-inset {
+    @apply bg-surface-panel;
+    border: 2px solid;
+    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+  }
+
+  /* ==========================================
+     DATA TABLES - Strict Grid Lines
+     ========================================== */
   .data-table {
-    @apply w-full text-sm border-collapse;
+    @apply w-full text-sm;
+    border-collapse: collapse;
+    border: 1px solid var(--grey-400);
   }
 
   .data-table th {
     @apply text-left font-semibold text-xs uppercase tracking-wider;
-    @apply px-3 py-2 border-b-2 border-enterprise-grey-300;
-    @apply bg-enterprise-grey-100 text-enterprise-grey-700;
+    @apply px-3 py-2;
+    @apply text-grey-800;
+    background-color: var(--surface-dark);
+    border: 1px solid var(--grey-400);
   }
 
   .data-table td {
-    @apply px-3 py-2 border-b border-enterprise-grey-200;
-    @apply text-enterprise-grey-800;
+    @apply px-3 py-2;
+    @apply text-grey-900;
+    background-color: var(--surface-panel);
+    border: 1px solid var(--grey-300);
   }
 
   .data-table tr:hover td {
-    @apply bg-enterprise-blue-50;
+    background-color: var(--surface);
   }
 
-  /* Enterprise card */
+  /* Alternating rows */
+  .data-table tr:nth-child(even) td {
+    background-color: var(--grey-50);
+  }
+
+  /* ==========================================
+     ENTERPRISE CARDS - Sharp Edges
+     ========================================== */
   .enterprise-card {
-    @apply bg-white border border-enterprise-grey-200;
-    @apply shadow-sm;
+    @apply bg-surface-panel;
+    border: 1px solid var(--grey-300);
   }
 
   .enterprise-card-header {
-    @apply px-4 py-3 border-b border-enterprise-grey-200;
-    @apply bg-enterprise-grey-50;
+    @apply px-4 py-3;
+    @apply font-serif font-bold text-grey-900;
+    background-color: var(--surface-dark);
+    border-bottom: 1px solid var(--grey-300);
   }
 
-  /* Status badges */
-  .badge-critical {
+  .enterprise-card-body {
+    @apply px-4 py-3;
+  }
+
+  /* ==========================================
+     STATUS BADGES - Muted Professional Colors
+     ========================================== */
+  .badge {
     @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
-    @apply bg-red-100 text-status-critical border border-red-200;
+    border: 1px solid;
+  }
+
+  .badge-critical, .badge-overdue {
+    @apply badge;
+    background-color: #FFEBEE;
+    color: var(--status-overdue);
+    border-color: var(--status-overdue);
   }
 
   .badge-warning {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
-    @apply bg-yellow-50 text-yellow-800 border border-yellow-200;
+    @apply badge;
+    background-color: #FFF8E1;
+    color: var(--status-warning);
+    border-color: var(--status-warning);
   }
 
-  .badge-success {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
-    @apply bg-green-50 text-status-success border border-green-200;
+  .badge-success, .badge-filed {
+    @apply badge;
+    background-color: #E8F5E9;
+    color: var(--status-filed);
+    border-color: var(--status-filed);
   }
 
   .badge-info {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
-    @apply bg-enterprise-blue-50 text-enterprise-blue-700 border border-enterprise-blue-200;
+    @apply badge;
+    background-color: #E3F2FD;
+    color: var(--status-info);
+    border-color: var(--status-info);
+  }
+
+  .badge-neutral {
+    @apply badge;
+    background-color: var(--grey-100);
+    color: var(--grey-700);
+    border-color: var(--grey-400);
+  }
+
+  /* ==========================================
+     TREE VIEW - Classic Folder Style
+     ========================================== */
+  .tree-view {
+    @apply text-sm font-mono;
+  }
+
+  .tree-node {
+    @apply flex items-center gap-2 py-1 px-2;
+    cursor: pointer;
+  }
+
+  .tree-node:hover {
+    background-color: var(--surface);
+  }
+
+  .tree-node.selected {
+    background-color: var(--navy);
+    color: white;
+  }
+
+  .tree-connector {
+    border-left: 1px dotted var(--grey-400);
+    margin-left: 8px;
+    padding-left: 16px;
+  }
+
+  .tree-icon {
+    @apply w-4 h-4;
+    color: var(--grey-600);
+  }
+
+  /* ==========================================
+     COMMAND BAR - CLI/Terminal Style
+     ========================================== */
+  .command-bar {
+    @apply fixed bottom-0 left-0 right-0;
+    @apply px-4 py-2;
+    @apply font-mono text-sm;
+    background-color: var(--grey-900);
+    border-top: 2px solid var(--grey-700);
+    z-index: 50;
+  }
+
+  .command-bar-input {
+    @apply w-full px-3 py-2;
+    @apply font-mono text-sm;
+    @apply bg-grey-800 text-green-400;
+    border: 1px solid var(--grey-600);
+  }
+
+  .command-bar-input::placeholder {
+    color: var(--grey-500);
+  }
+
+  .command-bar-input:focus {
+    outline: 1px solid var(--navy-light);
+    outline-offset: 0;
+  }
+
+  .command-prompt {
+    @apply text-green-400 font-mono mr-2;
+  }
+
+  /* ==========================================
+     WINDOW FRAME - OS/2 Warp Style
+     ========================================== */
+  .window-frame {
+    @apply panel-beveled;
+  }
+
+  .window-titlebar {
+    @apply px-3 py-1;
+    @apply font-bold text-sm text-white;
+    background: linear-gradient(90deg, var(--navy) 0%, var(--navy-deep) 100%);
+    border-bottom: 1px solid var(--bevel-dark);
+  }
+
+  .window-titlebar-text {
+    @apply font-sans font-bold;
+  }
+
+  .window-content {
+    @apply p-2;
+    background-color: var(--surface);
+  }
+
+  /* ==========================================
+     MENU BAR - Classic Style
+     ========================================== */
+  .menu-bar {
+    @apply flex items-center gap-1 px-2 py-1;
+    background-color: var(--surface-dark);
+    border-bottom: 1px solid var(--grey-300);
+  }
+
+  .menu-item {
+    @apply px-3 py-1 text-sm;
+    cursor: pointer;
+  }
+
+  .menu-item:hover {
+    @apply bg-navy text-white;
+  }
+
+  /* ==========================================
+     SCROLLBARS - Classic Style
+     ========================================== */
+  .classic-scrollbar::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+  }
+
+  .classic-scrollbar::-webkit-scrollbar-track {
+    background: var(--surface);
+    border: 1px solid var(--grey-300);
+  }
+
+  .classic-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--surface-dark);
+    border: 2px solid;
+    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+  }
+
+  .classic-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--grey-300);
+  }
+
+  /* ==========================================
+     PRIORITY INDICATORS
+     ========================================== */
+  .priority-fatal {
+    border-left: 4px solid var(--status-overdue);
+  }
+
+  .priority-critical {
+    border-left: 4px solid #CD5C5C;
+  }
+
+  .priority-important {
+    border-left: 4px solid var(--status-warning);
+  }
+
+  .priority-standard {
+    border-left: 4px solid var(--grey-400);
+  }
+
+  .priority-informational {
+    border-left: 4px solid var(--grey-300);
   }
 }
+
+/* ============================================
+   UTILITY LAYER
+   ============================================ */
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Dense spacing utilities */
+  .space-dense {
+    @apply space-y-1;
+  }
+
+  .space-compact {
+    @apply space-y-2;
+  }
+
+  /* Surface utilities */
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-surface-panel {
+    background-color: var(--surface-panel);
+  }
+
+  .bg-surface-dark {
+    background-color: var(--surface-dark);
+  }
+
+  /* Text colors */
+  .text-navy {
+    color: var(--navy);
+  }
+
+  .text-filed {
+    color: var(--status-filed);
+  }
+
+  .text-overdue {
+    color: var(--status-overdue);
+  }
+
+  /* Border utilities */
+  .border-bevel-outset {
+    border: 2px solid;
+    border-color: var(--bevel-light) var(--bevel-dark) var(--bevel-dark) var(--bevel-light);
+  }
+
+  .border-bevel-inset {
+    border: 2px solid;
+    border-color: var(--bevel-dark) var(--bevel-light) var(--bevel-light) var(--bevel-dark);
+  }
+}
+
+/* ============================================
+   PRINT STYLES - Legal Document Format
+   ============================================ */
+
+@media print {
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    background: white;
+    color: black;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .data-table {
+    border: 1px solid black;
+  }
+
+  .data-table th,
+  .data-table td {
+    border: 1px solid black;
   }
 }

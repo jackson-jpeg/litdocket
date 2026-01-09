@@ -10,10 +10,12 @@ logger = logging.getLogger(__name__)
 from app.services.firebase_service import firebase_service
 from app.services.deadline_service import DeadlineService
 from app.services.confidence_scoring import confidence_scorer
+from app.services.jurisdiction_detector import JurisdictionDetector
 from app.utils.pdf_parser import extract_text_from_pdf, get_pdf_metadata
 from app.models.document import Document
 from app.models.case import Case
 from app.models.deadline import Deadline
+from app.models.jurisdiction import CaseRuleSet
 
 
 class DocumentService:
@@ -23,6 +25,7 @@ class DocumentService:
         self.db = db
         self.ai_service = AIService()
         self.deadline_service = DeadlineService()
+        self.jurisdiction_detector = JurisdictionDetector(db)
 
     async def analyze_document(
         self,
@@ -62,6 +65,37 @@ class DocumentService:
                 'error': f'AI analysis failed: {str(e)}',
                 'success': False
             }
+
+        # Detect jurisdiction from document text
+        jurisdiction_result = None
+        try:
+            jurisdiction_result = self.jurisdiction_detector.detect_from_text(
+                text=extracted_text,
+                case_number=analysis.get('case_number'),
+                court_name=analysis.get('court')
+            )
+
+            if jurisdiction_result.detected:
+                logger.info(
+                    f"Detected jurisdiction: {jurisdiction_result.jurisdiction.name if jurisdiction_result.jurisdiction else 'Unknown'} "
+                    f"(confidence: {jurisdiction_result.confidence:.2f})"
+                )
+
+                # Enhance analysis with detected jurisdiction info
+                analysis['detected_jurisdiction'] = {
+                    'jurisdiction_id': jurisdiction_result.jurisdiction.id if jurisdiction_result.jurisdiction else None,
+                    'jurisdiction_name': jurisdiction_result.jurisdiction.name if jurisdiction_result.jurisdiction else None,
+                    'jurisdiction_code': jurisdiction_result.jurisdiction.code if jurisdiction_result.jurisdiction else None,
+                    'court_location_id': jurisdiction_result.court_location.id if jurisdiction_result.court_location else None,
+                    'court_location_name': jurisdiction_result.court_location.name if jurisdiction_result.court_location else None,
+                    'applicable_rule_sets': [rs.code for rs in jurisdiction_result.applicable_rule_sets],
+                    'confidence': jurisdiction_result.confidence,
+                    'matched_patterns': jurisdiction_result.matched_patterns,
+                    'detected_court_name': jurisdiction_result.detected_court_name,
+                    'detected_district': jurisdiction_result.detected_district
+                }
+        except Exception as e:
+            logger.warning(f"Jurisdiction detection failed (non-critical): {e}")
 
         # Storage handled by API endpoint (local /tmp or S3)
         # Firebase Storage not used in MVP - files stored locally
@@ -113,6 +147,18 @@ class DocumentService:
                 target_case_id = str(new_case.id)
                 case_created = True
 
+        # Auto-assign detected rule sets to case if jurisdiction was detected
+        assigned_rule_sets = []
+        if target_case_id and jurisdiction_result and jurisdiction_result.detected:
+            try:
+                assigned_rule_sets = self.assign_rule_sets_to_case(
+                    case_id=target_case_id,
+                    jurisdiction_result=jurisdiction_result
+                )
+                logger.info(f"Auto-assigned {len(assigned_rule_sets)} rule sets to case {target_case_id}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-assign rule sets: {e}")
+
         return {
             'success': True,
             'extracted_text': extracted_text,
@@ -122,7 +168,9 @@ class DocumentService:
             'case_created': case_created,
             'file_size_bytes': len(pdf_bytes),
             'storage_path': storage_path,
-            'storage_url': storage_url
+            'storage_url': storage_url,
+            'jurisdiction_detected': jurisdiction_result.detected if jurisdiction_result else False,
+            'assigned_rule_sets': assigned_rule_sets
         }
 
     def create_case_from_analysis(self, user_id: str, analysis: Dict) -> Case:
@@ -150,6 +198,57 @@ class DocumentService:
                 pass
 
         return case
+
+    def assign_rule_sets_to_case(
+        self,
+        case_id: str,
+        jurisdiction_result
+    ) -> List[str]:
+        """
+        Assign detected rule sets to a case.
+
+        Creates CaseRuleSet records for each applicable rule set detected
+        from document analysis.
+
+        Args:
+            case_id: The case to assign rule sets to
+            jurisdiction_result: DetectionResult from JurisdictionDetector
+
+        Returns:
+            List of assigned rule set codes
+        """
+        assigned_codes = []
+
+        if not jurisdiction_result.applicable_rule_sets:
+            return assigned_codes
+
+        for priority, rule_set in enumerate(jurisdiction_result.applicable_rule_sets):
+            # Check if already assigned
+            existing = self.db.query(CaseRuleSet).filter(
+                CaseRuleSet.case_id == case_id,
+                CaseRuleSet.rule_set_id == rule_set.id
+            ).first()
+
+            if existing:
+                # Reactivate if inactive
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.assignment_method = "auto_detected"
+            else:
+                # Create new assignment
+                assignment = CaseRuleSet(
+                    id=str(uuid.uuid4()),
+                    case_id=case_id,
+                    rule_set_id=rule_set.id,
+                    assignment_method="auto_detected",
+                    priority=priority
+                )
+                self.db.add(assignment)
+
+            assigned_codes.append(rule_set.code)
+
+        self.db.commit()
+        return assigned_codes
 
     def create_document_record(
         self,
