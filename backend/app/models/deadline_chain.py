@@ -23,7 +23,7 @@ class DeadlineChain(Base):
     parent_deadline_id = Column(String(36), ForeignKey("deadlines.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Trigger information
-    trigger_code = Column(String(10))  # $TR (trial), $MC (mediation), $PC (pretrial conf), etc.
+    # trigger_code removed - column doesn't exist in database
     trigger_type = Column(String(50))  # trial_date, service_completed, etc.
 
     # Template used to generate this chain

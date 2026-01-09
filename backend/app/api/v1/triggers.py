@@ -635,7 +635,7 @@ async def get_case_triggers(
                 'trigger_date': trigger.deadline_date.isoformat() if trigger.deadline_date else None,
                 'title': trigger.title,
                 'status': trigger.status,
-                'notes': trigger.notes,
+                'description': trigger.description,  # Fixed: 'notes' doesn't exist, use 'description'
                 'created_at': trigger.created_at.isoformat() if trigger.created_at else None,
                 # Nested structure for Sovereign UI
                 'status_summary': status_summary,
