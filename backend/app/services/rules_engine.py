@@ -2358,6 +2358,530 @@ class DatabaseRulesEngine:
         """Invalidate the database templates cache"""
         self._db_templates_cache = None
 
+    # =========================================================================
+    # HIERARCHY RESOLUTION - The "Sovereign Brain" Graph Traversal
+    # =========================================================================
+
+    def resolve_active_rules(
+        self,
+        case_id: str,
+        trigger_type: Optional[TriggerType] = None
+    ) -> Dict[str, Any]:
+        """
+        Graph Traversal Engine - Resolve the complete hierarchy of rules for a case.
+
+        This is the "moat" that makes LitDocket a CompuLaw competitor.
+        It handles the complexity of concurrent rules (e.g., Bankruptcy + Local District).
+
+        HIERARCHY RESOLUTION ORDER (highest to lowest priority):
+        1. Judge Standing Orders (if available)
+        2. Local Rules (circuit/district specific)
+        3. State Rules (Florida Rules of Civil Procedure)
+        4. Federal Rules (FRCP, FRBP)
+
+        Args:
+            case_id: UUID of the case
+            trigger_type: Optional filter for specific trigger type
+
+        Returns:
+            {
+                'case': Case object,
+                'jurisdiction_chain': [Jurisdiction, ...],  # From most specific to general
+                'active_rule_sets': [RuleSet, ...],  # Priority-sorted
+                'rule_templates': [RuleTemplate, ...],  # All applicable templates
+                'hierarchy_notes': str,  # Human-readable explanation
+                'conflicts': [...]  # Any detected conflicts
+            }
+        """
+        from app.models.case import Case
+        from app.models.jurisdiction import (
+            Jurisdiction, RuleSet, RuleSetDependency,
+            CaseRuleSet, RuleTemplate as DBRuleTemplate,
+            RuleTemplateDeadline, DependencyType, CourtLocation
+        )
+
+        result = {
+            'case': None,
+            'jurisdiction_chain': [],
+            'active_rule_sets': [],
+            'rule_templates': [],
+            'hierarchy_notes': '',
+            'conflicts': []
+        }
+
+        # Step 1: Load the case
+        case = self.db.query(Case).filter(Case.id == case_id).first()
+        if not case:
+            logger.warning(f"Case not found: {case_id}")
+            return result
+
+        result['case'] = case
+        notes = []
+
+        # Step 2: Check for explicitly assigned rule sets (CaseRuleSet)
+        case_rule_sets = self.db.query(CaseRuleSet).filter(
+            CaseRuleSet.case_id == case_id,
+            CaseRuleSet.is_active == True
+        ).order_by(CaseRuleSet.priority.desc()).all()
+
+        if case_rule_sets:
+            notes.append(f"Found {len(case_rule_sets)} explicitly assigned rule sets")
+
+            for crs in case_rule_sets:
+                rule_set = self.db.query(RuleSet).filter(
+                    RuleSet.id == crs.rule_set_id,
+                    RuleSet.is_active == True
+                ).first()
+
+                if rule_set:
+                    result['active_rule_sets'].append({
+                        'rule_set': rule_set,
+                        'priority': crs.priority,
+                        'assignment_method': crs.assignment_method,
+                        'source': 'explicit_assignment'
+                    })
+
+        # Step 3: Auto-detect jurisdiction from case metadata
+        else:
+            notes.append("No explicit rule sets - auto-detecting from case metadata")
+
+            # Try to detect court location from case data
+            court_location = None
+            if case.court:
+                # Search for matching court location
+                court_location = self.db.query(CourtLocation).filter(
+                    CourtLocation.is_active == True
+                ).first()  # TODO: Match against detection_patterns
+
+            # Build jurisdiction chain based on case metadata
+            jurisdiction = case.jurisdiction or 'florida_state'
+            court_type = case.case_type or 'civil'
+            circuit = case.circuit
+            district = case.district
+
+            # Load base rule sets for this jurisdiction
+            base_rule_sets = self._detect_applicable_rule_sets(
+                jurisdiction, court_type, circuit, district
+            )
+
+            for priority, rule_set in enumerate(reversed(base_rule_sets)):
+                result['active_rule_sets'].append({
+                    'rule_set': rule_set,
+                    'priority': priority,
+                    'assignment_method': 'auto_detected',
+                    'source': 'jurisdiction_detection'
+                })
+
+        # Step 4: Resolve rule set dependencies (CONCURRENT, INHERITS, SUPPLEMENTS, OVERRIDES)
+        resolved_rule_sets = self._resolve_rule_set_dependencies(
+            [rs['rule_set'] for rs in result['active_rule_sets']]
+        )
+
+        # Step 5: Build jurisdiction chain (for hierarchy display)
+        seen_jurisdictions = set()
+        for rs_info in result['active_rule_sets']:
+            rule_set = rs_info['rule_set']
+            if rule_set.jurisdiction and rule_set.jurisdiction_id not in seen_jurisdictions:
+                # Walk up the jurisdiction tree
+                jurisdiction = rule_set.jurisdiction
+                chain = []
+                while jurisdiction:
+                    if jurisdiction.id not in seen_jurisdictions:
+                        chain.append(jurisdiction)
+                        seen_jurisdictions.add(jurisdiction.id)
+                    jurisdiction = jurisdiction.parent
+                result['jurisdiction_chain'].extend(chain)
+
+        # Step 6: Load rule templates from resolved rule sets
+        rule_set_ids = [rs.id for rs in resolved_rule_sets]
+        db_templates = self.db.query(DBRuleTemplate).filter(
+            DBRuleTemplate.rule_set_id.in_(rule_set_ids),
+            DBRuleTemplate.is_active == True
+        )
+
+        if trigger_type:
+            db_templates = db_templates.filter(DBRuleTemplate.trigger_type == trigger_type)
+
+        for db_template in db_templates.all():
+            # Convert to RuleTemplate dataclass for compatibility
+            converted = self._convert_db_template_to_dataclass(db_template)
+            if converted:
+                result['rule_templates'].append(converted)
+
+        # Step 7: Add hardcoded templates that match the case's jurisdiction
+        jurisdiction_str = self._map_case_jurisdiction(case)
+        court_type_str = case.case_type or 'civil'
+
+        for template in self._base_engine.rule_templates.values():
+            if template.jurisdiction == jurisdiction_str and template.court_type == court_type_str:
+                if trigger_type is None or template.trigger_type == trigger_type:
+                    result['rule_templates'].append(template)
+
+        # Step 8: Detect conflicts between overlapping rule sets
+        if len(result['active_rule_sets']) > 1:
+            for i, rs_a in enumerate(result['active_rule_sets'][:-1]):
+                for rs_b in result['active_rule_sets'][i+1:]:
+                    conflicts = self.detect_conflicts(
+                        rs_a['rule_set'],
+                        rs_b['rule_set'],
+                        trigger_type
+                    )
+                    result['conflicts'].extend(conflicts)
+
+        # Build human-readable hierarchy notes
+        if result['jurisdiction_chain']:
+            chain_names = [j.name for j in result['jurisdiction_chain']]
+            notes.append(f"Jurisdiction chain: {' → '.join(chain_names)}")
+
+        if result['active_rule_sets']:
+            rs_names = [rs['rule_set'].name for rs in result['active_rule_sets']]
+            notes.append(f"Active rule sets: {', '.join(rs_names)}")
+
+        if result['conflicts']:
+            notes.append(f"⚠️ {len(result['conflicts'])} conflicts detected - review required")
+
+        result['hierarchy_notes'] = '\n'.join(notes)
+
+        logger.info(f"Resolved {len(result['rule_templates'])} templates for case {case_id}")
+        return result
+
+    def _detect_applicable_rule_sets(
+        self,
+        jurisdiction: str,
+        court_type: str,
+        circuit: Optional[str],
+        district: Optional[str]
+    ) -> List:
+        """Auto-detect applicable rule sets based on case metadata"""
+        from app.models.jurisdiction import RuleSet, Jurisdiction, JurisdictionType
+
+        rule_sets = []
+
+        # Map jurisdiction string to type
+        if jurisdiction in ['federal', 'florida_federal']:
+            juris_type = JurisdictionType.FEDERAL
+        elif jurisdiction in ['florida_state', 'state']:
+            juris_type = JurisdictionType.STATE
+        else:
+            juris_type = JurisdictionType.STATE  # Default
+
+        # 1. Load base jurisdiction rule sets
+        base_jurisdictions = self.db.query(Jurisdiction).filter(
+            Jurisdiction.jurisdiction_type == juris_type,
+            Jurisdiction.is_active == True
+        ).all()
+
+        for juris in base_jurisdictions:
+            juris_rule_sets = self.db.query(RuleSet).filter(
+                RuleSet.jurisdiction_id == juris.id,
+                RuleSet.is_active == True,
+                RuleSet.is_local == False
+            ).all()
+            rule_sets.extend(juris_rule_sets)
+
+        # 2. Load local rules for circuit/district
+        if circuit or district:
+            local_jurisdictions = self.db.query(Jurisdiction).filter(
+                Jurisdiction.jurisdiction_type == JurisdictionType.LOCAL,
+                Jurisdiction.is_active == True
+            )
+
+            if circuit:
+                local_jurisdictions = local_jurisdictions.filter(
+                    Jurisdiction.code.like(f'%{circuit}%')
+                )
+
+            for local_juris in local_jurisdictions.all():
+                local_rule_sets = self.db.query(RuleSet).filter(
+                    RuleSet.jurisdiction_id == local_juris.id,
+                    RuleSet.is_active == True,
+                    RuleSet.is_local == True
+                ).all()
+                rule_sets.extend(local_rule_sets)
+
+        return rule_sets
+
+    def _resolve_rule_set_dependencies(self, rule_sets: List) -> List:
+        """
+        Resolve dependencies and build complete list of rule sets.
+
+        Handles CONCURRENT, INHERITS, SUPPLEMENTS, and OVERRIDES relationships.
+        """
+        from app.models.jurisdiction import RuleSet, RuleSetDependency, DependencyType
+
+        resolved = []
+        seen_ids = set()
+
+        def add_with_dependencies(rule_set, depth=0):
+            if rule_set.id in seen_ids or depth > 10:  # Prevent infinite loops
+                return
+            seen_ids.add(rule_set.id)
+            resolved.append(rule_set)
+
+            # Load dependencies
+            dependencies = self.db.query(RuleSetDependency).filter(
+                RuleSetDependency.rule_set_id == rule_set.id
+            ).order_by(RuleSetDependency.priority.desc()).all()
+
+            for dep in dependencies:
+                required_rs = self.db.query(RuleSet).filter(
+                    RuleSet.id == dep.required_rule_set_id,
+                    RuleSet.is_active == True
+                ).first()
+
+                if required_rs:
+                    add_with_dependencies(required_rs, depth + 1)
+
+        for rs in rule_sets:
+            add_with_dependencies(rs)
+
+        return resolved
+
+    def _convert_db_template_to_dataclass(self, db_template) -> Optional[RuleTemplate]:
+        """Convert a database RuleTemplate to the dataclass RuleTemplate"""
+        try:
+            from app.models.jurisdiction import RuleTemplateDeadline
+
+            # Load deadlines
+            db_deadlines = self.db.query(RuleTemplateDeadline).filter(
+                RuleTemplateDeadline.rule_template_id == db_template.id,
+                RuleTemplateDeadline.is_active == True
+            ).order_by(RuleTemplateDeadline.display_order).all()
+
+            dependent_deadlines = []
+            for dd in db_deadlines:
+                calc_method = dd.calculation_method.value if dd.calculation_method else 'calendar_days'
+                priority = DeadlinePriority(dd.priority.value) if dd.priority else DeadlinePriority.STANDARD
+
+                dependent_deadlines.append(DependentDeadline(
+                    name=dd.name,
+                    description=dd.description or '',
+                    days_from_trigger=dd.days_from_trigger,
+                    priority=priority,
+                    party_responsible=dd.party_responsible or 'both',
+                    action_required=dd.action_required or '',
+                    calculation_method=calc_method,
+                    add_service_method_days=dd.add_service_days or False,
+                    rule_citation=dd.rule_citation or '',
+                    notes=dd.notes
+                ))
+
+            # Map trigger type
+            trigger_type = TriggerType(db_template.trigger_type.value) if db_template.trigger_type else TriggerType.CUSTOM_TRIGGER
+
+            # Map jurisdiction and court type
+            jurisdiction = self._base_engine._map_jurisdiction_to_string(db_template.rule_set) if db_template.rule_set else 'florida_state'
+            court_type = self._base_engine._map_court_type_to_string(
+                db_template.court_type.value if db_template.court_type else 'circuit'
+            )
+
+            return RuleTemplate(
+                rule_id=f"DB_{db_template.rule_set.code if db_template.rule_set else 'UNKNOWN'}_{db_template.rule_code}",
+                name=db_template.name,
+                description=db_template.description or '',
+                jurisdiction=jurisdiction,
+                court_type=court_type,
+                trigger_type=trigger_type,
+                citation=db_template.citation or '',
+                dependent_deadlines=dependent_deadlines
+            )
+        except Exception as e:
+            logger.error(f"Error converting DB template {db_template.id}: {e}")
+            return None
+
+    def _map_case_jurisdiction(self, case) -> str:
+        """Map case jurisdiction field to rules engine jurisdiction string"""
+        juris = (case.jurisdiction or '').lower()
+        if juris in ['federal', 'florida_federal']:
+            return 'federal'
+        return 'florida_state'
+
+    # =========================================================================
+    # CONFLICT DETECTION - Identify when rules produce conflicting deadlines
+    # =========================================================================
+
+    def detect_conflicts(
+        self,
+        rule_set_a,
+        rule_set_b,
+        trigger_type: Optional[TriggerType] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Identify conflicts between two rule sets.
+
+        A conflict occurs when:
+        1. Two rules generate deadlines for the SAME event/action
+        2. The calculated dates would be DIFFERENT
+
+        This is critical for cases under concurrent jurisdiction
+        (e.g., Bankruptcy + Local District rules).
+
+        Args:
+            rule_set_a: First RuleSet (database model or dict)
+            rule_set_b: Second RuleSet (database model or dict)
+            trigger_type: Optional filter for specific trigger type
+
+        Returns:
+            List of conflict objects:
+            [{
+                'event_name': str,
+                'rule_set_a': str,  # Rule set code
+                'rule_set_b': str,
+                'days_a': int,
+                'days_b': int,
+                'difference_days': int,
+                'resolution': str,  # Which rule takes precedence
+                'citation_a': str,
+                'citation_b': str
+            }]
+        """
+        from app.models.jurisdiction import (
+            RuleTemplate as DBRuleTemplate,
+            RuleTemplateDeadline,
+            RuleSetDependency,
+            DependencyType
+        )
+
+        conflicts = []
+
+        # Get rule set IDs
+        rs_a_id = rule_set_a.id if hasattr(rule_set_a, 'id') else rule_set_a.get('id')
+        rs_b_id = rule_set_b.id if hasattr(rule_set_b, 'id') else rule_set_b.get('id')
+
+        if not rs_a_id or not rs_b_id:
+            return conflicts
+
+        # Load templates from both rule sets
+        query_a = self.db.query(DBRuleTemplate).filter(
+            DBRuleTemplate.rule_set_id == rs_a_id,
+            DBRuleTemplate.is_active == True
+        )
+        query_b = self.db.query(DBRuleTemplate).filter(
+            DBRuleTemplate.rule_set_id == rs_b_id,
+            DBRuleTemplate.is_active == True
+        )
+
+        if trigger_type:
+            query_a = query_a.filter(DBRuleTemplate.trigger_type == trigger_type)
+            query_b = query_b.filter(DBRuleTemplate.trigger_type == trigger_type)
+
+        templates_a = {t.trigger_type: t for t in query_a.all()}
+        templates_b = {t.trigger_type: t for t in query_b.all()}
+
+        # Find overlapping trigger types
+        common_triggers = set(templates_a.keys()) & set(templates_b.keys())
+
+        for trigger in common_triggers:
+            template_a = templates_a[trigger]
+            template_b = templates_b[trigger]
+
+            # Load deadlines from both templates
+            deadlines_a = self.db.query(RuleTemplateDeadline).filter(
+                RuleTemplateDeadline.rule_template_id == template_a.id,
+                RuleTemplateDeadline.is_active == True
+            ).all()
+
+            deadlines_b = self.db.query(RuleTemplateDeadline).filter(
+                RuleTemplateDeadline.rule_template_id == template_b.id,
+                RuleTemplateDeadline.is_active == True
+            ).all()
+
+            # Index deadlines by normalized name for comparison
+            deadlines_a_by_name = {self._normalize_deadline_name(d.name): d for d in deadlines_a}
+            deadlines_b_by_name = {self._normalize_deadline_name(d.name): d for d in deadlines_b}
+
+            # Find overlapping deadlines
+            common_names = set(deadlines_a_by_name.keys()) & set(deadlines_b_by_name.keys())
+
+            for name in common_names:
+                dl_a = deadlines_a_by_name[name]
+                dl_b = deadlines_b_by_name[name]
+
+                # Check if days are different
+                if dl_a.days_from_trigger != dl_b.days_from_trigger:
+                    # Determine resolution based on hierarchy
+                    resolution = self._resolve_conflict(rule_set_a, rule_set_b)
+
+                    conflicts.append({
+                        'event_name': dl_a.name,
+                        'trigger_type': trigger.value if hasattr(trigger, 'value') else str(trigger),
+                        'rule_set_a': rule_set_a.code if hasattr(rule_set_a, 'code') else 'Unknown',
+                        'rule_set_b': rule_set_b.code if hasattr(rule_set_b, 'code') else 'Unknown',
+                        'days_a': dl_a.days_from_trigger,
+                        'days_b': dl_b.days_from_trigger,
+                        'difference_days': abs(dl_a.days_from_trigger - dl_b.days_from_trigger),
+                        'resolution': resolution,
+                        'citation_a': dl_a.rule_citation or '',
+                        'citation_b': dl_b.rule_citation or '',
+                        'shorter_deadline': 'A' if dl_a.days_from_trigger < dl_b.days_from_trigger else 'B'
+                    })
+
+        if conflicts:
+            logger.warning(
+                f"Detected {len(conflicts)} conflicts between rule sets "
+                f"{rule_set_a.code if hasattr(rule_set_a, 'code') else '?'} and "
+                f"{rule_set_b.code if hasattr(rule_set_b, 'code') else '?'}"
+            )
+
+        return conflicts
+
+    def _normalize_deadline_name(self, name: str) -> str:
+        """Normalize deadline name for comparison"""
+        if not name:
+            return ''
+        # Lowercase, remove extra spaces, remove common suffixes
+        normalized = name.lower().strip()
+        for suffix in [' due', ' deadline', ' date', ' (federal)', ' (state)', ' (local)']:
+            if normalized.endswith(suffix):
+                normalized = normalized[:-len(suffix)]
+        return normalized.replace('  ', ' ')
+
+    def _resolve_conflict(self, rule_set_a, rule_set_b) -> str:
+        """
+        Determine which rule set takes precedence in a conflict.
+
+        HIERARCHY (highest to lowest):
+        1. Judge Standing Orders
+        2. Local Rules (is_local=True)
+        3. State Rules
+        4. Federal Rules
+
+        For same-level conflicts, the MORE RESTRICTIVE (shorter deadline) applies.
+        """
+        from app.models.jurisdiction import RuleSetDependency, DependencyType
+
+        # Check for explicit override relationship
+        override = self.db.query(RuleSetDependency).filter(
+            RuleSetDependency.rule_set_id == rule_set_a.id,
+            RuleSetDependency.required_rule_set_id == rule_set_b.id,
+            RuleSetDependency.dependency_type == DependencyType.OVERRIDES
+        ).first()
+
+        if override:
+            return f"{rule_set_a.code} overrides {rule_set_b.code}"
+
+        # Check reverse
+        override = self.db.query(RuleSetDependency).filter(
+            RuleSetDependency.rule_set_id == rule_set_b.id,
+            RuleSetDependency.required_rule_set_id == rule_set_a.id,
+            RuleSetDependency.dependency_type == DependencyType.OVERRIDES
+        ).first()
+
+        if override:
+            return f"{rule_set_b.code} overrides {rule_set_a.code}"
+
+        # Check local vs non-local
+        a_is_local = rule_set_a.is_local if hasattr(rule_set_a, 'is_local') else False
+        b_is_local = rule_set_b.is_local if hasattr(rule_set_b, 'is_local') else False
+
+        if a_is_local and not b_is_local:
+            return f"Local rule {rule_set_a.code} takes precedence"
+        if b_is_local and not a_is_local:
+            return f"Local rule {rule_set_b.code} takes precedence"
+
+        # Default: More restrictive deadline applies (safety)
+        return "Use shorter (more restrictive) deadline"
+
 
 # Singleton instance (for backwards compatibility with hardcoded rules)
 rules_engine = RulesEngine()
