@@ -59,6 +59,7 @@ class Settings(BaseSettings):
             "https://www.litdocket.com",
             "https://litdocket.com",
             "https://litdocket.vercel.app",
+            "https://litdocket-production.up.railway.app",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
         ]
