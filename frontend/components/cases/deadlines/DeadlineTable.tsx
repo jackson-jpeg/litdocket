@@ -29,6 +29,7 @@ interface DeadlineTableProps {
   onEdit?: (deadline: Deadline) => void;
   onDelete?: (id: string) => void;
   onReschedule?: (id: string, newDate: Date) => void;
+  onViewDeadline?: (deadline: Deadline) => void;
 }
 
 // Status flag indicator
@@ -106,6 +107,7 @@ export default function DeadlineTable({
   onComplete,
   onDelete,
   onReschedule,
+  onViewDeadline,
 }: DeadlineTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDate, setEditingDate] = useState('');
@@ -192,6 +194,8 @@ export default function DeadlineTable({
                 onClick={() => {
                   if (selectionMode && onToggleSelection) {
                     onToggleSelection(deadline.id);
+                  } else if (onViewDeadline) {
+                    onViewDeadline(deadline);
                   }
                 }}
               >

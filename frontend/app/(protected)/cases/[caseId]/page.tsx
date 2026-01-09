@@ -24,6 +24,7 @@ import EditTriggerModal from '@/components/cases/triggers/EditTriggerModal';
 import AddTriggerModal from '@/components/cases/triggers/AddTriggerModal';
 import TriggerAlertBar from '@/components/cases/triggers/TriggerAlertBar';
 import DeadlineTable from '@/components/cases/deadlines/DeadlineTable';
+import DeadlineDetailModal from '@/components/cases/deadlines/DeadlineDetailModal';
 import { useCaseSync } from '@/hooks/useCaseSync';
 import { deadlineEvents, useEventBus, FilterCommand } from '@/lib/eventBus';
 import type { Document } from '@/types';
@@ -56,6 +57,7 @@ export default function CaseRoomPage() {
   const [addTriggerModalOpen, setAddTriggerModalOpen] = useState(false);
   const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
+  const [viewingDeadline, setViewingDeadline] = useState<Deadline | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
@@ -437,6 +439,7 @@ export default function CaseRoomPage() {
               onComplete={handleComplete}
               onDelete={handleDelete}
               onReschedule={handleReschedule}
+              onViewDeadline={(deadline) => setViewingDeadline(deadline)}
             />
           </div>
         </div>
@@ -544,6 +547,25 @@ export default function CaseRoomPage() {
           refetch.deadlines();
           refetch.triggers();
           refetch.caseSummary();
+        }}
+      />
+
+      <DeadlineDetailModal
+        isOpen={!!viewingDeadline}
+        deadline={viewingDeadline}
+        triggers={triggers}
+        onClose={() => setViewingDeadline(null)}
+        onUpdate={() => {
+          refetch.deadlines();
+          setViewingDeadline(null);
+        }}
+        onComplete={(id) => {
+          handleComplete(id);
+          setViewingDeadline(null);
+        }}
+        onDelete={(id) => {
+          handleDelete(id);
+          setViewingDeadline(null);
         }}
       />
     </div>
