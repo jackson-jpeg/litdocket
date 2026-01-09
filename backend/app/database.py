@@ -28,8 +28,20 @@ Base = declarative_base()
 
 # Dependency for FastAPI
 def get_db():
+    """
+    Database session dependency with proper cleanup.
+
+    CRITICAL: This handles "zombie" transactions by rolling back
+    any uncommitted changes if an exception occurred during the request.
+    Without this, a failed request can leave the connection in a broken
+    state (InFailedSqlTransaction) that affects subsequent requests.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        # CRITICAL: Roll back any failed transaction before returning to pool
+        db.rollback()
+        raise
     finally:
         db.close()
