@@ -125,9 +125,13 @@ async def startup():
     from app.utils.db_backup import auto_backup_on_startup
     auto_backup_on_startup(settings.DATABASE_URL)
 
-    # Create database tables (safe - doesn't drop existing tables)
-    logger.info("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
+    # Create database tables - only for SQLite (local dev)
+    # PostgreSQL schema is managed by Supabase migrations, not SQLAlchemy
+    if "sqlite" in settings.DATABASE_URL.lower():
+        logger.info("Creating database tables (SQLite)...")
+        Base.metadata.create_all(bind=engine)
+    else:
+        logger.info("Using PostgreSQL - schema managed by Supabase migrations")
 
     logger.info("=" * 60)
     logger.info("Application startup complete")
