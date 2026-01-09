@@ -46,10 +46,24 @@ const nextConfig = {
       },
     ];
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.alias.canvas = false;
     config.resolve.alias.encoding = false;
+
+    // Add polyfill for URL.parse() which Next.js doesn't support yet
+    // See: https://github.com/vercel/next.js/issues/72914
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        url: false,
+      };
+    }
+
     return config;
+  },
+  // Add URL.parse polyfill via script injection
+  experimental: {
+    optimizePackageImports: ['firebase', 'lucide-react'],
   },
 };
 
