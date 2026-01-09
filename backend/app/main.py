@@ -1,5 +1,5 @@
-# Force rebuild: 2026-01-09 - Fixed PDF worker CORS, deadline list panel
-print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.6 ---")
+# Force rebuild: 2026-01-09 22:06 - CRITICAL: Fixed trigger.notes + deadline_chains.trigger_code schema errors
+print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.7 (SCHEMA FIX) ---")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
