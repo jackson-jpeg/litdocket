@@ -27,6 +27,7 @@ app = FastAPI(
 
 # CORS middleware - Strict Production Configuration
 # Explicit origins list to avoid any config loading issues
+# Force rebuild: 2025-01-09T12:00:00Z
 CORS_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
