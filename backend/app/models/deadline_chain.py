@@ -22,18 +22,12 @@ class DeadlineChain(Base):
     # Parent deadline that triggered this chain
     parent_deadline_id = Column(String(36), ForeignKey("deadlines.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    # Trigger information removed - columns don't exist in DB (trigger_code, trigger_type)
-    # If you need trigger info, get it from parent_deadline.trigger_event
-
-    # Template used to generate this chain
-    template_id = Column(String(36), ForeignKey("deadline_templates.id", ondelete="SET NULL"), nullable=True)
-
-    # Chain metadata
-    children_count = Column(Integer, default=0)  # Number of dependent deadlines
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Minimal schema - only columns that exist in actual DB
+    # Removed: trigger_code, trigger_type, template_id, children_count
+    # All other metadata should be retrieved through relationships
 
     # Relationships
     case = relationship("Case", back_populates="deadline_chains")
     parent_deadline = relationship("Deadline", foreign_keys=[parent_deadline_id], back_populates="chains_as_parent")
-    template = relationship("DeadlineTemplate", back_populates="chains")
+    # template relationship removed - template_id column doesn't exist in DB
     dependencies = relationship("DeadlineDependency", back_populates="chain", cascade="all, delete-orphan")
