@@ -1,4 +1,5 @@
-print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.5 ---")
+# Force rebuild: 2026-01-09 - Fixed PDF worker CORS, deadline list panel
+print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.6 ---")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware

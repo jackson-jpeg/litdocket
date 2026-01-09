@@ -12,8 +12,8 @@
  */
 
 import { useParams } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
-import { FileText, Upload, Eye, Download, Plus, RefreshCw, Calendar, X } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Upload, Eye } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -23,18 +23,12 @@ import TriggerModal from './triggers/TriggerModal';
 import EditTriggerModal from '@/components/cases/triggers/EditTriggerModal';
 import AddTriggerModal from '@/components/cases/triggers/AddTriggerModal';
 import TriggerAlertBar from '@/components/cases/triggers/TriggerAlertBar';
-import DeadlineTable from '@/components/cases/deadlines/DeadlineTable';
+import DeadlineListPanel from '@/components/cases/deadlines/DeadlineListPanel';
 import DeadlineDetailModal from '@/components/cases/deadlines/DeadlineDetailModal';
+import DeadlineChainView from '@/components/cases/deadlines/DeadlineChainView';
 import { useCaseSync } from '@/hooks/useCaseSync';
-import { deadlineEvents, useEventBus, FilterCommand } from '@/lib/eventBus';
+import { deadlineEvents } from '@/lib/eventBus';
 import type { Document } from '@/types';
-
-// Filter state type
-interface FilterState {
-  showFilter: 'all' | 'overdue' | 'pending' | 'completed' | null;
-  priority: string | null;
-  search: string | null;
-}
 
 export default function CaseRoomPage() {
   const params = useParams();
@@ -58,40 +52,11 @@ export default function CaseRoomPage() {
   const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [viewingDeadline, setViewingDeadline] = useState<Deadline | null>(null);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [viewingChainTrigger, setViewingChainTrigger] = useState<Trigger | null>(null);
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
 
-  // Filter state (controlled by terminal commands)
-  const [filters, setFilters] = useState<FilterState>({
-    showFilter: null,
-    priority: null,
-    search: null,
-  });
-
-  // Listen for filter events from terminal
-  const handleFilterApply = useCallback((filter: FilterCommand) => {
-    if (filter.type === 'show') {
-      setFilters(prev => ({ ...prev, showFilter: filter.value, priority: null }));
-    } else if (filter.type === 'priority') {
-      setFilters(prev => ({ ...prev, priority: filter.value, showFilter: null }));
-    } else if (filter.type === 'search') {
-      setFilters(prev => ({ ...prev, search: filter.value }));
-    } else if (filter.type === 'clear') {
-      setFilters({ showFilter: null, priority: null, search: null });
-    }
-  }, []);
-
-  const handleFilterClear = useCallback(() => {
-    setFilters({ showFilter: null, priority: null, search: null });
-  }, []);
-
-  // Subscribe to filter events
-  useEventBus('filter:apply', handleFilterApply);
-  useEventBus('filter:clear', handleFilterClear);
-
-  // Check if any filter is active
-  const hasActiveFilter = filters.showFilter || filters.priority || filters.search;
+  // Legacy filter support - Terminal commands (kept for backwards compatibility)
+  // The DeadlineListPanel now has its own comprehensive filtering
 
   // Handlers
   const handleTriggerSuccess = () => {
@@ -157,14 +122,6 @@ export default function CaseRoomPage() {
     }
   };
 
-  const toggleSelection = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   // Loading state
   if (loading) {
@@ -195,46 +152,6 @@ export default function CaseRoomPage() {
   }
 
   if (!caseData) return null;
-
-  // Apply filters and sort deadlines
-  const filteredDeadlines = deadlines.filter(d => {
-    // Show filter
-    if (filters.showFilter === 'overdue') {
-      const isActive = d.status !== 'completed' && d.status !== 'cancelled';
-      const isOverdue = d.deadline_date && new Date(d.deadline_date) < new Date(new Date().setHours(0, 0, 0, 0));
-      if (!isActive || !isOverdue) return false;
-    } else if (filters.showFilter === 'pending') {
-      if (d.status === 'completed' || d.status === 'cancelled') return false;
-    } else if (filters.showFilter === 'completed') {
-      if (d.status !== 'completed') return false;
-    }
-
-    // Priority filter
-    if (filters.priority) {
-      const priorityLower = filters.priority.toLowerCase();
-      if (priorityLower === 'critical' || priorityLower === 'fatal') {
-        if (d.priority !== 'critical' && d.priority !== 'fatal') return false;
-      } else if (d.priority?.toLowerCase() !== priorityLower) {
-        return false;
-      }
-    }
-
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      const matchesTitle = d.title?.toLowerCase().includes(searchLower);
-      const matchesRule = d.applicable_rule?.toLowerCase().includes(searchLower);
-      if (!matchesTitle && !matchesRule) return false;
-    }
-
-    return true;
-  });
-
-  const sortedDeadlines = [...filteredDeadlines].sort((a, b) => {
-    if (!a.deadline_date) return 1;
-    if (!b.deadline_date) return -1;
-    return new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime();
-  });
 
   // Stats
   const overdueCount = deadlines.filter(d => {
@@ -372,76 +289,21 @@ export default function CaseRoomPage() {
           </div>
         </div>
 
-        {/* CENTER PANE: Deadline Table */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between px-4 py-2 bg-steel border-b border-grid-line">
-            <div className="flex items-center gap-2">
-              <h2 className="font-serif font-bold">Deadlines</h2>
-              <span className="badge badge-neutral">{sortedDeadlines.length}</span>
-              {hasActiveFilter && (
-                <>
-                  <span className="text-ink-muted">/</span>
-                  <span className="text-xs text-ink-muted">{deadlines.length} total</span>
-                  <button
-                    onClick={handleFilterClear}
-                    className="badge badge-warning flex items-center gap-1"
-                    title="Clear filter"
-                  >
-                    {filters.showFilter && `${filters.showFilter}`}
-                    {filters.priority && `${filters.priority}`}
-                    {filters.search && `"${filters.search}"`}
-                    <X className="w-3 h-3" />
-                  </button>
-                </>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectionMode(!selectionMode)}
-                className={`btn btn-secondary btn-raised text-xs ${selectionMode ? 'bg-navy text-white' : ''}`}
-              >
-                {selectionMode ? 'Cancel' : 'Select'}
-              </button>
-              <button
-                onClick={() => setTriggerModalOpen(true)}
-                className="btn btn-secondary btn-raised text-xs"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add
-              </button>
-              <button
-                onClick={exportToCalendar}
-                className="btn btn-secondary btn-raised text-xs"
-                title="Export to Calendar"
-              >
-                <Download className="w-3 h-3 mr-1" />
-                iCal
-              </button>
-              <button
-                onClick={() => refetch.deadlines()}
-                className="btn btn-secondary btn-raised text-xs"
-                title="Refresh"
-              >
-                <RefreshCw className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="flex-1 overflow-auto p-4">
-            <DeadlineTable
-              deadlines={sortedDeadlines}
-              triggers={triggers}
-              selectionMode={selectionMode}
-              selectedIds={selectedIds}
-              onToggleSelection={toggleSelection}
-              onComplete={handleComplete}
-              onDelete={handleDelete}
-              onReschedule={handleReschedule}
-              onViewDeadline={(deadline) => setViewingDeadline(deadline)}
-            />
-          </div>
+        {/* CENTER PANE: Deadline List Panel */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-canvas p-4">
+          <DeadlineListPanel
+            deadlines={deadlines}
+            triggers={triggers}
+            caseId={caseId}
+            onAddDeadline={() => setTriggerModalOpen(true)}
+            onExportCalendar={exportToCalendar}
+            onRefresh={() => refetch.deadlines()}
+            onOptimisticUpdate={{
+              updateDeadlineStatus: optimistic.updateDeadlineStatus,
+              removeDeadline: optimistic.removeDeadline,
+              updateDeadlineDate: optimistic.updateDeadlineDate,
+            }}
+          />
         </div>
 
         {/* RIGHT PANE: Documents */}
@@ -568,6 +430,18 @@ export default function CaseRoomPage() {
           setViewingDeadline(null);
         }}
       />
+
+      {viewingChainTrigger && (
+        <DeadlineChainView
+          trigger={viewingChainTrigger}
+          deadlines={deadlines}
+          onSelectDeadline={(deadline) => {
+            setViewingChainTrigger(null);
+            setViewingDeadline(deadline);
+          }}
+          onClose={() => setViewingChainTrigger(null)}
+        />
+      )}
     </div>
   );
 }
