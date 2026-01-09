@@ -100,7 +100,7 @@ export default function CalendarPage() {
     try {
       await apiClient.delete(`/api/v1/deadlines/${deadlineId}`);
       showSuccess('Deadline deleted successfully');
-      deadlineEvents.deleted({ id: deadlineId });
+      deadlineEvents.deleted(deadlineId);
       refetch(); // Refresh calendar data
     } catch (err) {
       console.error('Failed to delete deadline:', err);
