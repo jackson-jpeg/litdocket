@@ -150,18 +150,28 @@ async def upload_document(
             summary_service = CaseSummaryService()
             await summary_service.generate_case_summary(case, all_documents, all_deadlines, db)
 
+        # Build appropriate message based on case_status
+        case_status = analysis_result.get('case_status', 'attached')
+        if case_status == 'created':
+            status_message = "New case created"
+        elif case_status == 'updated':
+            status_message = "Document added to existing case"
+        else:
+            status_message = "Document attached"
+
         return {
             'success': True,
             'document_id': str(document.id),
             'case_id': analysis_result['case_id'],
             'case_created': analysis_result.get('case_created', False),
+            'case_status': case_status,  # NEW: "created" | "updated" | "attached"
             'analysis': analysis_result['analysis'],
             'deadlines_extracted': len(deadlines),
             'extraction_method': extraction_method,  # "trigger" or "manual"
             'docketing_message': docketing_message,  # Message for chatbot
             'trigger_info': extraction_result.get('trigger_info'),  # Trigger details if PATH A
             'redirect_url': f"/cases/{analysis_result['case_id']}",
-            'message': docketing_message or f'Document uploaded and {len(deadlines)} deadline(s) extracted'
+            'message': docketing_message or f'{status_message}. {len(deadlines)} deadline(s) extracted.'
         }
 
     except HTTPException:

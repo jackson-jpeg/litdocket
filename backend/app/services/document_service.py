@@ -28,6 +28,137 @@ class DocumentService:
         self.deadline_service = DeadlineService()
         self.jurisdiction_detector = JurisdictionDetector(db)
 
+    # =========================================================================
+    # SMART CASE ROUTING - "Traffic Cop" Pattern
+    # =========================================================================
+
+    @staticmethod
+    def normalize_case_number(case_number: str) -> str:
+        """
+        Normalize case number for fuzzy matching.
+
+        Federal case numbers often have judge initials appended:
+        - "1:25-cv-20757-JB" → "1:25-cv-20757"
+        - "2:24-cv-12345-ABC-DEF" → "2:24-cv-12345"
+
+        State case numbers may have various suffixes:
+        - "2024-CA-001234-O" → "2024-CA-001234"
+        - "50-2024-CA-001234-XXXX-MB" → "50-2024-CA-001234"
+
+        This ensures documents from the same case match even if
+        the AI extracts slightly different formats.
+        """
+        import re
+
+        if not case_number:
+            return ""
+
+        # Strip whitespace
+        normalized = case_number.strip().upper()
+
+        # Pattern 1: Federal format "X:XX-cv-XXXXX-JJ" or "X:XX-cv-XXXXX-JJJ-JJJ"
+        # Keep everything up to and including the 5+ digit number
+        federal_match = re.match(r'^(\d+:\d{2}-\w+-\d{5,})(?:-[A-Z]+)*$', normalized)
+        if federal_match:
+            normalized = federal_match.group(1)
+            logger.debug(f"Federal case number normalized: {case_number} → {normalized}")
+            return normalized
+
+        # Pattern 2: Florida state format "XX-XXXX-CA-XXXXXX-XXXX-XX"
+        # Keep the core: circuit-year-type-sequence
+        florida_match = re.match(r'^(\d{1,2}-\d{4}-[A-Z]{2}-\d{6})(?:-[A-Z0-9]+)*$', normalized)
+        if florida_match:
+            normalized = florida_match.group(1)
+            logger.debug(f"Florida case number normalized: {case_number} → {normalized}")
+            return normalized
+
+        # Pattern 3: Simple state format "YYYY-CA-XXXXXX"
+        simple_match = re.match(r'^(\d{4}-[A-Z]{2}-\d{4,})(?:-[A-Z0-9]+)*$', normalized)
+        if simple_match:
+            normalized = simple_match.group(1)
+            logger.debug(f"Simple case number normalized: {case_number} → {normalized}")
+            return normalized
+
+        # No pattern matched - return cleaned version (strip trailing alpha suffixes)
+        # This catches edge cases like "24-12345-CI-A" → "24-12345-CI"
+        fallback_match = re.match(r'^([\d\-:A-Z]+\d{4,})(?:-[A-Z]+)?$', normalized)
+        if fallback_match:
+            normalized = fallback_match.group(1)
+            logger.debug(f"Fallback case number normalized: {case_number} → {normalized}")
+            return normalized
+
+        # Return as-is if no patterns match
+        return normalized
+
+    def find_matching_case(
+        self,
+        user_id: str,
+        extracted_case_number: str,
+        extracted_court: Optional[str] = None
+    ) -> Optional[Case]:
+        """
+        SMART CASE ROUTER: Find existing case using fuzzy matching.
+
+        Step 1: Try exact match on case_number
+        Step 2: Try normalized match (strips judge initials, suffixes)
+        Step 3: (Future) Try court + partial number match
+
+        Args:
+            user_id: The user's ID
+            extracted_case_number: Case number from AI extraction
+            extracted_court: Court name from AI extraction (optional)
+
+        Returns:
+            Existing Case if found, None otherwise
+        """
+        if not extracted_case_number:
+            return None
+
+        # Normalize the extracted case number
+        normalized_extracted = self.normalize_case_number(extracted_case_number)
+
+        # Step 1: Exact match (fastest)
+        exact_match = self.db.query(Case).filter(
+            Case.user_id == user_id,
+            Case.case_number == extracted_case_number
+        ).first()
+
+        if exact_match:
+            logger.info(f"Smart Router: EXACT match found for '{extracted_case_number}' → Case {exact_match.id}")
+            return exact_match
+
+        # Step 2: Normalized match (fuzzy)
+        # Query all user's cases and compare normalized versions
+        user_cases = self.db.query(Case).filter(
+            Case.user_id == user_id,
+            Case.status != 'deleted'
+        ).all()
+
+        for case in user_cases:
+            normalized_existing = self.normalize_case_number(case.case_number)
+
+            # Check if normalized versions match
+            if normalized_existing == normalized_extracted:
+                logger.info(
+                    f"Smart Router: FUZZY match found! "
+                    f"'{extracted_case_number}' (normalized: '{normalized_extracted}') "
+                    f"matches '{case.case_number}' (normalized: '{normalized_existing}') "
+                    f"→ Case {case.id}"
+                )
+                return case
+
+            # Also check if one contains the other (partial match)
+            if (normalized_extracted in normalized_existing or
+                normalized_existing in normalized_extracted):
+                logger.info(
+                    f"Smart Router: PARTIAL match found! "
+                    f"'{extracted_case_number}' ↔ '{case.case_number}' → Case {case.id}"
+                )
+                return case
+
+        logger.info(f"Smart Router: No match found for '{extracted_case_number}' (normalized: '{normalized_extracted}')")
+        return None
+
     def _safe_commit(self):
         """Safely commit transaction with rollback on failure"""
         try:
@@ -50,47 +181,76 @@ class DocumentService:
         case_number: Optional[str],
         analysis: Dict,
         file_name: str
-    ) -> Tuple[str, bool]:
+    ) -> Tuple[str, bool, str]:
         """
-        IDEMPOTENT CASE CREATION: Check-then-act pattern with race condition handling.
+        SMART CASE ROUTING: "Traffic Cop" pattern with fuzzy matching.
 
-        This ensures we never get duplicate key errors or zombie transactions.
+        This is the intelligent case router that decides whether to:
+        - PATH A: ATTACH document to existing case (returns case_status="updated")
+        - PATH B: CREATE new case (returns case_status="created")
+
+        Uses fuzzy matching to handle case number variations:
+        - "1:25-cv-20757-JB" matches "1:25-cv-20757"
+        - "2024-CA-001234-O" matches "2024-CA-001234"
 
         Args:
             user_id: The user ID
-            case_number: Case number from analysis (may be None)
+            case_number: Case number from AI analysis (may be None)
             analysis: Document analysis dict
             file_name: Original filename for placeholder cases
 
         Returns:
-            Tuple of (case_id, was_created)
+            Tuple of (case_id, was_created, case_status)
+            - case_status: "created" | "updated" | "attached" for frontend feedback
 
         Raises:
             SQLAlchemyError if case creation fails after all retries
         """
-        # Step 1: If we have a case number, check if it exists
+        extracted_court = analysis.get('court')
+
+        # ═══════════════════════════════════════════════════════════════════════
+        # STEP 1: SMART MATCH - Use fuzzy matching to find existing case
+        # ═══════════════════════════════════════════════════════════════════════
         if case_number:
             try:
-                existing_case = self.db.query(Case).filter(
-                    Case.user_id == user_id,
-                    Case.case_number == case_number
-                ).first()
+                existing_case = self.find_matching_case(
+                    user_id=user_id,
+                    extracted_case_number=case_number,
+                    extracted_court=extracted_court
+                )
 
                 if existing_case:
-                    logger.info(f"Found existing case {existing_case.id} for case_number {case_number}")
-                    return str(existing_case.id), False
+                    # ═══════════════════════════════════════════════════════════
+                    # PATH A: ATTACH - Found existing case
+                    # ═══════════════════════════════════════════════════════════
+                    logger.info(
+                        f"Smart Router: PATH A (ATTACH) - "
+                        f"Document for '{case_number}' → existing case {existing_case.id}"
+                    )
+                    return str(existing_case.id), False, "updated"
+
             except SQLAlchemyError as e:
-                # Query failed - rollback and re-raise
-                logger.error(f"Error querying for existing case: {e}")
+                logger.error(f"Error in smart case matching: {e}")
                 self._safe_rollback()
                 raise
 
-        # Step 2: Create new case
+        # ═══════════════════════════════════════════════════════════════════════
+        # STEP 2: CREATE NEW CASE - No match found
+        # ═══════════════════════════════════════════════════════════════════════
         try:
             if case_number:
+                # PATH B: CREATE with extracted case number
+                logger.info(
+                    f"Smart Router: PATH B (CREATE) - "
+                    f"No match for '{case_number}'. Creating new case."
+                )
                 new_case = self.create_case_from_analysis(user_id, analysis)
             else:
-                # No case number - create placeholder
+                # No case number extracted - create placeholder
+                logger.info(
+                    f"Smart Router: PATH B (CREATE) - "
+                    f"No case number extracted. Creating placeholder case."
+                )
                 new_case = Case(
                     user_id=user_id,
                     case_number=f"NEW-{uuid.uuid4().hex[:8].upper()}",
@@ -107,31 +267,31 @@ class DocumentService:
             self.db.add(new_case)
             self._safe_commit()
             self.db.refresh(new_case)
-            logger.info(f"Created new case {new_case.id}")
-            return str(new_case.id), True
+            logger.info(f"Smart Router: Created new case {new_case.id} (case_number: {new_case.case_number})")
+            return str(new_case.id), True, "created"
 
         except IntegrityError as e:
             # Race condition - another request created the case between our check and insert
-            logger.warning(f"IntegrityError creating case (race condition): {e}")
+            logger.warning(f"Smart Router: Race condition detected - {e}")
             self._safe_rollback()
 
-            # Re-query to get the case that was created by the other request
+            # Re-query using smart matching
             if case_number:
-                existing_case = self.db.query(Case).filter(
-                    Case.user_id == user_id,
-                    Case.case_number == case_number
-                ).first()
+                existing_case = self.find_matching_case(
+                    user_id=user_id,
+                    extracted_case_number=case_number,
+                    extracted_court=extracted_court
+                )
 
                 if existing_case:
-                    logger.info(f"Found case {existing_case.id} after race condition")
-                    return str(existing_case.id), False
+                    logger.info(f"Smart Router: Found case {existing_case.id} after race condition")
+                    return str(existing_case.id), False, "updated"
 
             # If we still can't find it, something is wrong
             raise SQLAlchemyError(f"Failed to find or create case after IntegrityError: {e}")
 
         except SQLAlchemyError as e:
-            # Any other SQL error - rollback and re-raise
-            logger.error(f"SQLAlchemyError creating case: {e}")
+            logger.error(f"Smart Router: SQLAlchemyError creating case: {e}")
             self._safe_rollback()
             raise
 
@@ -210,19 +370,26 @@ class DocumentService:
         storage_path = f"pending/{user_id}/{file_name}"  # Placeholder, overwritten by endpoint
         storage_url = None  # Not used in MVP
 
-        # Determine case routing using IDEMPOTENT ensure_case_exists
+        # ═══════════════════════════════════════════════════════════════════════
+        # SMART CASE ROUTING - The "Traffic Cop" Decision
+        # ═══════════════════════════════════════════════════════════════════════
         target_case_id = case_id
         case_created = False
+        case_status = "attached"  # Default if case_id was provided
         case_number = analysis.get('case_number')
 
         if not case_id:
-            # No case_id provided - use ensure_case_exists for idempotent creation
+            # No case_id provided - use Smart Router to find or create case
             try:
-                target_case_id, case_created = self.ensure_case_exists(
+                target_case_id, case_created, case_status = self.ensure_case_exists(
                     user_id=user_id,
                     case_number=case_number,
                     analysis=analysis,
                     file_name=file_name
+                )
+                logger.info(
+                    f"Smart Router Decision: case_id={target_case_id}, "
+                    f"case_status='{case_status}', case_created={case_created}"
                 )
             except SQLAlchemyError as e:
                 return {
@@ -250,6 +417,7 @@ class DocumentService:
             'analysis': analysis,
             'case_id': target_case_id,
             'case_created': case_created,
+            'case_status': case_status,  # NEW: "created" | "updated" | "attached"
             'file_size_bytes': len(pdf_bytes),
             'storage_path': storage_path,
             'storage_url': storage_url,
