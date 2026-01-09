@@ -315,6 +315,18 @@ class DocumentService:
             Dictionary with analysis results and routing information
         """
 
+        # ═══════════════════════════════════════════════════════════════════════
+        # SESSION SANITIZER: Clear any zombie transactions from upstream
+        # This prevents InFailedSqlTransaction errors from previous requests
+        # ═══════════════════════════════════════════════════════════════════════
+        try:
+            if self.db.is_active and self.db.in_transaction():
+                logger.warning("Session Sanitizer: Found active transaction at start of analyze_document - rolling back")
+                self._safe_rollback()
+        except Exception as e:
+            logger.warning(f"Session Sanitizer: Error checking transaction state: {e}")
+            self._safe_rollback()
+
         # Extract text from PDF
         try:
             extracted_text = extract_text_from_pdf(pdf_bytes)
@@ -364,6 +376,8 @@ class DocumentService:
                 }
         except Exception as e:
             logger.warning(f"Jurisdiction detection failed (non-critical): {e}")
+            # SESSION SANITIZER: Rollback to prevent zombie transaction from jurisdiction query
+            self._safe_rollback()
 
         # Storage handled by API endpoint (local /tmp or S3)
         # Firebase Storage not used in MVP - files stored locally
