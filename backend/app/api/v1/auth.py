@@ -19,7 +19,8 @@ from app.config import settings
 from app.middleware.security import limiter
 
 
-router = APIRouter()
+# CRITICAL: redirect_slashes=False prevents 307 redirects that break CORS preflight
+router = APIRouter(redirect_slashes=False)
 
 
 class UserRegister(BaseModel):

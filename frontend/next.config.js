@@ -32,6 +32,20 @@ const nextConfig = {
       },
     ];
   },
+  // CRITICAL: Headers for Firebase popup authentication
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups', // Required for Firebase Google Sign-In popup
+          },
+        ],
+      },
+    ];
+  },
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     config.resolve.alias.encoding = false;
