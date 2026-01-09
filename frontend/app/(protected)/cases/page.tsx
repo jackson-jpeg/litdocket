@@ -65,45 +65,73 @@ export default function CasesListPage() {
   const fetchCases = async () => {
     try {
       const response = await apiClient.get('/api/v1/cases');
+
+      // First, set cases immediately so page loads fast
+      const baseCases = response.data.map((caseItem: Case) => ({
+        ...caseItem,
+        _stats: {
+          document_count: 0,
+          pending_deadlines: 0,
+          next_deadline: undefined,
+          days_until_next_deadline: undefined
+        }
+      }));
+      setCases(baseCases);
+      setLoading(false);
+
+      // Then fetch stats for each case in parallel (with error handling per case)
       const casesWithStats = await Promise.all(
         response.data.map(async (caseItem: Case) => {
-          // Fetch case stats
-          const [docsRes, deadlinesRes] = await Promise.all([
-            apiClient.get(`/api/v1/cases/${caseItem.id}/documents`),
-            apiClient.get(`/api/v1/deadlines/case/${caseItem.id}`)
-          ]);
+          try {
+            // Fetch case stats with individual error handling
+            const [docsRes, deadlinesRes] = await Promise.all([
+              apiClient.get(`/api/v1/cases/${caseItem.id}/documents`).catch(() => ({ data: [] })),
+              apiClient.get(`/api/v1/deadlines/case/${caseItem.id}`).catch(() => ({ data: [] }))
+            ]);
 
-          const pendingDeadlines = deadlinesRes.data.filter(
-            (d: any) => d.status === 'pending' && d.deadline_date
-          );
-          pendingDeadlines.sort((a: any, b: any) =>
-            new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime()
-          );
+            const pendingDeadlines = (deadlinesRes.data || []).filter(
+              (d: any) => d.status === 'pending' && d.deadline_date
+            );
+            pendingDeadlines.sort((a: any, b: any) =>
+              new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime()
+            );
 
-          const nextDeadline = pendingDeadlines[0];
-          const daysUntil = nextDeadline
-            ? Math.ceil(
-                (new Date(nextDeadline.deadline_date).getTime() - Date.now()) /
-                  (1000 * 60 * 60 * 24)
-              )
-            : null;
+            const nextDeadline = pendingDeadlines[0];
+            const daysUntil = nextDeadline
+              ? Math.ceil(
+                  (new Date(nextDeadline.deadline_date).getTime() - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : null;
 
-          return {
-            ...caseItem,
-            _stats: {
-              document_count: docsRes.data.length,
-              pending_deadlines: pendingDeadlines.length,
-              next_deadline: nextDeadline?.deadline_date,
-              days_until_next_deadline: daysUntil
-            }
-          };
+            return {
+              ...caseItem,
+              _stats: {
+                document_count: (docsRes.data || []).length,
+                pending_deadlines: pendingDeadlines.length,
+                next_deadline: nextDeadline?.deadline_date,
+                days_until_next_deadline: daysUntil
+              }
+            };
+          } catch (err) {
+            // If fetching stats fails for this case, return case with empty stats
+            console.warn(`Failed to fetch stats for case ${caseItem.id}:`, err);
+            return {
+              ...caseItem,
+              _stats: {
+                document_count: 0,
+                pending_deadlines: 0,
+                next_deadline: undefined,
+                days_until_next_deadline: undefined
+              }
+            };
+          }
         })
       );
 
       setCases(casesWithStats);
     } catch (err) {
       console.error('Failed to load cases:', err);
-    } finally {
       setLoading(false);
     }
   };

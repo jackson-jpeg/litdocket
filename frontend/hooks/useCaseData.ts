@@ -129,30 +129,30 @@ export function useCaseData(caseId: string) {
   const fetchDocuments = useCallback(async () => {
     try {
       const response = await apiClient.get(`/api/v1/cases/${caseId}/documents`);
-      setDocuments(response.data);
+      setDocuments(response.data || []);
     } catch (err) {
       console.error('Failed to load documents:', err);
-      throw err;
+      setDocuments([]);  // Don't break the page, just show empty
     }
   }, [caseId]);
 
   const fetchDeadlines = useCallback(async () => {
     try {
       const response = await apiClient.get(`/api/v1/deadlines/case/${caseId}`);
-      setDeadlines(response.data);
+      setDeadlines(response.data || []);
     } catch (err) {
       console.error('Failed to load deadlines:', err);
-      throw err;
+      setDeadlines([]);  // Don't break the page, just show empty
     }
   }, [caseId]);
 
   const fetchTriggers = useCallback(async () => {
     try {
       const response = await apiClient.get(`/api/v1/triggers/case/${caseId}/triggers`);
-      setTriggers(response.data);
+      setTriggers(response.data || []);
     } catch (err) {
       console.error('Failed to load triggers:', err);
-      throw err;
+      setTriggers([]);  // Don't break the page, just show empty
     }
   }, [caseId]);
 
@@ -162,13 +162,21 @@ export function useCaseData(caseId: string) {
       setCaseSummary(response.data);
     } catch (err) {
       console.error('Failed to load case summary:', err);
-      throw err;
+      // Case summary is optional, don't break the page
     }
   }, [caseId]);
 
   const refreshAll = useCallback(async () => {
+    // Fetch case data first (critical), then others in parallel (non-critical)
+    try {
+      await fetchCaseData();
+    } catch (err) {
+      // If case data fails, the error state is already set
+      return;
+    }
+
+    // These are all non-critical, fetch in parallel with individual error handling
     await Promise.all([
-      fetchCaseData(),
       fetchDocuments(),
       fetchDeadlines(),
       fetchTriggers(),
