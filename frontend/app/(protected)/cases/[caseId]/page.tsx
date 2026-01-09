@@ -291,26 +291,30 @@ export default function CaseRoomPage() {
               </div>
             </div>
 
-            {/* Stats */}
+            {/* Stats - Sovereign Design with border accents */}
             <div className="panel mb-4">
               <div className="panel-header text-sm">Statistics</div>
               <div className="panel-body">
                 <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className={`p-2 ${overdueCount > 0 ? 'bg-red-100' : 'bg-steel'}`}>
-                    <div className={`text-lg font-mono font-bold ${overdueCount > 0 ? 'text-alert' : 'text-ink'}`}>
+                  {/* Overdue - Red left border */}
+                  <div className={`p-2 bg-white border border-gray-200 ${overdueCount > 0 ? 'border-l-4 border-l-red-600' : 'border-l-4 border-l-gray-300'}`}>
+                    <div className={`text-lg font-mono font-bold ${overdueCount > 0 ? 'text-red-600' : 'text-ink'}`}>
                       {overdueCount}
                     </div>
                     <div className="text-xxs text-ink-muted uppercase">Overdue</div>
                   </div>
-                  <div className="p-2 bg-steel">
+                  {/* Pending - Gray left border */}
+                  <div className="p-2 bg-white border border-gray-200 border-l-4 border-l-gray-600">
                     <div className="text-lg font-mono font-bold text-ink">{pendingCount}</div>
                     <div className="text-xxs text-ink-muted uppercase">Pending</div>
                   </div>
-                  <div className="p-2 bg-steel">
+                  {/* Triggers - Navy left border */}
+                  <div className="p-2 bg-white border border-gray-200 border-l-4 border-l-navy">
                     <div className="text-lg font-mono font-bold text-ink">{triggers.length}</div>
                     <div className="text-xxs text-ink-muted uppercase">Triggers</div>
                   </div>
-                  <div className="p-2 bg-steel">
+                  {/* Documents - Gray left border */}
+                  <div className="p-2 bg-white border border-gray-200 border-l-4 border-l-gray-400">
                     <div className="text-lg font-mono font-bold text-ink">{documents.length}</div>
                     <div className="text-xxs text-ink-muted uppercase">Documents</div>
                   </div>

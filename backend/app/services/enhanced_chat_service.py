@@ -18,6 +18,7 @@ import time
 
 from app.services.rag_service import rag_service
 from app.services.chat_tools import CHAT_TOOLS, ChatToolExecutor
+from app.services.case_context_builder import CaseContextBuilder
 from app.models.case import Case
 from app.models.chat_message import ChatMessage
 from app.config import settings
@@ -177,8 +178,18 @@ class EnhancedChatService:
                 'relevant_excerpts': []
             }
 
-        # Build system prompt
-        system_prompt = self._build_system_prompt(case, case_context)
+        # Build OMNISCIENT context using CaseContextBuilder
+        # This provides complete deadline info with IDs for AI actions
+        try:
+            context_builder = CaseContextBuilder(db)
+            omniscient_context = context_builder.get_system_prompt_context(case_id)
+            logger.debug(f"Built omniscient context for case {case_id}")
+        except Exception as e:
+            logger.error(f"Omniscient context failed: {e}")
+            omniscient_context = ""
+
+        # Build system prompt with omniscient context
+        system_prompt = self._build_system_prompt(case, case_context, omniscient_context)
 
         # Build conversation messages
         messages = self._build_messages(history, user_message, case_context)
@@ -369,7 +380,7 @@ class EnhancedChatService:
             'tokens_used': total_tokens
         }
 
-    def _build_system_prompt(self, case: Case, context: Dict) -> str:
+    def _build_system_prompt(self, case: Case, context: Dict, omniscient_context: str = "") -> str:
         """Build comprehensive system prompt with case context and court rules knowledge"""
 
         # Import court rules knowledge
@@ -549,6 +560,15 @@ For these, execute immediately and report results.
 ## RELEVANT CASE CONTEXT
 
 {self._format_relevant_excerpts(context.get('relevant_excerpts', []))}
+
+---
+
+## COMPLETE DOCKET STATE (OMNISCIENT CONTEXT)
+
+This section contains COMPLETE information about all deadlines with their IDs.
+Use these IDs when the user asks to update, complete, close, or delete deadlines.
+
+{omniscient_context}
 
 ---
 

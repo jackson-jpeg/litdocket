@@ -123,12 +123,17 @@ async def upload_document(
             file_size_bytes=analysis_result['file_size_bytes']
         )
 
-        # Extract deadlines from document (Jackson's comprehensive methodology)
-        deadlines = await doc_service.extract_and_save_deadlines(
+        # Extract deadlines from document (TRIGGER-FIRST ARCHITECTURE)
+        # Returns dict with: deadlines, extraction_method, trigger_info, message, count
+        extraction_result = await doc_service.extract_and_save_deadlines(
             document=document,
             extracted_text=analysis_result['extracted_text'],
             analysis=analysis_result['analysis']
         )
+
+        deadlines = extraction_result['deadlines']
+        extraction_method = extraction_result['extraction_method']
+        docketing_message = extraction_result['message']
 
         # Auto-update case summary
         case = db.query(Case).filter(Case.id == analysis_result['case_id']).first()
@@ -152,8 +157,11 @@ async def upload_document(
             'case_created': analysis_result.get('case_created', False),
             'analysis': analysis_result['analysis'],
             'deadlines_extracted': len(deadlines),
+            'extraction_method': extraction_method,  # "trigger" or "manual"
+            'docketing_message': docketing_message,  # Message for chatbot
+            'trigger_info': extraction_result.get('trigger_info'),  # Trigger details if PATH A
             'redirect_url': f"/cases/{analysis_result['case_id']}",
-            'message': f'Document uploaded, analyzed, and {len(deadlines)} deadline(s) extracted successfully'
+            'message': docketing_message or f'Document uploaded and {len(deadlines)} deadline(s) extracted'
         }
 
     except HTTPException:
@@ -285,8 +293,8 @@ async def bulk_upload_documents(
                 file_size_bytes=analysis_result['file_size_bytes']
             )
 
-            # Extract deadlines
-            deadlines = await doc_service.extract_and_save_deadlines(
+            # Extract deadlines (TRIGGER-FIRST ARCHITECTURE)
+            extraction_result = await doc_service.extract_and_save_deadlines(
                 document=document,
                 extracted_text=analysis_result['extracted_text'],
                 analysis=analysis_result['analysis']
@@ -297,7 +305,7 @@ async def bulk_upload_documents(
                 success=True,
                 document_id=str(document.id),
                 case_id=analysis_result['case_id'],
-                deadlines_extracted=len(deadlines)
+                deadlines_extracted=extraction_result['count']
             ))
 
         except Exception as e:

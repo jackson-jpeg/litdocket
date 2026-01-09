@@ -7,9 +7,15 @@
  * 32px row height, uppercase serif headers, monospace dates.
  *
  * "Density is Reliability"
+ *
+ * Features:
+ * - table-fixed layout (no horizontal scroll)
+ * - Legal Pad yellow zebra stripes
+ * - Tabular numerals for aligned dates
+ * - "DONE" stamp effect on completed items
  */
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
 import { formatDeadlineDate } from '@/lib/formatters';
 
@@ -72,6 +78,25 @@ const getPriorityRowClass = (deadline: Deadline): string => {
   }
 };
 
+// DONE stamp component for completed items
+const DoneStamp = () => (
+  <div
+    className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden"
+    aria-hidden="true"
+  >
+    <span
+      className="text-green-600/20 font-bold text-2xl tracking-widest select-none"
+      style={{
+        transform: 'rotate(-12deg)',
+        fontFamily: 'Impact, Haettenschweiler, sans-serif',
+        letterSpacing: '0.2em'
+      }}
+    >
+      DONE
+    </span>
+  </div>
+);
+
 export default function DeadlineTable({
   deadlines,
   triggers,
@@ -79,7 +104,6 @@ export default function DeadlineTable({
   selectedIds = new Set(),
   onToggleSelection,
   onComplete,
-  onEdit,
   onDelete,
   onReschedule,
 }: DeadlineTableProps) {
@@ -123,12 +147,12 @@ export default function DeadlineTable({
   }
 
   return (
-    <div className="panel">
-      <table className="data-table">
+    <div className="panel overflow-hidden">
+      <table className="data-table table-fixed w-full border-collapse">
         <thead>
-          <tr>
+          <tr className="border-b-2 border-gray-300">
             {selectionMode && (
-              <th style={{ width: '32px' }}>
+              <th className="w-10 py-2 px-1 border-r border-gray-200 bg-gray-50">
                 <input
                   type="checkbox"
                   onChange={(e) => {
@@ -140,23 +164,31 @@ export default function DeadlineTable({
                 />
               </th>
             )}
-            <th style={{ width: '32px' }} className="text-center font-serif">!</th>
-            <th style={{ width: '100px' }} className="font-serif">DATE</th>
-            <th className="font-serif">EVENT</th>
-            <th style={{ width: '120px' }} className="font-serif">AUTHORITY</th>
-            <th style={{ width: '80px' }} className="font-serif text-right">ACTIONS</th>
+            <th className="w-10 py-2 px-1 text-center font-serif border-r border-gray-200 bg-gray-50">!</th>
+            <th className="w-[120px] py-2 px-1 font-serif border-r border-gray-200 bg-gray-50">DATE</th>
+            <th className="py-2 px-1 font-serif border-r border-gray-200 bg-gray-50">EVENT</th>
+            <th className="w-[100px] py-2 px-1 font-serif border-r border-gray-200 bg-gray-50">AUTHORITY</th>
+            <th className="w-20 py-2 px-1 font-serif text-right bg-gray-50">ACTIONS</th>
           </tr>
         </thead>
         <tbody>
-          {deadlines.map((deadline) => {
+          {deadlines.map((deadline, index) => {
             const isCompleted = deadline.status === 'completed';
             const rowClass = getPriorityRowClass(deadline);
+            // Legal pad yellow stripe for even rows
+            const zebraClass = index % 2 === 1 ? 'bg-[#FEFCE8]/50' : '';
 
             return (
               <tr
                 key={deadline.id}
-                className={`${rowClass} ${isCompleted ? 'opacity-60' : ''} hover:bg-blue-50 cursor-pointer`}
-                style={{ height: '32px' }}
+                className={`
+                  ${rowClass}
+                  ${isCompleted ? 'bg-gray-100' : zebraClass}
+                  hover:bg-blue-50
+                  cursor-pointer
+                  border-b border-gray-200
+                  relative
+                `}
                 onClick={() => {
                   if (selectionMode && onToggleSelection) {
                     onToggleSelection(deadline.id);
@@ -165,7 +197,7 @@ export default function DeadlineTable({
               >
                 {/* Selection Checkbox */}
                 {selectionMode && (
-                  <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                  <td className="py-2 px-1 text-center border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={selectedIds.has(deadline.id)}
@@ -176,12 +208,16 @@ export default function DeadlineTable({
                 )}
 
                 {/* Status Flag */}
-                <td className="text-center font-mono">
+                <td className="py-2 px-1 text-center font-mono border-r border-gray-200">
                   <StatusFlag deadline={deadline} />
                 </td>
 
-                {/* Date - Monospace */}
-                <td className="font-mono text-xs" onClick={(e) => e.stopPropagation()}>
+                {/* Date - Monospace with Tabular Nums */}
+                <td
+                  className="py-2 px-1 font-mono text-xs border-r border-gray-200"
+                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {editingId === deadline.id ? (
                     <input
                       type="date"
@@ -190,8 +226,7 @@ export default function DeadlineTable({
                       onBlur={() => handleDateSave(deadline.id)}
                       onKeyDown={(e) => handleDateKeyDown(e, deadline.id)}
                       autoFocus
-                      className="input text-xs py-0 px-1"
-                      style={{ width: '120px' }}
+                      className="input text-xs py-0 px-1 w-full"
                     />
                   ) : (
                     <button
@@ -200,6 +235,7 @@ export default function DeadlineTable({
                         isCompleted ? 'line-through text-ink-muted' : ''
                       }`}
                       disabled={isCompleted}
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {deadline.deadline_date
                         ? formatDeadlineDate(deadline.deadline_date)
@@ -208,42 +244,64 @@ export default function DeadlineTable({
                   )}
                 </td>
 
-                {/* Event Title - Serif */}
-                <td className="font-serif">
-                  <div className={`truncate ${isCompleted ? 'line-through text-ink-muted' : ''}`}>
+                {/* Event Title - Serif with text wrapping + DONE stamp */}
+                <td className="py-2 px-1 font-serif text-sm leading-tight whitespace-normal break-words border-r border-gray-200 relative">
+                  {/* DONE Stamp overlay for completed items */}
+                  {isCompleted && <DoneStamp />}
+
+                  <div className={`${isCompleted ? 'line-through text-ink-muted' : ''}`}>
                     {deadline.title}
                   </div>
                   {deadline.trigger_event && (
-                    <div className="text-xxs text-ink-muted truncate">
+                    <div className="text-xxs text-ink-muted">
                       ← {getTriggerTitle(deadline.trigger_event)}
                     </div>
                   )}
                 </td>
 
-                {/* Authority/Rule - Monospace */}
-                <td className="font-mono text-xs text-ink-secondary truncate">
+                {/* Authority/Rule - Monospace with truncate + hover tooltip */}
+                <td
+                  className="py-2 px-1 font-mono text-xs text-ink-secondary truncate border-r border-gray-200"
+                  title={deadline.applicable_rule || undefined}
+                >
+                  {/* E-Service badge */}
+                  {deadline.service_method === 'electronic' && (
+                    <span className="text-blue-500 mr-1" title="E-Service">@</span>
+                  )}
                   {deadline.applicable_rule || '—'}
                 </td>
 
-                {/* Actions */}
-                <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-end gap-1">
-                    {!isCompleted && onComplete && (
+                {/* Actions - Sovereign Design */}
+                <td className="py-2 px-1 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-2">
+                    {/* Sovereign Checkbox - Mark Complete */}
+                    {onComplete && (
                       <button
                         onClick={() => onComplete(deadline.id)}
-                        className="btn btn-secondary text-xs px-2 py-0.5"
-                        title="Complete"
+                        className={`w-5 h-5 border border-gray-400 flex items-center justify-center cursor-pointer transition-colors ${
+                          isCompleted
+                            ? 'bg-green-600 border-green-600 text-white'
+                            : 'bg-white hover:border-navy hover:bg-gray-50'
+                        }`}
+                        title={isCompleted ? 'Completed' : 'Mark Complete'}
+                        style={{ borderRadius: 0 }}
                       >
-                        ✓
+                        {isCompleted && <span className="text-xs font-bold">✓</span>}
                       </button>
                     )}
-                    {onEdit && (
+                    {/* Trash Button - Delete */}
+                    {onDelete && !isCompleted && (
                       <button
-                        onClick={() => onEdit(deadline)}
-                        className="btn btn-secondary text-xs px-2 py-0.5"
-                        title="Edit"
+                        onClick={() => {
+                          if (confirm(`Delete deadline "${deadline.title}"? This action cannot be undone.`)) {
+                            onDelete(deadline.id);
+                          }
+                        }}
+                        className="w-5 h-5 border border-gray-400 flex items-center justify-center cursor-pointer bg-white hover:border-red-600 hover:bg-red-50 hover:text-red-600 transition-colors text-gray-500"
+                        title="Delete"
+                        style={{ borderRadius: 0 }}
                       >
-                        Edit
+                        <span className="text-xs">×</span>
                       </button>
                     )}
                   </div>

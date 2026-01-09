@@ -785,6 +785,114 @@ LOCAL RULES: Always check district-specific local rules for variations!
 
         return trigger_events
 
+    def check_rules_for_trigger(
+        self,
+        document_type: str,
+        jurisdiction: str = "florida_state",
+        court_type: str = "civil"
+    ) -> Dict[str, Any]:
+        """
+        TRIGGER-FIRST ARCHITECTURE: Check if a document type matches a known trigger event.
+
+        This is the "Check First" step that prevents double docketing.
+        If a document type matches a rule template trigger, we should use
+        the rules engine instead of AI extraction.
+
+        Args:
+            document_type: Type of document (e.g., "Complaint", "Motion to Dismiss")
+            jurisdiction: "florida_state" or "federal"
+            court_type: "civil", "criminal", or "appellate"
+
+        Returns:
+            Dict with:
+                - matches_trigger: bool
+                - trigger_type: str (e.g., "service of complaint")
+                - rule_set_code: str (e.g., "FL:RCP")
+                - expected_deadlines: int (count of deadlines that would be generated)
+                - trigger_description: str (human-readable explanation)
+        """
+        doc_type_lower = (document_type or "").lower()
+
+        # Map document types to trigger events
+        # These document types have standard rule templates
+        DOCUMENT_TRIGGER_MAP = {
+            # Complaint/Summons → Service of Process trigger
+            "complaint": {
+                "trigger_type": "service of complaint",
+                "rule_set_code": "FL:RCP" if jurisdiction == "florida_state" else "FRCP",
+                "trigger_description": "Commencement of Action - generates Answer deadline and related filing requirements",
+                "expected_deadlines": 5 if jurisdiction == "florida_state" else 4,
+            },
+            "summons": {
+                "trigger_type": "service of complaint",
+                "rule_set_code": "FL:RCP" if jurisdiction == "florida_state" else "FRCP",
+                "trigger_description": "Service of Process - generates Answer deadline",
+                "expected_deadlines": 5,
+            },
+            "petition": {
+                "trigger_type": "service of complaint",
+                "rule_set_code": "FL:RCP",
+                "trigger_description": "Petition Filed - generates Response deadline",
+                "expected_deadlines": 5,
+            },
+
+            # Trial Notice → Trial Date trigger
+            "trial notice": {
+                "trigger_type": "trial date set",
+                "rule_set_code": "FL:RCP",
+                "trigger_description": "Trial Date Set - generates pretrial deadlines (witness lists, exhibits, jury instructions)",
+                "expected_deadlines": 15,
+            },
+            "notice of trial": {
+                "trigger_type": "trial date set",
+                "rule_set_code": "FL:RCP",
+                "trigger_description": "Trial Date Set - generates pretrial deadlines",
+                "expected_deadlines": 15,
+            },
+            "order setting trial": {
+                "trigger_type": "trial date set",
+                "rule_set_code": "FL:RCP",
+                "trigger_description": "Trial Date Set - generates pretrial deadlines",
+                "expected_deadlines": 15,
+            },
+
+            # Motion → Motion Filed trigger
+            "motion to dismiss": {
+                "trigger_type": "motion filed",
+                "rule_set_code": "FL:RCP",
+                "trigger_description": "Motion Filed - generates Response deadline",
+                "expected_deadlines": 3,
+            },
+            "motion for summary judgment": {
+                "trigger_type": "motion filed",
+                "rule_set_code": "FL:RCP",
+                "trigger_description": "Motion for Summary Judgment - generates Response deadline (20 days)",
+                "expected_deadlines": 3,
+            },
+        }
+
+        # Check for exact match first
+        for doc_key, trigger_info in DOCUMENT_TRIGGER_MAP.items():
+            if doc_key in doc_type_lower:
+                return {
+                    "matches_trigger": True,
+                    "trigger_type": trigger_info["trigger_type"],
+                    "rule_set_code": trigger_info["rule_set_code"],
+                    "expected_deadlines": trigger_info["expected_deadlines"],
+                    "trigger_description": trigger_info["trigger_description"],
+                    "matched_document_type": doc_key,
+                }
+
+        # No match found
+        return {
+            "matches_trigger": False,
+            "trigger_type": None,
+            "rule_set_code": None,
+            "expected_deadlines": 0,
+            "trigger_description": "No standard rule template found - will extract deadlines from document text",
+            "matched_document_type": None,
+        }
+
     def detect_trigger_from_document(
         self,
         document_type: str,

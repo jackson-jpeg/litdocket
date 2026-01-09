@@ -57,7 +57,7 @@ export default function TriggerAlertBar({
   // If no triggers at all, show setup prompt
   if (triggers.length === 0) {
     return (
-      <div className="bg-blue-100 border-y-2 border-blue-600 px-4 py-3">
+      <div className="relative bg-blue-100 border-y-2 border-blue-600 px-4 py-3 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Clock className="w-5 h-5 text-blue-700" />
@@ -82,7 +82,7 @@ export default function TriggerAlertBar({
   // If there are overdue deadlines, show critical alert
   if (overdueDeadlines > 0) {
     return (
-      <div className="bg-red-100 border-y-2 border-red-600 px-4 py-3">
+      <div className="relative bg-red-100 border-y-2 border-red-600 px-4 py-3 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-red-700" />
@@ -111,7 +111,7 @@ export default function TriggerAlertBar({
   if (pendingTriggers.length > 0) {
     const firstPending = pendingTriggers[0];
     return (
-      <div className="bg-amber-100 border-y-2 border-amber-600 px-4 py-3">
+      <div className="relative bg-amber-100 border-y-2 border-amber-600 px-4 py-3 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-700" />
@@ -143,7 +143,7 @@ export default function TriggerAlertBar({
 
   // All good - show status bar
   return (
-    <div className="bg-green-100 border-y-2 border-green-600 px-4 py-3">
+    <div className="relative bg-green-100 border-y-2 border-green-600 px-4 py-3 mb-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-green-700 font-bold">✓</span>
