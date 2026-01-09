@@ -1,3 +1,5 @@
+print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.5 ---")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
