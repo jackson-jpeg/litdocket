@@ -61,7 +61,7 @@ class TemplateCreate(BaseModel):
 
 @router.get("/")
 async def list_cases(
-    include_archived: bool = Query(False, description="Include archived cases"),
+    include_archived: bool = Query(True, description="Include archived cases"),
     status: Optional[str] = Query(None, description="Filter by status"),
     case_type: Optional[str] = Query(None, description="Filter by case type"),
     jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction"),
@@ -69,9 +69,12 @@ async def list_cases(
     db: Session = Depends(get_db)
 ):
     """List all cases for the current user with optional filtering"""
-    query = db.query(Case).filter(Case.user_id == str(current_user.id))
+    query = db.query(Case).filter(
+        Case.user_id == str(current_user.id),
+        Case.status != 'deleted'  # Only exclude hard-deleted cases, match dashboard logic
+    )
 
-    # Filter archived cases unless specifically requested
+    # Filter archived cases if not requested
     if not include_archived:
         query = query.filter(Case.status != 'archived')
 
