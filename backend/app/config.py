@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import List
+from typing import List, Optional
 import os
 
 
@@ -19,9 +19,34 @@ class Settings(BaseSettings):
     # JWT - REQUIRED from environment
     JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")  # Required - use secrets.token_urlsafe(64)
 
-    # Firebase
+    # Firebase (for auth only - data is in Supabase)
     FIREBASE_CREDENTIALS_PATH: str = "./firebase-credentials.json"
     FIREBASE_STORAGE_BUCKET: str = ""
+
+    # ============================================
+    # SUPABASE - Primary Database (PostgreSQL)
+    # ============================================
+    # Supabase is the single source of truth for all data
+    # including jurisdiction rules, cases, deadlines, etc.
+
+    # Supabase Project URL (e.g., https://xxxxx.supabase.co)
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+
+    # Supabase anon key (public, safe for client-side)
+    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
+
+    # Supabase service role key (secret, server-side only)
+    # Used for admin operations bypassing RLS
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+
+    # Direct PostgreSQL connection string for SQLAlchemy
+    # Format: postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
+    SUPABASE_DB_URL: str = os.getenv("SUPABASE_DB_URL", "")
+
+    @property
+    def use_supabase(self) -> bool:
+        """Check if Supabase is configured"""
+        return bool(self.SUPABASE_DB_URL or self.SUPABASE_URL)
 
     # CORS - Auto-detect production
     @property
@@ -38,15 +63,19 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3000",
         ]
 
-    # Database - Auto-detect production (Railway provides DATABASE_URL env var)
-    # CRITICAL: Use absolute path for SQLite to prevent data loss from working directory changes
+    # Database - Supabase PostgreSQL is primary, fallback to local for dev
     @property
     def DATABASE_URL(self) -> str:
+        # Priority 1: Supabase direct PostgreSQL connection
+        if self.SUPABASE_DB_URL:
+            return self.SUPABASE_DB_URL
+
+        # Priority 2: Generic DATABASE_URL (Railway, Heroku, etc.)
         db_url = os.getenv("DATABASE_URL")
         if db_url:
             return db_url
-        # Use absolute path for SQLite in development
-        # This ensures the database is always in the same location regardless of working directory
+
+        # Priority 3: Local SQLite for development only
         import pathlib
         backend_dir = pathlib.Path(__file__).parent.parent.absolute()
         return f"sqlite:///{backend_dir}/docket_assist.db"
