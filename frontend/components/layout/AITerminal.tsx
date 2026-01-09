@@ -6,27 +6,52 @@
  * The Sovereign Design System's command interface.
  * This is the ONLY way to communicate with the AI.
  * Dark terminal aesthetic with actual API integration.
+ *
+ * V2: In-Stream Docketing - Upload documents directly from chat
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import apiClient from '@/lib/api-client';
 import { deadlineEvents, filterEvents } from '@/lib/eventBus';
+import {
+  Paperclip,
+  X,
+  FileText,
+  Upload,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  Loader2,
+} from 'lucide-react';
 
 interface Message {
   id: string;
-  type: 'user' | 'system' | 'ai' | 'error' | 'action';
+  type: 'user' | 'system' | 'ai' | 'error' | 'action' | 'docket';
   content: string;
   timestamp: Date;
   actions?: ActionTaken[];
   citations?: string[];
+  docketCard?: DocketCardData;
 }
 
 interface ActionTaken {
   tool: string;
   input: any;
   result: any;
+}
+
+interface DocketCardData {
+  filename: string;
+  documentType?: string;
+  deadlinesExtracted: number;
+  fatalCount: number;
+  criticalCount: number;
+  documentId: string;
+  caseId: string;
+  extractionMethod: string;
 }
 
 // Extract case ID from URL path
@@ -43,11 +68,18 @@ function useCaseContext(): { caseId: string | null; casePath: string | null } {
 }
 
 export function AITerminal() {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
+
+  // File upload state
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -126,6 +158,124 @@ export function AITerminal() {
     }
   }, [expanded]);
 
+  // Handle file selection
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type === 'application/pdf') {
+        setStagedFile(file);
+      } else {
+        const errorMsg: Message = {
+          id: `error-${Date.now()}`,
+          type: 'error',
+          content: 'Only PDF files are accepted',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMsg]);
+      }
+    }
+  }, []);
+
+  // Upload document
+  const uploadDocument = async () => {
+    if (!stagedFile || !caseId || isUploading) return;
+
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    // Add system message about upload
+    const uploadingMsg: Message = {
+      id: `uploading-${Date.now()}`,
+      type: 'system',
+      content: `UPLOADING: ${stagedFile.name}...`,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, uploadingMsg]);
+
+    try {
+      setUploadProgress(30);
+
+      const formData = new FormData();
+      formData.append('file', stagedFile);
+      formData.append('case_id', caseId);
+
+      setUploadProgress(50);
+
+      const response = await apiClient.post('/api/v1/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      setUploadProgress(90);
+
+      // Count priority levels from analysis
+      const analysis = response.data.analysis || {};
+      const deadlinesMentioned = analysis.deadlines_mentioned || [];
+      let fatalCount = 0;
+      let criticalCount = 0;
+      deadlinesMentioned.forEach((d: any) => {
+        const priority = (d.priority || '').toLowerCase();
+        if (priority === 'fatal') fatalCount++;
+        if (priority === 'critical') criticalCount++;
+      });
+
+      // Create docket card message
+      const docketMsg: Message = {
+        id: `docket-${Date.now()}`,
+        type: 'docket',
+        content: response.data.docketing_message || response.data.message || 'Document processed',
+        timestamp: new Date(),
+        docketCard: {
+          filename: stagedFile.name,
+          documentType: analysis.document_type || 'Legal Document',
+          deadlinesExtracted: response.data.deadlines_extracted || 0,
+          fatalCount,
+          criticalCount,
+          documentId: response.data.document_id,
+          caseId: response.data.case_id,
+          extractionMethod: response.data.extraction_method || 'manual',
+        },
+      };
+
+      // Remove "uploading" message and add docket card
+      setMessages(prev => prev.filter(m => m.id !== uploadingMsg.id).concat(docketMsg));
+
+      // Clear staged file
+      setStagedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      setUploadProgress(100);
+
+      // Emit deadline created events if any
+      if (response.data.deadlines_extracted > 0) {
+        deadlineEvents.created({ case_id: caseId });
+      }
+
+    } catch (err: any) {
+      console.error('[TERMINAL] Upload failed:', err);
+      const errorMsg: Message = {
+        id: `error-${Date.now()}`,
+        type: 'error',
+        content: `UPLOAD FAILED: ${err.response?.data?.detail || err.message || 'Unknown error'}`,
+        timestamp: new Date(),
+      };
+      // Remove "uploading" message and add error
+      setMessages(prev => prev.filter(m => m.id !== uploadingMsg.id).concat(errorMsg));
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Auto-upload when file is staged (or wait for send)
+  // For now, upload immediately on file selection
+  useEffect(() => {
+    if (stagedFile && caseId && !isUploading) {
+      uploadDocument();
+    }
+  }, [stagedFile, caseId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const command = input.trim();
@@ -161,6 +311,10 @@ export function AITerminal() {
         content: `AVAILABLE COMMANDS:
 • clear - Clear terminal
 • help - Show this help
+
+DOCUMENT UPLOAD:
+• Click the paperclip icon to upload a PDF
+• Documents are auto-analyzed and deadlines extracted
 
 FILTER COMMANDS:
 • show all - Show all deadlines
@@ -332,6 +486,7 @@ AI QUERIES:
       case 'ai': return 'text-terminal-green';
       case 'error': return 'text-red-500';
       case 'action': return 'text-blue-400';
+      case 'docket': return 'text-cyan-400';
       default: return 'text-terminal-text';
     }
   };
@@ -343,12 +498,80 @@ AI QUERIES:
       case 'ai': return '[AI]';
       case 'error': return '[ERR]';
       case 'action': return '[ACT]';
+      case 'docket': return '[DOC]';
       default: return '>';
     }
   };
 
+  // Render Mini-Docket Card
+  const renderDocketCard = (card: DocketCardData) => {
+    return (
+      <div className="mt-2 bg-slate-800 border border-slate-600 font-mono text-xs">
+        {/* Header */}
+        <div className="bg-slate-700 border-b border-slate-600 px-3 py-2 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-cyan-400" />
+          <span className="text-white font-bold truncate">{card.filename}</span>
+        </div>
+        {/* Body */}
+        <div className="px-3 py-2 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">TYPE:</span>
+            <span className="text-white">{card.documentType}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">DEADLINES:</span>
+            <span className="flex items-center gap-2">
+              {card.fatalCount > 0 && (
+                <span className="text-red-500">{card.fatalCount} Fatal</span>
+              )}
+              {card.criticalCount > 0 && (
+                <span className="text-amber-500">{card.criticalCount} Critical</span>
+              )}
+              {card.fatalCount === 0 && card.criticalCount === 0 && (
+                <span className="text-emerald-400">{card.deadlinesExtracted} Found</span>
+              )}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400">METHOD:</span>
+            <span className={card.extractionMethod === 'trigger' ? 'text-cyan-400' : 'text-slate-300'}>
+              {card.extractionMethod === 'trigger' ? 'Rule-Based Chain' : 'AI Extraction'}
+            </span>
+          </div>
+        </div>
+        {/* Actions */}
+        <div className="border-t border-slate-600 px-3 py-2 flex gap-2">
+          <button
+            onClick={() => router.push(`/cases/${card.caseId}`)}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 py-1 text-center text-cyan-400 transition-colors"
+          >
+            View Case
+          </button>
+          <button
+            onClick={() => {
+              // Scroll to deadlines or navigate
+              router.push(`/cases/${card.caseId}?tab=deadlines`);
+            }}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 py-1 text-center text-cyan-400 transition-colors"
+          >
+            View Deadlines
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="cockpit-terminal">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
       {/* Collapsed Bar */}
       {!expanded && (
         <div className="terminal-collapsed" onClick={toggleExpanded}>
@@ -401,13 +624,29 @@ AI QUERIES:
                 [Click to collapse]
               </span>
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 ${isProcessing ? 'bg-terminal-amber animate-pulse' : (caseId ? 'bg-terminal-green' : 'bg-terminal-amber')}`}></span>
+                <span className={`w-2 h-2 ${isProcessing || isUploading ? 'bg-terminal-amber animate-pulse' : (caseId ? 'bg-terminal-green' : 'bg-terminal-amber')}`}></span>
                 <span className="text-terminal-text font-mono text-xs">
-                  {isProcessing ? 'PROCESSING' : (caseId ? 'READY' : 'NO CASE')}
+                  {isUploading ? 'UPLOADING' : isProcessing ? 'PROCESSING' : (caseId ? 'READY' : 'NO CASE')}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Upload Progress Bar */}
+          {isUploading && uploadProgress > 0 && (
+            <div className="px-4 py-2 bg-slate-800 border-b border-gray-700">
+              <div className="flex items-center gap-3 mb-1">
+                <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                <span className="text-cyan-400 font-mono text-xs">PROCESSING DOCUMENT...</span>
+              </div>
+              <div className="h-1 bg-slate-700 overflow-hidden">
+                <div
+                  className="h-full bg-cyan-500 transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Messages Area */}
           <div className="terminal-expanded custom-scrollbar">
@@ -430,6 +669,11 @@ AI QUERIES:
                       >
                         {msg.content}
                       </ReactMarkdown>
+                    </div>
+                  ) : msg.type === 'docket' && msg.docketCard ? (
+                    <div>
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                      {renderDocketCard(msg.docketCard)}
                     </div>
                   ) : (
                     <span className="whitespace-pre-wrap">{msg.content}</span>
@@ -455,8 +699,43 @@ AI QUERIES:
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Staged File Preview */}
+          {stagedFile && !isUploading && (
+            <div className="px-4 py-2 bg-slate-800 border-t border-gray-700 flex items-center gap-3">
+              <FileText className="w-4 h-4 text-cyan-400" />
+              <span className="text-white font-mono text-sm flex-1 truncate">{stagedFile.name}</span>
+              <span className="text-slate-400 font-mono text-xs">
+                {(stagedFile.size / 1024 / 1024).toFixed(2)} MB
+              </span>
+              <button
+                onClick={() => {
+                  setStagedFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="text-slate-400 hover:text-red-400 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Input Area */}
           <form onSubmit={handleSubmit} className="flex items-center px-4 py-2 border-t border-gray-700 bg-terminal-bg">
+            {/* Paperclip Upload Button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!caseId || isUploading}
+              className={`mr-2 p-1 transition-colors ${
+                caseId && !isUploading
+                  ? 'text-slate-400 hover:text-cyan-400'
+                  : 'text-slate-600 cursor-not-allowed'
+              }`}
+              title={caseId ? 'Upload document' : 'Navigate to a case first'}
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+
             <span className="text-terminal-amber font-mono text-sm mr-2">{'>'}</span>
             <input
               ref={inputRef}
@@ -465,7 +744,7 @@ AI QUERIES:
               onChange={(e) => setInput(e.target.value)}
               placeholder={caseId ? "Type a command or ask a question..." : "Navigate to a case first..."}
               className="terminal-input flex-1"
-              disabled={isProcessing}
+              disabled={isProcessing || isUploading}
               autoComplete="off"
               spellCheck={false}
             />
