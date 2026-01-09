@@ -105,7 +105,7 @@ class Notification(Base):
             "case_id": self.case_id,
             "deadline_id": self.deadline_id,
             "document_id": self.document_id,
-            "metadata": self.metadata or {},
+            "extra_data": self.extra_data or {},
             "action_url": self.action_url,
             "action_label": self.action_label,
             "is_read": self.is_read,
