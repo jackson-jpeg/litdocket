@@ -1,5 +1,5 @@
-# Force rebuild: 2026-01-09 22:06 - CRITICAL: Fixed trigger.notes + deadline_chains.trigger_code schema errors
-print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.7 (SCHEMA FIX) ---")
+# Force rebuild: 2026-01-09 22:30 - CRITICAL: Removed trigger_type from deadline_chains model
+print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.8 (FINAL SCHEMA FIX) ---")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
