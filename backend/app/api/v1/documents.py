@@ -66,6 +66,10 @@ async def upload_document(
     5. If case exists, route to existing "Case Room"
     6. If case doesn't exist, create new case and route to new "Case Room"
     """
+    pdf_bytes = None
+    analysis_result = None
+    document = None
+    deadlines = []
 
     try:
         # SECURITY: Verify case ownership if case_id is provided
@@ -98,67 +102,71 @@ async def upload_document(
 
         if not analysis_result.get('success'):
             raise HTTPException(status_code=500, detail=analysis_result.get('error', 'Analysis failed'))
+
+        # For MVP, store files locally (replace with S3 later)
+        storage_dir = f"/tmp/docketassist/{current_user.id}"
+        os.makedirs(storage_dir, exist_ok=True)
+        storage_filename = f"{uuid.uuid4()}.pdf"
+        storage_path = f"{storage_dir}/{storage_filename}"
+
+        with open(storage_path, 'wb') as f:
+            f.write(pdf_bytes)
+
+        # Create document record
+        document = doc_service.create_document_record(
+            case_id=analysis_result['case_id'],
+            user_id=str(current_user.id),
+            file_name=file.filename,
+            storage_path=storage_path,
+            extracted_text=analysis_result['extracted_text'],
+            analysis=analysis_result['analysis'],
+            file_size_bytes=analysis_result['file_size_bytes']
+        )
+
+        # Extract deadlines from document (Jackson's comprehensive methodology)
+        deadlines = await doc_service.extract_and_save_deadlines(
+            document=document,
+            extracted_text=analysis_result['extracted_text'],
+            analysis=analysis_result['analysis']
+        )
+
+        # Auto-update case summary
+        case = db.query(Case).filter(Case.id == analysis_result['case_id']).first()
+        if case:
+            from app.models.document import Document as DocModel
+            all_documents = db.query(DocModel).filter(
+                DocModel.case_id == analysis_result['case_id']
+            ).order_by(DocModel.created_at.desc()).all()
+
+            all_deadlines = db.query(Deadline).filter(
+                Deadline.case_id == analysis_result['case_id']
+            ).order_by(Deadline.deadline_date.asc().nullslast()).all()
+
+            summary_service = CaseSummaryService()
+            await summary_service.generate_case_summary(case, all_documents, all_deadlines, db)
+
+        return {
+            'success': True,
+            'document_id': str(document.id),
+            'case_id': analysis_result['case_id'],
+            'case_created': analysis_result.get('case_created', False),
+            'analysis': analysis_result['analysis'],
+            'deadlines_extracted': len(deadlines),
+            'redirect_url': f"/cases/{analysis_result['case_id']}",
+            'message': f'Document uploaded, analyzed, and {len(deadlines)} deadline(s) extracted successfully'
+        }
+
     except HTTPException:
-        # Re-raise HTTP exceptions
+        # Rollback and re-raise HTTP exceptions
+        db.rollback()
         raise
     except Exception as e:
-        # Catch any unexpected errors
+        # Rollback on any unexpected errors
+        db.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
-    # For MVP, store files locally (replace with S3 later)
-    storage_dir = f"/tmp/docketassist/{current_user.id}"
-    os.makedirs(storage_dir, exist_ok=True)
-    storage_filename = f"{uuid.uuid4()}.pdf"
-    storage_path = f"{storage_dir}/{storage_filename}"
-
-    with open(storage_path, 'wb') as f:
-        f.write(pdf_bytes)
-
-    # Create document record
-    document = doc_service.create_document_record(
-        case_id=analysis_result['case_id'],
-        user_id=str(current_user.id),
-        file_name=file.filename,
-        storage_path=storage_path,
-        extracted_text=analysis_result['extracted_text'],
-        analysis=analysis_result['analysis'],
-        file_size_bytes=analysis_result['file_size_bytes']
-    )
-
-    # Extract deadlines from document (Jackson's comprehensive methodology)
-    deadlines = await doc_service.extract_and_save_deadlines(
-        document=document,
-        extracted_text=analysis_result['extracted_text'],
-        analysis=analysis_result['analysis']
-    )
-
-    # Auto-update case summary
-    case = db.query(Case).filter(Case.id == analysis_result['case_id']).first()
-    if case:
-        from app.models.document import Document as DocModel
-        all_documents = db.query(DocModel).filter(
-            DocModel.case_id == analysis_result['case_id']
-        ).order_by(DocModel.created_at.desc()).all()
-
-        all_deadlines = db.query(Deadline).filter(
-            Deadline.case_id == analysis_result['case_id']
-        ).order_by(Deadline.deadline_date.asc().nullslast()).all()
-
-        summary_service = CaseSummaryService()
-        await summary_service.generate_case_summary(case, all_documents, all_deadlines, db)
-
-    return {
-        'success': True,
-        'document_id': str(document.id),
-        'case_id': analysis_result['case_id'],
-        'case_created': analysis_result.get('case_created', False),
-        'analysis': analysis_result['analysis'],
-        'deadlines_extracted': len(deadlines),
-        'redirect_url': f"/cases/{analysis_result['case_id']}",
-        'message': f'Document uploaded, analyzed, and {len(deadlines)} deadline(s) extracted successfully'
-    }
+        logger.error(f"Document upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @router.get("/{document_id}")
@@ -293,6 +301,8 @@ async def bulk_upload_documents(
             ))
 
         except Exception as e:
+            # Rollback failed transaction before continuing to next file
+            db.rollback()
             logger.error(f"Error processing {file.filename}: {e}")
             results.append(BulkUploadResult(
                 filename=file.filename,
@@ -428,16 +438,21 @@ async def create_tag(
     if existing:
         raise HTTPException(status_code=400, detail="Tag with this name already exists")
 
-    tag = Tag(
-        user_id=str(current_user.id),
-        name=tag_data.name,
-        color=tag_data.color
-    )
-    db.add(tag)
-    db.commit()
-    db.refresh(tag)
+    try:
+        tag = Tag(
+            user_id=str(current_user.id),
+            name=tag_data.name,
+            color=tag_data.color
+        )
+        db.add(tag)
+        db.commit()
+        db.refresh(tag)
 
-    return {'id': tag.id, 'name': tag.name, 'color': tag.color}
+        return {'id': tag.id, 'name': tag.name, 'color': tag.color}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create tag: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create tag")
 
 
 @router.delete("/tags/{tag_id}")
@@ -455,10 +470,14 @@ async def delete_tag(
     if not tag:
         raise HTTPException(status_code=404, detail="Tag not found")
 
-    db.delete(tag)
-    db.commit()
-
-    return {'success': True, 'message': 'Tag deleted'}
+    try:
+        db.delete(tag)
+        db.commit()
+        return {'success': True, 'message': 'Tag deleted'}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete tag: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete tag")
 
 
 @router.post("/{document_id}/tags/{tag_id}")
@@ -496,12 +515,16 @@ async def add_tag_to_document(
     if existing:
         return {'success': True, 'message': 'Tag already applied'}
 
-    # Create document-tag relationship
-    doc_tag = DocumentTag(document_id=document_id, tag_id=tag_id)
-    db.add(doc_tag)
-    db.commit()
-
-    return {'success': True, 'message': 'Tag added to document'}
+    try:
+        # Create document-tag relationship
+        doc_tag = DocumentTag(document_id=document_id, tag_id=tag_id)
+        db.add(doc_tag)
+        db.commit()
+        return {'success': True, 'message': 'Tag added to document'}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to add tag to document: {e}")
+        raise HTTPException(status_code=500, detail="Failed to add tag")
 
 
 @router.delete("/{document_id}/tags/{tag_id}")
@@ -530,10 +553,14 @@ async def remove_tag_from_document(
     if not doc_tag:
         raise HTTPException(status_code=404, detail="Tag not found on document")
 
-    db.delete(doc_tag)
-    db.commit()
-
-    return {'success': True, 'message': 'Tag removed from document'}
+    try:
+        db.delete(doc_tag)
+        db.commit()
+        return {'success': True, 'message': 'Tag removed from document'}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to remove tag from document: {e}")
+        raise HTTPException(status_code=500, detail="Failed to remove tag")
 
 
 @router.delete("/{document_id}")
@@ -569,8 +596,12 @@ async def delete_document(
             except Exception as e:
                 logger.warning(f"Failed to delete local file {document.storage_path}: {e}")
 
-    # Delete from database (cascades to document_tags)
-    db.delete(document)
-    db.commit()
-
-    return {'success': True, 'message': 'Document deleted'}
+    try:
+        # Delete from database (cascades to document_tags)
+        db.delete(document)
+        db.commit()
+        return {'success': True, 'message': 'Document deleted'}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete document: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete document")
