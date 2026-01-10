@@ -17,6 +17,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // URL.parse polyfill - must run before PDF.js worker loads
+              if (typeof URL !== 'undefined' && !URL.parse) {
+                URL.parse = function(url, base) {
+                  try {
+                    return new URL(url, base);
+                  } catch {
+                    return null;
+                  }
+                };
+              }
+            `,
+          }}
+        />
+      </head>
       <body>
         <ErrorBoundary>
           <AuthProvider>
