@@ -15,6 +15,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import apiClient from '@/lib/api-client';
 import { deadlineEvents, filterEvents } from '@/lib/eventBus';
+import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { ProposalCard, StreamingIndicator } from '@/components/chat/ProposalCard';
 import {
   Paperclip,
   X,
@@ -72,7 +74,6 @@ export function AITerminal() {
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [hasHistory, setHasHistory] = useState(false);
 
   // File upload state
@@ -85,6 +86,63 @@ export function AITerminal() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { caseId, casePath } = useCaseContext();
+
+  // Streaming state
+  const [currentAIMessageId, setCurrentAIMessageId] = useState<string | null>(null);
+
+  // Initialize streaming chat hook
+  const {
+    streamState,
+    currentMessage,
+    sendMessage,
+    approveToolUse,
+    rejectToolUse,
+    cancelStream,
+    isStreaming,
+    isAwaitingApproval,
+    hasError
+  } = useStreamingChat({
+    caseId: caseId || '',
+    onToken: (token: string) => {
+      // Update current AI message with new token
+      if (currentAIMessageId) {
+        setMessages(prev => prev.map(msg =>
+          msg.id === currentAIMessageId
+            ? { ...msg, content: msg.content + token }
+            : msg
+        ));
+      }
+    },
+    onStatus: (status: string, message: string) => {
+      console.log(`[STREAMING] Status: ${status} - ${message}`);
+    },
+    onToolUse: (toolCall: any) => {
+      console.log(`[STREAMING] Tool use: ${toolCall.tool_name}`, toolCall);
+    },
+    onToolResult: (toolId: string, result: any) => {
+      console.log(`[STREAMING] Tool result:`, result);
+
+      // Handle deadline events for UI updates
+      if (result.success) {
+        // Parse tool name from result or track it separately
+        // For now, we'll rely on WebSocket events in Phase 2
+        // Phase 1: just log the result
+      }
+    },
+    onError: (error: string, code?: string) => {
+      const errorMsg: Message = {
+        id: `error-${Date.now()}`,
+        type: 'error',
+        content: `ERROR [${code || 'UNKNOWN'}]: ${error}`,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    },
+    onDone: (data: { message_id: string; tokens_used: number }) => {
+      console.log(`[STREAMING] Done. Tokens: ${data.tokens_used}`);
+      setCurrentAIMessageId(null);
+    }
+  });
 
   // Initialize with system message
   useEffect(() => {
@@ -279,7 +337,7 @@ export function AITerminal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const command = input.trim();
-    if (!command || isProcessing) return;
+    if (!command || isStreaming) return;
 
     // Add user message
     const userMsg: Message = {
@@ -290,7 +348,6 @@ export function AITerminal() {
     };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
-    setIsProcessing(true);
 
     // Handle special commands
     if (command.toLowerCase() === 'clear') {
@@ -300,7 +357,6 @@ export function AITerminal() {
         content: 'TERMINAL CLEARED',
         timestamp: new Date(),
       }]);
-      setIsProcessing(false);
       return;
     }
 
@@ -325,14 +381,14 @@ FILTER COMMANDS:
 • filter high - Show high priority deadlines
 • search [query] - Search deadlines
 
-AI QUERIES:
+AI QUERIES (STREAMING):
 • "What's due in the next 30 days?"
 • "Set trial date to March 15, 2025"
-• "Add a deposition deadline for next Friday"`,
+• "Add a deposition deadline for next Friday"
+• Destructive actions require approval`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, helpMsg]);
-      setIsProcessing(false);
       return;
     }
 
@@ -344,28 +400,24 @@ AI QUERIES:
       filterEvents.showAll();
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: 'FILTER: Showing all deadlines', timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
     if (cmdLower === 'show overdue') {
       filterEvents.showOverdue();
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: 'FILTER: Showing overdue deadlines', timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
     if (cmdLower === 'show pending') {
       filterEvents.showPending();
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: 'FILTER: Showing pending deadlines', timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
     if (cmdLower === 'show completed') {
       filterEvents.showCompleted();
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: 'FILTER: Showing completed deadlines', timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
 
@@ -375,7 +427,6 @@ AI QUERIES:
       filterEvents.filterByPriority(priority);
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: `FILTER: Showing ${priority} priority deadlines`, timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
 
@@ -385,7 +436,6 @@ AI QUERIES:
       filterEvents.search(query);
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: `SEARCH: "${query}"`, timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
 
@@ -394,7 +444,6 @@ AI QUERIES:
       filterEvents.clear();
       const msg: Message = { id: `filter-${Date.now()}`, type: 'system', content: 'FILTER: Cleared all filters', timestamp: new Date() };
       setMessages(prev => [...prev, msg]);
-      setIsProcessing(false);
       return;
     }
 
@@ -407,63 +456,26 @@ AI QUERIES:
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMsg]);
-      setIsProcessing(false);
       return;
     }
 
-    // Send to AI
+    // Create placeholder AI message for streaming
+    const aiMessageId = `ai-${Date.now()}`;
+    const aiMsg: Message = {
+      id: aiMessageId,
+      type: 'ai',
+      content: '',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, aiMsg]);
+    setCurrentAIMessageId(aiMessageId);
+
+    // Send to AI via streaming
     try {
-      const response = await apiClient.post('/api/v1/chat/message', {
-        message: command,
-        case_id: caseId,
-      });
-
-      // Parse response
-      const aiMsg: Message = {
-        id: response.data.message_id || `ai-${Date.now()}`,
-        type: 'ai',
-        content: response.data.response,
-        timestamp: new Date(),
-        citations: response.data.citations,
-        actions: response.data.actions_taken,
-      };
-
-      setMessages(prev => [...prev, aiMsg]);
-
-      // Handle actions taken
-      if (response.data.actions_taken && response.data.actions_taken.length > 0) {
-        // Log actions
-        const actionMsg: Message = {
-          id: `action-${Date.now()}`,
-          type: 'action',
-          content: formatActions(response.data.actions_taken),
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, actionMsg]);
-
-        // Emit events for UI updates
-        response.data.actions_taken.forEach((action: ActionTaken) => {
-          if (action.tool === 'create_deadline' || action.tool === 'create_trigger_deadline') {
-            deadlineEvents.created(action.result);
-          } else if (action.tool === 'update_deadline') {
-            deadlineEvents.updated(action.result);
-          } else if (action.tool === 'delete_deadline') {
-            deadlineEvents.deleted(action.input?.deadline_id);
-          }
-        });
-      }
-
+      await sendMessage(command);
     } catch (err: any) {
-      console.error('[TERMINAL] API error:', err);
-      const errorMsg: Message = {
-        id: `error-${Date.now()}`,
-        type: 'error',
-        content: `ERROR: ${err.response?.data?.detail || err.message || 'Failed to process request'}`,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setIsProcessing(false);
+      console.error('[TERMINAL] Streaming error:', err);
+      // Error will be handled by onError callback
     }
   };
 
@@ -624,9 +636,9 @@ AI QUERIES:
                 [Click to collapse]
               </span>
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 ${isProcessing || isUploading ? 'bg-terminal-amber animate-pulse' : (caseId ? 'bg-terminal-green' : 'bg-terminal-amber')}`}></span>
+                <span className={`w-2 h-2 ${isStreaming || isUploading ? 'bg-terminal-amber animate-pulse' : (caseId ? 'bg-terminal-green' : 'bg-terminal-amber')}`}></span>
                 <span className="text-terminal-text font-mono text-xs">
-                  {isUploading ? 'UPLOADING' : isProcessing ? 'PROCESSING' : (caseId ? 'READY' : 'NO CASE')}
+                  {isUploading ? 'UPLOADING' : isStreaming ? 'STREAMING' : isAwaitingApproval ? 'AWAITING APPROVAL' : (caseId ? 'READY' : 'NO CASE')}
                 </span>
               </div>
             </div>
@@ -688,12 +700,27 @@ AI QUERIES:
               </div>
             ))}
 
-            {isProcessing && (
+            {/* Streaming indicator */}
+            {isStreaming && !isAwaitingApproval && (
               <div className="text-terminal-green font-mono text-sm">
                 <span className="text-terminal-amber">[AI] </span>
-                <span className="animate-pulse">Processing...</span>
+                <span className="animate-pulse">Streaming response...</span>
                 <span className="terminal-cursor ml-1" />
               </div>
+            )}
+
+            {/* Approval card */}
+            {isAwaitingApproval && streamState.type === 'awaiting_approval' && (
+              <ProposalCard
+                toolCall={streamState.toolCall}
+                approvalId={streamState.approvalId}
+                onApprove={(modifications) => {
+                  approveToolUse(streamState.approvalId, modifications);
+                }}
+                onReject={(reason) => {
+                  rejectToolUse(streamState.approvalId, reason);
+                }}
+              />
             )}
 
             <div ref={messagesEndRef} />
@@ -744,16 +771,25 @@ AI QUERIES:
               onChange={(e) => setInput(e.target.value)}
               placeholder={caseId ? "Type a command or ask a question..." : "Navigate to a case first..."}
               className="terminal-input flex-1"
-              disabled={isProcessing || isUploading}
+              disabled={isUploading}
               autoComplete="off"
               spellCheck={false}
             />
-            {!isProcessing && input.length > 0 && (
+            {!isStreaming && input.length > 0 && (
               <button
                 type="submit"
                 className="text-terminal-green font-mono text-sm ml-2 hover:text-white transition-colors"
               >
                 [SEND]
+              </button>
+            )}
+            {isStreaming && (
+              <button
+                type="button"
+                onClick={cancelStream}
+                className="text-red-400 font-mono text-sm ml-2 hover:text-red-300 transition-colors"
+              >
+                [CANCEL]
               </button>
             )}
           </form>
