@@ -62,7 +62,7 @@ class PreviewTriggerRequest(BaseModel):
 
 
 @router.get("/event-types")
-async def get_event_types(
+def get_event_types(
     jurisdiction: Optional[str] = None,
     court_type: Optional[str] = None,
     current_user: User = Depends(get_current_user)
@@ -125,7 +125,7 @@ async def get_event_types(
 
 
 @router.post("/preview")
-async def preview_trigger_deadlines(
+def preview_trigger_deadlines(
     request: PreviewTriggerRequest,
     current_user: User = Depends(get_current_user)
 ):
@@ -206,7 +206,7 @@ async def preview_trigger_deadlines(
 
 
 @router.get("/templates")
-async def get_available_templates(
+def get_available_templates(
     jurisdiction: Optional[str] = None,
     court_type: Optional[str] = None,
     current_user: User = Depends(get_current_user)
@@ -532,7 +532,7 @@ async def recalculate_dependent_deadlines(
 
 
 @router.get("/case/{case_id}/triggers")
-async def get_case_triggers(
+def get_case_triggers(
     case_id: str,
     include_children: bool = True,
     current_user: User = Depends(get_current_user),
@@ -667,7 +667,7 @@ class CascadePreviewItem(BaseModel):
 
 
 @router.get("/{trigger_id}/preview-cascade")
-async def preview_cascade_changes(
+def preview_cascade_changes(
     trigger_id: str,
     new_date: str,
     current_user: User = Depends(get_current_user),

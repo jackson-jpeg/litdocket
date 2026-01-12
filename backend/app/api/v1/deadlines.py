@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/case/{case_id}")
-async def get_case_deadlines(
+def get_case_deadlines(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -97,7 +97,7 @@ async def get_case_deadlines(
 
 
 @router.get("/{deadline_id}")
-async def get_deadline(
+def get_deadline(
     deadline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -162,7 +162,7 @@ async def get_deadline(
 
 
 @router.get("/{deadline_id}/override-info")
-async def get_deadline_override_info(
+def get_deadline_override_info(
     deadline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -306,7 +306,7 @@ async def delete_deadline(
 
 
 @router.get("/case/{case_id}/export/ical")
-async def export_case_deadlines_to_ical(
+def export_case_deadlines_to_ical(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -347,7 +347,7 @@ async def export_case_deadlines_to_ical(
 
 
 @router.get("/export/ical")
-async def export_all_deadlines_to_ical(
+def export_all_deadlines_to_ical(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -378,7 +378,7 @@ async def export_all_deadlines_to_ical(
 # ============================================================================
 
 @router.get("/user/all")
-async def get_all_user_deadlines(
+def get_all_user_deadlines(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     status: Optional[str] = Query(None, description="Filter by status: pending, completed, cancelled"),

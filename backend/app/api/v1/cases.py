@@ -60,7 +60,7 @@ class TemplateCreate(BaseModel):
 
 
 @router.get("")
-async def list_cases(
+def list_cases(
     include_archived: bool = Query(True, description="Include archived cases"),
     status: Optional[str] = Query(None, description="Filter by status"),
     case_type: Optional[str] = Query(None, description="Filter by case type"),
@@ -106,7 +106,7 @@ async def list_cases(
 
 
 @router.get("/{case_id}")
-async def get_case(
+def get_case(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -140,7 +140,7 @@ async def get_case(
 
 
 @router.get("/{case_id}/documents")
-async def get_case_documents(
+def get_case_documents(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -211,7 +211,7 @@ async def get_case_summary(
 
 
 @router.patch("/{case_id}/status")
-async def update_case_status(
+def update_case_status(
     case_id: str,
     status: str,
     current_user: User = Depends(get_current_user),
@@ -344,7 +344,7 @@ async def update_case(
 
 
 @router.post("/{case_id}/notes")
-async def add_case_note(
+def add_case_note(
     case_id: str,
     note: dict,
     current_user: User = Depends(get_current_user),
@@ -385,7 +385,7 @@ async def add_case_note(
 
 
 @router.get("/{case_id}/timeline")
-async def get_case_timeline(
+def get_case_timeline(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -470,7 +470,7 @@ async def get_case_timeline(
 # ===================
 
 @router.post("/{case_id}/archive")
-async def archive_case(
+def archive_case(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -495,7 +495,7 @@ async def archive_case(
 
 
 @router.post("/{case_id}/unarchive")
-async def unarchive_case(
+def unarchive_case(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -520,7 +520,7 @@ async def unarchive_case(
 
 
 @router.delete("/{case_id}")
-async def delete_case(
+def delete_case(
     case_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -549,7 +549,7 @@ async def delete_case(
 # ===================
 
 @router.get("/templates/")
-async def list_templates(
+def list_templates(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -574,7 +574,7 @@ async def list_templates(
 
 
 @router.post("/templates/")
-async def create_template(
+def create_template(
     template_data: TemplateCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -604,7 +604,7 @@ async def create_template(
 
 
 @router.post("/templates/{template_id}/create-case")
-async def create_case_from_template(
+def create_case_from_template(
     template_id: str,
     case_data: CaseCreate,
     current_user: User = Depends(get_current_user),
@@ -676,7 +676,7 @@ async def create_case_from_template(
 
 
 @router.post("/{case_id}/save-as-template")
-async def save_case_as_template(
+def save_case_as_template(
     case_id: str,
     template_name: str = Query(..., description="Name for the template"),
     template_description: Optional[str] = Query(None, description="Template description"),
@@ -726,7 +726,7 @@ async def save_case_as_template(
 
 
 @router.delete("/templates/{template_id}")
-async def delete_template(
+def delete_template(
     template_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
