@@ -357,7 +357,7 @@ async def bulk_upload_documents(
 # DOCUMENT LIST & SEARCH
 # ===================
 
-@router.get("/")
+@router.get("")
 async def list_documents(
     case_id: Optional[str] = Query(None, description="Filter by case ID"),
     document_type: Optional[str] = Query(None, description="Filter by document type"),

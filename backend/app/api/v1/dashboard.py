@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_dashboard(
+def get_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -28,17 +28,19 @@ async def get_dashboard(
         - Critical cases needing attention
         - Upcoming deadlines (next 30 days)
     """
+    import asyncio
 
-    dashboard_data = await dashboard_service.get_dashboard_data(
+    # Run async service in sync context (FastAPI will run this in thread pool)
+    dashboard_data = asyncio.run(dashboard_service.get_dashboard_data(
         user_id=current_user.id,
         db=db
-    )
+    ))
 
     return dashboard_data
 
 
 @router.get("/morning-report")
-async def get_morning_report(
+def get_morning_report(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

@@ -16,7 +16,7 @@ from app.utils.auth import get_current_user
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 async def global_search(
     q: str = Query(..., min_length=2, description="Search query"),
     type_filter: Optional[str] = Query(None, description="Filter by type: cases, documents, deadlines, or all"),

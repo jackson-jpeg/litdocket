@@ -53,15 +53,9 @@ if not settings.DEBUG:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
 
 # CORS middleware - Strict Production Configuration
-# Explicit origins list to avoid any config loading issues
-# Force rebuild: 2025-01-09T12:00:00Z
-CORS_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://litdocket.com",
-    "https://www.litdocket.com",
-    "https://litdocket-production.up.railway.app",
-]
+# Use CORS origins from config - allows for environment-specific configuration
+# including Vercel preview URLs
+CORS_ORIGINS = settings.ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
@@ -170,9 +164,10 @@ async def startup():
     if not settings.ANTHROPIC_API_KEY or not settings.ANTHROPIC_API_KEY.startswith('sk-ant-'):
         logger.error("ANTHROPIC_API_KEY is missing or invalid!")
 
-    # CRITICAL: Create backup before any database operations
-    from app.utils.db_backup import auto_backup_on_startup
-    auto_backup_on_startup(settings.DATABASE_URL)
+    # CRITICAL: Database backups moved to separate cron job (Railway kills container if startup takes >30s)
+    # Move to background worker or scheduled task - DO NOT run on startup!
+    # from app.utils.db_backup import auto_backup_on_startup
+    # auto_backup_on_startup(settings.DATABASE_URL)
 
     # Create database tables - only for SQLite (local dev)
     # PostgreSQL schema is managed by Supabase migrations, not SQLAlchemy

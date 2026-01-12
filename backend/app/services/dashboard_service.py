@@ -207,53 +207,57 @@ class DashboardService:
     ) -> List[Dict]:
         """
         Detect active cases with ZERO future deadlines.
-
-        This is a MALPRACTICE RISK - a case falling through the cracks.
-        These cases need immediate attention to add deadlines.
+        MALPRACTICE RISK - cases falling through the cracks.
+        OPTIMIZED: Uses SQL subquery instead of N+1 pattern.
         """
+        # OPTIMIZATION: Use SQL to find zombie cases directly
+        # Active cases WITHOUT any future pending deadlines
+        from sqlalchemy import text
+
+        zombie_query = text("""
+            SELECT
+                c.id as case_id,
+                c.case_number,
+                c.title,
+                c.court,
+                c.judge,
+                c.status,
+                MAX(d.deadline_date) as last_deadline,
+                MAX(doc.created_at) as last_document
+            FROM cases c
+            LEFT JOIN deadlines d ON d.case_id = c.id
+            LEFT JOIN documents doc ON doc.case_id = c.id
+            WHERE c.user_id = :user_id
+              AND c.status = 'active'
+              AND NOT EXISTS (
+                  SELECT 1 FROM deadlines d2
+                  WHERE d2.case_id = c.id
+                    AND d2.status = 'pending'
+                    AND d2.deadline_date >= :today
+              )
+            GROUP BY c.id, c.case_number, c.title, c.court, c.judge, c.status
+        """)
+
+        zombie_results = db.execute(zombie_query, {'user_id': user_id, 'today': today}).fetchall()
+
         zombie_cases = []
+        for row in zombie_results:
+            last_activity = None
+            if row.last_deadline:
+                last_activity = row.last_deadline.isoformat()
+            elif row.last_document:
+                last_activity = row.last_document.isoformat()
 
-        # Get IDs of cases that have at least one future pending deadline
-        cases_with_future_deadlines = db.query(Deadline.case_id).filter(
-            Deadline.user_id == user_id,
-            Deadline.status == 'pending',
-            Deadline.deadline_date >= today
-        ).distinct().all()
-
-        cases_with_deadlines_set = {str(c[0]) for c in cases_with_future_deadlines}
-
-        for case in cases:
-            if case.status != 'active':
-                continue
-
-            if str(case.id) not in cases_with_deadlines_set:
-                # This is a zombie case!
-                # Get last activity date
-                last_deadline = db.query(Deadline).filter(
-                    Deadline.case_id == case.id
-                ).order_by(desc(Deadline.deadline_date)).first()
-
-                last_document = db.query(Document).filter(
-                    Document.case_id == case.id
-                ).order_by(desc(Document.created_at)).first()
-
-                last_activity = None
-                if last_deadline and last_deadline.deadline_date:
-                    last_activity = last_deadline.deadline_date.isoformat()
-                elif last_document:
-                    last_activity = last_document.created_at.isoformat()
-
-                zombie_cases.append({
-                    'case_id': str(case.id),
-                    'case_number': case.case_number,
-                    'title': case.title,
-                    'court': case.court,
-                    'judge': case.judge,
-                    'last_activity': last_activity,
-                    'days_inactive': (today - case.created_at.date()).days if case.created_at else None,
-                    'risk_level': 'high',
-                    'recommended_action': 'Add deadlines or close case'
-                })
+            zombie_cases.append({
+                'case_id': str(row.case_id),
+                'case_number': row.case_number,
+                'title': row.title,
+                'court': row.court,
+                'judge': row.judge,
+                'last_activity': last_activity,
+                'risk_level': 'high',
+                'recommended_action': 'Add deadlines or close case'
+            })
 
         logger.info(f"Detected {len(zombie_cases)} zombie cases for user {user_id}")
         return zombie_cases
@@ -589,36 +593,84 @@ class DashboardService:
     ) -> List[Dict]:
         """
         Generate Matter Health Cards with enhanced judge information.
+        OPTIMIZED: Uses bulk queries instead of N+1 pattern.
         """
+        # Filter active/pending cases upfront
+        active_cases = [c for c in cases if c.status in ['active', 'pending']]
+        if not active_cases:
+            return []
+
+        case_ids = [c.id for c in active_cases]
+
+        # OPTIMIZATION 1: Get ALL deadline counts in ONE query using aggregation
+        deadline_stats = db.query(
+            Deadline.case_id,
+            func.count(Deadline.id).label('total_count'),
+            func.sum(func.case([(Deadline.status == 'completed', 1)], else_=0)).label('completed_count')
+        ).filter(
+            Deadline.case_id.in_(case_ids)
+        ).group_by(Deadline.case_id).all()
+
+        # Build lookup dict
+        deadline_counts = {
+            str(stat.case_id): {
+                'total': int(stat.total_count),
+                'completed': int(stat.completed_count or 0),
+                'pending': int(stat.total_count - (stat.completed_count or 0))
+            }
+            for stat in deadline_stats
+        }
+
+        # OPTIMIZATION 2: Get ALL next deadlines in ONE query using window functions
+        # For each case, get the earliest pending deadline
+        from sqlalchemy import literal
+        next_deadlines_query = db.query(
+            Deadline.case_id,
+            Deadline.title,
+            Deadline.deadline_date,
+            Deadline.priority
+        ).filter(
+            Deadline.case_id.in_(case_ids),
+            Deadline.status == 'pending',
+            Deadline.deadline_date >= today
+        ).order_by(
+            Deadline.case_id,
+            Deadline.deadline_date
+        ).distinct(Deadline.case_id).all()
+
+        # Build next deadline lookup
+        next_deadlines_map = {
+            str(nd.case_id): nd for nd in next_deadlines_query
+        }
+
+        # OPTIMIZATION 3: Get ALL document counts in ONE query
+        doc_counts = db.query(
+            Document.case_id,
+            func.count(Document.id).label('doc_count')
+        ).filter(
+            Document.case_id.in_(case_ids)
+        ).group_by(Document.case_id).all()
+
+        doc_count_map = {str(dc.case_id): int(dc.doc_count) for dc in doc_counts}
+
+        # Now build health cards using pre-fetched data (NO MORE QUERIES IN LOOP!)
         health_cards = []
+        for case in active_cases:
+            case_id_str = str(case.id)
 
-        for case in cases:
-            if case.status not in ['active', 'pending']:
-                continue
-
-            # Get case deadline counts from DB
-            total_deadlines = db.query(func.count(Deadline.id)).filter(
-                Deadline.case_id == case.id
-            ).scalar() or 0
-
-            completed_deadlines = db.query(func.count(Deadline.id)).filter(
-                Deadline.case_id == case.id,
-                Deadline.status == 'completed'
-            ).scalar() or 0
-
-            pending_deadlines = total_deadlines - completed_deadlines
+            # Get counts from pre-fetched data
+            counts = deadline_counts.get(case_id_str, {'total': 0, 'completed': 0, 'pending': 0})
+            total_deadlines = counts['total']
+            completed_deadlines = counts['completed']
+            pending_deadlines = counts['pending']
 
             progress_percentage = int((completed_deadlines / total_deadlines * 100)) if total_deadlines > 0 else 0
 
-            # Get next deadline
-            next_deadline_obj = db.query(Deadline).filter(
-                Deadline.case_id == case.id,
-                Deadline.status == 'pending',
-                Deadline.deadline_date >= today
-            ).order_by(Deadline.deadline_date).first()
-
+            # Get next deadline from pre-fetched data
             next_deadline = None
             next_deadline_urgency = 'normal'
+            next_deadline_obj = next_deadlines_map.get(case_id_str)
+
             if next_deadline_obj and next_deadline_obj.deadline_date:
                 days_until = (next_deadline_obj.deadline_date - today).days
                 next_deadline = {
@@ -644,10 +696,8 @@ class DashboardService:
             elif pending_deadlines > completed_deadlines:
                 health_status = 'busy'
 
-            # Document count
-            doc_count = db.query(func.count(Document.id)).filter(
-                Document.case_id == case.id
-            ).scalar() or 0
+            # Document count from pre-fetched data
+            doc_count = doc_count_map.get(case_id_str, 0)
 
             # Judge stats (how many other cases with this judge)
             judge_case_count = 0

@@ -59,7 +59,7 @@ class TemplateCreate(BaseModel):
     default_deadlines: Optional[List[dict]] = None
 
 
-@router.get("/")
+@router.get("")
 async def list_cases(
     include_archived: bool = Query(True, description="Include archived cases"),
     status: Optional[str] = Query(None, description="Filter by status"),
