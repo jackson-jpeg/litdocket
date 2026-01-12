@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
 
-// Configure PDF.js worker - use locally bundled file (NO CDN dependency)
-// Worker file is copied to public/pdf-worker during build
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.mjs';
+// Configure PDF.js worker - use stable v3.11.174 from CDN
+// Downgraded from v5 to fix URL.parse compatibility issues in older browsers
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
 
 interface DocumentViewerProps {
   isOpen: boolean;
