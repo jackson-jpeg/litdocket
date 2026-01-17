@@ -4,10 +4,11 @@ Firebase Service - Handles Firestore database and Cloud Storage operations
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import re
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,6 @@ class FirebaseService:
 
     def __init__(self):
         """Initialize Firebase if not already initialized"""
-        # Don't initialize on import - wait until first use
         pass
 
     def _initialize_firebase(self):
@@ -35,7 +35,6 @@ class FirebaseService:
 
             if firebase_cred_json:
                 # Production: Load from environment variable JSON string
-                import json
                 cred_dict = json.loads(firebase_cred_json)
                 cred = credentials.Certificate(cred_dict)
                 logger.info("Firebase initialized from environment variable")
@@ -49,7 +48,7 @@ class FirebaseService:
                 else:
                     logger.warning(f"Firebase service account key not found at: {cred_path}")
                     logger.warning("Set FIREBASE_SERVICE_ACCOUNT_KEY_JSON env var or download key from Firebase Console")
-                    raise FileNotFoundError(f"Firebase credentials not found")
+                    return  # Allow app to continue without Firebase
 
             # Initialize Firebase app
             firebase_admin.initialize_app(cred, {
@@ -62,7 +61,7 @@ class FirebaseService:
 
         except Exception as e:
             logger.error(f"Firebase initialization error: {e}")
-            raise
+            # Allow app to continue - some features may not work
 
     @property
     def db(self):
@@ -78,128 +77,12 @@ class FirebaseService:
             self._initialize_firebase()
         return FirebaseService._bucket
 
-    # ====================
-    # USER OPERATIONS
-    # ====================
-
-    def create_user(self, user_data: Dict[str, Any]) -> str:
-        """Create a new user in Firestore"""
-        user_ref = self.db.collection('users').document()
-        user_data['created_at'] = firestore.SERVER_TIMESTAMP
-        user_data['updated_at'] = firestore.SERVER_TIMESTAMP
-        user_ref.set(user_data)
-        return user_ref.id
-
-    def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get user by ID"""
-        doc = self.db.collection('users').document(user_id).get()
-        if doc.exists:
-            return {'id': doc.id, **doc.to_dict()}
-        return None
-
-    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Get user by email"""
-        users = self.db.collection('users').where('email', '==', email).limit(1).get()
-        if users:
-            doc = users[0]
-            return {'id': doc.id, **doc.to_dict()}
-        return None
-
-    # ====================
-    # CASE OPERATIONS
-    # ====================
-
-    def create_case(self, case_data: Dict[str, Any]) -> str:
-        """Create a new case"""
-        case_ref = self.db.collection('cases').document()
-        case_data['created_at'] = firestore.SERVER_TIMESTAMP
-        case_data['updated_at'] = firestore.SERVER_TIMESTAMP
-        case_ref.set(case_data)
-        return case_ref.id
-
-    def get_case(self, case_id: str) -> Optional[Dict[str, Any]]:
-        """Get case by ID"""
-        doc = self.db.collection('cases').document(case_id).get()
-        if doc.exists:
-            return {'id': doc.id, **doc.to_dict()}
-        return None
-
-    def find_case_by_number(self, user_id: str, case_number: str) -> Optional[Dict[str, Any]]:
-        """Find a case by case number for a specific user"""
-        cases = (self.db.collection('cases')
-                .where('userId', '==', user_id)
-                .where('case_number', '==', case_number)
-                .limit(1)
-                .get())
-
-        if cases:
-            doc = cases[0]
-            return {'id': doc.id, **doc.to_dict()}
-        return None
-
-    def get_user_cases(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get all cases for a user"""
-        cases = (self.db.collection('cases')
-                .where('userId', '==', user_id)
-                .order_by('created_at', direction=firestore.Query.DESCENDING)
-                .get())
-
-        return [{'id': doc.id, **doc.to_dict()} for doc in cases]
-
-    def update_case(self, case_id: str, updates: Dict[str, Any]):
-        """Update a case"""
-        updates['updated_at'] = firestore.SERVER_TIMESTAMP
-        self.db.collection('cases').document(case_id).update(updates)
-
-    # ====================
-    # DOCUMENT OPERATIONS
-    # ====================
-
-    def create_document(self, document_data: Dict[str, Any]) -> str:
-        """Create a new document record"""
-        doc_ref = self.db.collection('documents').document()
-        document_data['created_at'] = firestore.SERVER_TIMESTAMP
-        document_data['updated_at'] = firestore.SERVER_TIMESTAMP
-        doc_ref.set(document_data)
-        return doc_ref.id
-
-    def get_document(self, document_id: str) -> Optional[Dict[str, Any]]:
-        """Get document by ID"""
-        doc = self.db.collection('documents').document(document_id).get()
-        if doc.exists:
-            return {'id': doc.id, **doc.to_dict()}
-        return None
-
-    def get_case_documents(self, case_id: str) -> List[Dict[str, Any]]:
-        """Get all documents for a case"""
-        docs = (self.db.collection('documents')
-               .where('caseId', '==', case_id)
-               .order_by('created_at', direction=firestore.Query.DESCENDING)
-               .get())
-
-        return [{'id': doc.id, **doc.to_dict()} for doc in docs]
-
-    def update_document(self, document_id: str, updates: Dict[str, Any]):
-        """Update a document"""
-        updates['updated_at'] = firestore.SERVER_TIMESTAMP
-        self.db.collection('documents').document(document_id).update(updates)
-
-    # ====================
-    # STORAGE OPERATIONS
-    # ====================
-
     @staticmethod
     def sanitize_storage_path(path: str) -> str:
         """
         Sanitize storage path to prevent double slashes and path issues.
 
         The "Double Slash Killer" - prevents signature mismatches.
-
-        Issues this fixes:
-        - Leading slashes: /tmp/file → tmp/file
-        - Trailing slashes: documents/ → documents
-        - Double slashes: documents//user → documents/user
-        - Multiple slashes: ///path → path
 
         Args:
             path: Raw storage path
@@ -227,8 +110,8 @@ class FirebaseService:
         # Create a unique path: documents/{userId}/{timestamp}_{filename}
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
 
-        # Sanitize filename to remove any path separators
-        safe_filename = file_name.replace('/', '_').replace('\\', '_')
+        # Sanitize filename to remove any dangerous characters
+        safe_filename = re.sub(r'[^a-zA-Z0-9_.-]', '_', file_name)
 
         # Build path
         storage_path = f"documents/{user_id}/{timestamp}_{safe_filename}"
@@ -240,19 +123,13 @@ class FirebaseService:
         blob = self.bucket.blob(storage_path)
         blob.upload_from_string(pdf_bytes, content_type='application/pdf')
 
-        # Make the blob publicly accessible (optional - for signed URLs)
-        # blob.make_public()
-
         # Generate a signed URL (valid for 7 days)
-        from datetime import timedelta
         url = blob.generate_signed_url(expiration=timedelta(days=7))
 
         return storage_path, url
 
     def get_download_url(self, storage_path: str, expiration_days: int = 7) -> str:
         """Get a signed download URL for a file with path sanitization"""
-        from datetime import timedelta
-
         # CRITICAL: Sanitize path to prevent SignatureDoesNotMatch errors
         storage_path = self.sanitize_storage_path(storage_path)
 
@@ -260,68 +137,17 @@ class FirebaseService:
         return blob.generate_signed_url(expiration=timedelta(days=expiration_days))
 
     def delete_file(self, storage_path: str):
-        """Delete a file from Storage with path sanitization"""
-        # Sanitize path for consistency
-        storage_path = self.sanitize_storage_path(storage_path)
+        """Delete a file from Storage with path sanitization and ghost-safe error handling"""
+        try:
+            # Sanitize path for consistency
+            storage_path = self.sanitize_storage_path(storage_path)
 
-        blob = self.bucket.blob(storage_path)
-        blob.delete()
-
-    # ====================
-    # DEADLINE OPERATIONS
-    # ====================
-
-    def create_deadline(self, deadline_data: Dict[str, Any]) -> str:
-        """Create a new deadline"""
-        deadline_ref = self.db.collection('deadlines').document()
-        deadline_data['created_at'] = firestore.SERVER_TIMESTAMP
-        deadline_data['updated_at'] = firestore.SERVER_TIMESTAMP
-        deadline_ref.set(deadline_data)
-        return deadline_ref.id
-
-    def get_case_deadlines(self, case_id: str) -> List[Dict[str, Any]]:
-        """Get all deadlines for a case"""
-        deadlines = (self.db.collection('deadlines')
-                    .where('caseId', '==', case_id)
-                    .order_by('deadline_date', direction=firestore.Query.ASCENDING)
-                    .get())
-
-        return [{'id': doc.id, **doc.to_dict()} for doc in deadlines]
-
-    def get_user_upcoming_deadlines(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Get upcoming deadlines for a user"""
-        from datetime import datetime
-        today = datetime.now().date()
-
-        deadlines = (self.db.collection('deadlines')
-                    .where('userId', '==', user_id)
-                    .where('deadline_date', '>=', today)
-                    .order_by('deadline_date', direction=firestore.Query.ASCENDING)
-                    .limit(limit)
-                    .get())
-
-        return [{'id': doc.id, **doc.to_dict()} for doc in deadlines]
-
-    # ====================
-    # CHAT MESSAGE OPERATIONS
-    # ====================
-
-    def create_chat_message(self, message_data: Dict[str, Any]) -> str:
-        """Create a new chat message"""
-        msg_ref = self.db.collection('chat_messages').document()
-        message_data['created_at'] = firestore.SERVER_TIMESTAMP
-        msg_ref.set(message_data)
-        return msg_ref.id
-
-    def get_case_messages(self, case_id: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get chat messages for a case"""
-        messages = (self.db.collection('chat_messages')
-                   .where('caseId', '==', case_id)
-                   .order_by('created_at', direction=firestore.Query.ASCENDING)
-                   .limit(limit)
-                   .get())
-
-        return [{'id': doc.id, **doc.to_dict()} for doc in messages]
+            blob = self.bucket.blob(storage_path)
+            blob.delete()
+            logger.info(f"Successfully deleted file: {storage_path}")
+        except Exception as e:
+            # Ghost-safe: Log warning but don't crash if file doesn't exist
+            logger.warning(f"Failed to delete file {storage_path} (might be ghost document): {e}")
 
 
 # Singleton instance
