@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, date
 import uuid
@@ -173,8 +173,10 @@ def get_deadline_override_info(
     Returns information about whether the deadline was manually overridden,
     when, by whom, and why.
     """
-
-    deadline = db.query(Deadline).filter(
+    # PERFORMANCE FIX: Use joinedload to prevent N+1 when fetching override_user
+    deadline = db.query(Deadline).options(
+        joinedload(Deadline.user)  # Preload the user relationship
+    ).filter(
         Deadline.id == deadline_id,
         Deadline.user_id == str(current_user.id)
     ).first()
@@ -182,10 +184,12 @@ def get_deadline_override_info(
     if not deadline:
         raise HTTPException(status_code=404, detail="Deadline not found")
 
-    # Get the user who overrode it (if applicable)
-    override_user = None
+    # Get override user name from relationship (no additional query)
+    override_user_name = None
     if deadline.override_user_id:
+        # Query override user separately since it's a different user than the owner
         override_user = db.query(User).filter(User.id == deadline.override_user_id).first()
+        override_user_name = override_user.name if override_user else None
 
     return {
         'deadline_id': str(deadline.id),
@@ -195,7 +199,7 @@ def get_deadline_override_info(
         'auto_recalculate': deadline.auto_recalculate,
         'override_details': {
             'override_timestamp': deadline.override_timestamp.isoformat() if deadline.override_timestamp else None,
-            'override_user_name': override_user.name if override_user else None,
+            'override_user_name': override_user_name,
             'override_reason': deadline.override_reason,
             'original_calculated_date': deadline.original_deadline_date.isoformat() if deadline.original_deadline_date else None,
             'current_date': deadline.deadline_date.isoformat() if deadline.deadline_date else None,
