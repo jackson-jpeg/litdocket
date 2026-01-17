@@ -6,6 +6,7 @@ from firebase_admin import credentials, firestore, storage
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import os
+import re
 import logging
 
 logger = logging.getLogger(__name__)
@@ -213,7 +214,6 @@ class FirebaseService:
         cleaned = path.strip("/")
 
         # Collapse multiple consecutive slashes to single slash
-        import re
         cleaned = re.sub(r'/+', '/', cleaned)
 
         return cleaned
