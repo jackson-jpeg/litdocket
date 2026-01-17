@@ -1,8 +1,9 @@
 import type { Config } from "tailwindcss";
 
 /**
- * SOVEREIGN DESIGN SYSTEM
- * "Density is Reliability" - Neo-Enterprise / Informational Brutalism
+ * BLOOMBERG TERMINAL DESIGN SYSTEM
+ * "Maximum Density, Instant Clarity"
+ * Dark theme optimized for long work sessions with neon accent colors
  */
 
 const config: Config = {
@@ -12,106 +13,105 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    // ZERO RADIUS POLICY - No exceptions
-    borderRadius: {
-      'none': '0',
-      'sm': '0',
-      'DEFAULT': '0',
-      'md': '0',
-      'lg': '0',
-      'xl': '0',
-      '2xl': '0',
-      '3xl': '0',
-      'full': '0',
-    },
     extend: {
-      fontFamily: {
-        // PAPER & STEEL TYPOGRAPHY STACK
-        // Authority Font (Serif) - Headers, Case Titles, Legal Citations
-        heading: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
-        serif: ['var(--font-newsreader)', 'Newsreader', 'Georgia', 'Times New Roman', 'serif'],
-        // Data/UI Font - Deadlines, Case Numbers, Tables
-        sans: ['var(--font-space-grotesk)', 'Space Grotesk', 'system-ui', 'sans-serif'],
-        // Precision Font (Mono) - Dates, IDs, Statutes
-        mono: ['var(--font-jetbrains)', 'JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
-      },
       colors: {
         // ============================================
-        // PAPER & STEEL PALETTE (Editorial Legal Utility)
+        // BLOOMBERG TERMINAL DARK THEME
         // ============================================
 
-        // The Canvas (Backgrounds)
-        paper: '#FDFBF7',           // Warm paper background
-        surface: '#F5F2EB',         // Card stock surface
-        steel: '#2C3E50',           // Deep charcoal/steel primary
-        wax: '#8B0000',             // Sealing-wax crimson accent
-
-        // The Ink (Typography)
-        ink: {
-          DEFAULT: '#1A1A1A',       // Near black - hard borders
-          secondary: '#4A4A4A',     // Secondary text
-          muted: '#888888',         // Muted text
-        },
-
-        // Deadline Fatality Colors (High Contrast)
-        fatal: '#C0392B',           // Fatal deadlines - dark crimson
-        critical: '#D35400',        // Critical - burnt orange
-        important: '#E67E22',       // Important - orange
-        standard: '#2C3E50',        // Standard - steel
-        informational: '#7F8C8D',   // Info - graphite
-
-        // Status Colors (Restrained, authoritative)
-        status: {
-          fatal: '#C0392B',
-          critical: '#D35400',
-          important: '#E67E22',
-          success: '#27AE60',
-          pending: '#7F8C8D',
-        },
-
-        // Legacy compatibility (minimized)
-        navy: {
-          DEFAULT: '#2C3E50',
-          light: '#34495E',
-          dark: '#1A252F',
-        },
-        alert: '#C0392B',
-        amber: '#D35400',
-
-        // Grid colors for dense data tables
-        grid: {
-          line: '#1A1A1A',          // Hard black lines
-          header: '#F5F2EB',        // Card stock
-          zebra: '#FDFBF7',         // Paper
-          dark: '#1A1A1A',          // Dark grid background
-        },
-
-        // Terminal colors
+        // Dark Foundation
         terminal: {
-          bg: '#1A1A1A',
-          green: '#27AE60',
-          amber: '#D35400',
-          text: '#F5F2EB',
+          bg: '#0A0E14',
+          panel: '#14181F',
+          elevated: '#1C2128',
+          surface: '#161B22',
         },
+
+        // Text Hierarchy
+        text: {
+          primary: '#E6EDF3',
+          secondary: '#8B949E',
+          muted: '#57606A',
+          inverse: '#0A0E14',
+        },
+
+        // Accent Colors - Neon on Dark for Urgency Signals
+        accent: {
+          critical: '#FF4757',
+          warning: '#FFA502',
+          success: '#26DE81',
+          info: '#45AAF2',
+          purple: '#A55EEA',
+        },
+
+        // Priority Color Scale (Fatality Levels)
+        priority: {
+          fatal: '#FF4757',        // Bright red
+          critical: '#FF6B6B',     // Red-orange
+          high: '#FFA502',         // Bright orange
+          medium: '#FFD93D',       // Yellow
+          low: '#45AAF2',          // Blue
+          info: '#8B949E',         // Gray
+        },
+
+        // Grid & Structural Elements
+        border: {
+          subtle: '#30363D',
+          emphasis: '#444C56',
+        },
+
+        // Legacy compatibility (for gradual migration)
+        navy: '#45AAF2',
+        alert: '#FF4757',
+        amber: '#FFA502',
+        success: '#26DE81',
       },
-      spacing: {
-        '18': '4.5rem',
-        '88': '22rem',
+
+      fontFamily: {
+        // Bloomberg Typography Stack
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        tight: ['Inter Tight', 'Inter', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'SF Mono', 'Monaco', 'Consolas', 'monospace'],
       },
+
       fontSize: {
         'xxs': ['10px', { lineHeight: '14px' }],
         'xs': ['11px', { lineHeight: '16px' }],
-        'sm': ['13px', { lineHeight: '20px' }],
-        'base': ['14px', { lineHeight: '22px' }],
+        'sm': ['13px', { lineHeight: '18px' }],
+        'base': ['13px', { lineHeight: '20px' }],
+        'lg': ['14px', { lineHeight: '22px' }],
+        'xl': ['16px', { lineHeight: '24px' }],
+        '2xl': ['20px', { lineHeight: '28px' }],
+        '3xl': ['24px', { lineHeight: '32px' }],
+        '4xl': ['32px', { lineHeight: '40px' }],
       },
+
       boxShadow: {
-        // Hard shadows only - no blur
-        'none': 'none',
-        'hard': '4px 4px 0px 0px #000000',
-        'hard-sm': '2px 2px 0px 0px #000000',
-        'hard-navy': '4px 4px 0px 0px #0A2540',
+        // Glow effects for critical items
+        'glow-critical': '0 0 16px rgba(255, 71, 87, 0.4)',
+        'glow-warning': '0 0 16px rgba(255, 165, 2, 0.3)',
+        'glow-info': '0 0 12px rgba(69, 170, 242, 0.2)',
+        'glow-success': '0 0 12px rgba(38, 222, 129, 0.2)',
       },
-      // Fixed viewport heights for cockpit layout
+
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glow': 'glow 2s ease-in-out infinite',
+        'fade-in': 'fadeIn 0.2s ease-out',
+      },
+
+      keyframes: {
+        glow: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.6' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+
+      // Fixed viewport heights for fullscreen layout
       height: {
         'screen-minus-header': 'calc(100vh - 48px)',
         'screen-minus-header-terminal': 'calc(100vh - 48px - 40px)',

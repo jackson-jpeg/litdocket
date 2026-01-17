@@ -2,609 +2,335 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Google Fonts - LitDocket Typography Stack */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Merriweather:wght@400;700;900&display=swap');
+/* Google Fonts - Bloomberg Terminal Typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
 /* ============================================
-   LITDOCKET DESIGN SYSTEM
-   "Density is Reliability" - Professional Legal
+   BLOOMBERG TERMINAL DESIGN SYSTEM
+   "Maximum Density, Instant Clarity"
    ============================================ */
 
-:root {
-  /* Paper & Steel Palette */
-  --canvas: #ECE9D8;
-  --steel: #F2F2F2;
-  --paper: #FFFCF9;
-  --paper-white: #FFFFFF;
+@layer base {
+  /* Bloomberg Terminal Dark Theme */
+  :root {
+    /* Dark Foundation */
+    --bg-primary: #0A0E14;
+    --bg-secondary: #14181F;
+    --bg-tertiary: #1C2128;
+    --bg-panel: #161B22;
 
-  /* Ink */
-  --ink: #111111;
-  --ink-secondary: #555555;
-  --ink-muted: #888888;
+    /* Text Colors */
+    --text-primary: #E6EDF3;
+    --text-secondary: #8B949E;
+    --text-muted: #57606A;
+    --text-inverse: #0A0E14;
 
-  /* Accents */
-  --navy: #0A2540;
-  --navy-light: #1a3a5c;
-  --navy-dark: #061829;
-  --alert: #B91C1C;
-  --amber: #D97706;
-  --success: #15803D;
+    /* Accent Colors - Neon on Dark */
+    --accent-critical: #FF4757;
+    --accent-warning: #FFA502;
+    --accent-success: #26DE81;
+    --accent-info: #45AAF2;
+    --accent-purple: #A55EEA;
 
-  /* Grid */
-  --grid-line: #E5E5E5;
-  --grid-header: #F5F5F5;
-  --grid-zebra: #F9FAFB;
+    /* Priority Gradient */
+    --priority-fatal: #FF4757;
+    --priority-critical: #FF6B6B;
+    --priority-high: #FFA502;
+    --priority-medium: #FFD93D;
+    --priority-low: #45AAF2;
+    --priority-info: #8B949E;
 
-  /* Terminal */
-  --terminal-bg: #1E1E1E;
-  --terminal-green: #10B981;
-  --terminal-amber: #F59E0B;
+    /* Grid & Borders */
+    --border-subtle: #30363D;
+    --border-emphasis: #444C56;
+    --border-glow-critical: rgba(255, 71, 87, 0.5);
+    --border-glow-info: rgba(69, 170, 242, 0.3);
 
-  /* Micro-borders for depth */
-  --border-light: #D4D4D4;
-  --border-dark: #888888;
+    /* Glass Morphism */
+    --glass-bg: rgba(22, 27, 34, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: 16px;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    @apply bg-[#0A0E14] text-[#E6EDF3] font-sans antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Typography Hierarchy */
+  h1 {
+    @apply text-2xl font-bold tracking-tight text-[#E6EDF3];
+    font-family: 'Inter Tight', 'Inter', sans-serif;
+  }
+
+  h2 {
+    @apply text-xl font-semibold tracking-tight text-[#E6EDF3];
+  }
+
+  h3 {
+    @apply text-lg font-semibold text-[#E6EDF3];
+  }
+
+  h4 {
+    @apply text-base font-semibold text-[#8B949E];
+  }
+
+  /* Monospace for data */
+  .font-mono {
+    font-family: 'IBM Plex Mono', 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-variant-numeric: tabular-nums;
+  }
 }
-
-/* ============================================
-   BASE STYLES
-   ============================================ */
-
-* {
-  /* Design Rule #1: Zero Radius */
-  border-radius: 0 !important;
-  /* Design Rule #2: No Soft Shadows */
-  box-shadow: none !important;
-}
-
-html {
-  overflow: hidden;
-  height: 100%;
-}
-
-body {
-  color: var(--ink);
-  background-color: var(--canvas);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Authority Font - Serif for headings */
-h1, h2, h3, .font-serif, .font-display {
-  font-family: 'Merriweather', Georgia, serif;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-/* Data Font - Monospace for numbers, dates, codes */
-.font-mono, code, .data-value, .case-number, .date-display {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-feature-settings: 'tnum' 1; /* Tabular numbers */
-}
-
-/* ============================================
-   COMPONENT LAYER
-   ============================================ */
 
 @layer components {
+  /* ==========================================
+     GLASS PANEL SYSTEM - Bloomberg Style
+     ========================================== */
+
+  .panel-glass {
+    @apply bg-[rgba(22,27,34,0.85)] backdrop-blur-xl border border-[rgba(255,255,255,0.1)] rounded-lg;
+  }
+
+  .panel-solid {
+    @apply bg-[#161B22] border border-[#30363D] rounded-lg;
+  }
+
+  .panel-elevated {
+    @apply bg-[#1C2128] border border-[#30363D] rounded-lg;
+  }
 
   /* ==========================================
-     BUTTONS - Professional Style
+     STAT CARDS - Bloomberg Terminal Style
+     ========================================== */
+
+  .stat-card {
+    @apply panel-glass p-4 hover:border-[#444C56] transition-all duration-200;
+  }
+
+  .stat-card-critical {
+    @apply stat-card border-l-4 border-l-[#FF4757];
+    box-shadow: 0 0 12px rgba(255, 71, 87, 0.2);
+  }
+
+  .stat-card-warning {
+    @apply stat-card border-l-4 border-l-[#FFA502];
+    box-shadow: 0 0 12px rgba(255, 165, 2, 0.2);
+  }
+
+  .stat-card-success {
+    @apply stat-card border-l-4 border-l-[#26DE81];
+    box-shadow: 0 0 12px rgba(38, 222, 129, 0.2);
+  }
+
+  .stat-card-info {
+    @apply stat-card border-l-4 border-l-[#45AAF2];
+    box-shadow: 0 0 12px rgba(69, 170, 242, 0.2);
+  }
+
+  /* ==========================================
+     TABLE STYLING - Bloomberg Data Tables
+     ========================================== */
+
+  .table-bloomberg {
+    @apply w-full text-xs;
+  }
+
+  .table-bloomberg th {
+    @apply bg-[#1C2128] text-[#8B949E] font-semibold text-left px-3 py-2 border-b border-[#30363D] sticky top-0 uppercase tracking-wide;
+  }
+
+  .table-bloomberg td {
+    @apply px-3 py-2 border-b border-[#30363D] text-[#E6EDF3];
+  }
+
+  .table-bloomberg tr:hover {
+    @apply bg-[#1C2128];
+  }
+
+  .table-bloomberg tr.row-critical td {
+    border-left: 3px solid var(--priority-fatal);
+  }
+
+  .table-bloomberg tr.row-warning td {
+    border-left: 3px solid var(--priority-high);
+  }
+
+  /* ==========================================
+     PRIORITY BADGES - Neon on Dark
+     ========================================== */
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold;
+  }
+
+  .badge-fatal {
+    @apply badge bg-[#FF4757] text-white;
+  }
+
+  .badge-critical {
+    @apply badge bg-[#FF6B6B] text-white;
+  }
+
+  .badge-warning {
+    @apply badge bg-[#FFA502] text-[#0A0E14];
+  }
+
+  .badge-info {
+    @apply badge bg-[#45AAF2] text-[#0A0E14];
+  }
+
+  .badge-success {
+    @apply badge bg-[#26DE81] text-[#0A0E14];
+  }
+
+  .badge-neutral {
+    @apply badge bg-[#30363D] text-[#8B949E];
+  }
+
+  /* ==========================================
+     BUTTONS - Bloomberg Style
      ========================================== */
 
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2;
-    @apply text-sm font-medium;
-    @apply transition-none; /* No smooth transitions - instant feedback */
-    border: 1px solid var(--border-dark);
-    cursor: pointer;
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150;
   }
 
   .btn-primary {
-    @apply btn;
-    background-color: var(--navy);
-    color: white;
-    border-color: var(--navy-dark);
-  }
-
-  .btn-primary:hover {
-    background-color: var(--navy-light);
-  }
-
-  .btn-primary:active {
-    background-color: var(--navy-dark);
-  }
-
-  .btn-secondary {
-    @apply btn;
-    background-color: var(--steel);
-    color: var(--ink);
-  }
-
-  .btn-secondary:hover {
-    background-color: var(--grid-header);
+    @apply btn bg-[#45AAF2] text-white hover:bg-[#3A9AE0] active:bg-[#2E87CC];
   }
 
   .btn-danger {
-    @apply btn;
-    background-color: var(--alert);
-    color: white;
-    border-color: #991B1B;
+    @apply btn bg-[#FF4757] text-white hover:bg-[#E63946] active:bg-[#CC2936];
   }
 
-  /* Micro-border depth effect */
-  .btn-raised {
-    border-top: 1px solid var(--border-light);
-    border-left: 1px solid var(--border-light);
-    border-bottom: 1px solid var(--border-dark);
-    border-right: 1px solid var(--border-dark);
+  .btn-success {
+    @apply btn bg-[#26DE81] text-[#0A0E14] hover:bg-[#1FC870] active:bg-[#18B260];
   }
 
-  .btn-raised:active {
-    border-top: 1px solid var(--border-dark);
-    border-left: 1px solid var(--border-dark);
-    border-bottom: 1px solid var(--border-light);
-    border-right: 1px solid var(--border-light);
+  .btn-ghost {
+    @apply btn text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#1C2128];
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
   }
 
   /* ==========================================
-     INPUTS - Inset depth
+     INPUT FIELDS - Dark Theme
      ========================================== */
 
   .input {
-    @apply w-full px-3 py-2 text-sm;
-    background-color: var(--paper-white);
-    color: var(--ink);
-    border-top: 1px solid var(--border-dark);
-    border-left: 1px solid var(--border-dark);
-    border-bottom: 1px solid var(--border-light);
-    border-right: 1px solid var(--border-light);
+    @apply w-full px-3 py-2 text-sm bg-[#0A0E14] border border-[#30363D] rounded-md text-[#E6EDF3] placeholder-[#57606A];
+    @apply focus:outline-none focus:border-[#45AAF2] focus:ring-2 focus:ring-[rgba(69,170,242,0.2)] transition-all;
   }
 
-  .input:focus {
-    outline: 2px solid var(--navy);
-    outline-offset: -2px;
-  }
-
-  .input::placeholder {
-    color: var(--ink-muted);
+  .input-sm {
+    @apply input px-2 py-1.5 text-xs;
   }
 
   /* ==========================================
-     PANELS & CARDS
+     GLOW EFFECTS - Critical Item Highlighting
+     ========================================== */
+
+  .glow-critical {
+    border-color: var(--priority-fatal);
+    box-shadow: 0 0 16px rgba(255, 71, 87, 0.4);
+  }
+
+  .glow-warning {
+    border-color: var(--priority-high);
+    box-shadow: 0 0 16px rgba(255, 165, 2, 0.3);
+  }
+
+  .glow-info {
+    border-color: var(--accent-info);
+    box-shadow: 0 0 12px rgba(69, 170, 242, 0.2);
+  }
+
+  /* ==========================================
+     PANEL SYSTEM - Containers
      ========================================== */
 
   .panel {
-    background-color: var(--paper-white);
-    border: 1px solid var(--grid-line);
+    @apply bg-[#161B22] border border-[#30363D] rounded-lg;
   }
 
   .panel-header {
-    @apply px-4 py-3;
-    @apply font-serif font-bold;
-    background-color: var(--grid-header);
-    border-bottom: 1px solid var(--grid-line);
-    color: var(--ink);
+    @apply px-4 py-3 border-b border-[#30363D] bg-[#1C2128];
   }
 
   .panel-body {
     @apply p-4;
   }
 
-  /* Raised panel with depth */
-  .panel-raised {
-    @apply panel;
-    border-top: 1px solid var(--border-light);
-    border-left: 1px solid var(--border-light);
-    border-bottom: 1px solid var(--border-dark);
-    border-right: 1px solid var(--border-dark);
-  }
-
   /* ==========================================
-     DATA TABLES - The Data Grid
+     SCROLLBARS - Dark Theme
      ========================================== */
 
-  .data-table {
-    @apply w-full text-sm;
-    border-collapse: collapse;
-    background-color: var(--paper-white);
-  }
-
-  .data-table th {
-    @apply text-left font-semibold text-xs uppercase tracking-wider;
-    @apply px-3 py-2;
-    @apply sticky top-0;
-    color: var(--ink-secondary);
-    background-color: var(--grid-header);
-    border-bottom: 2px solid var(--grid-line);
-    border-right: 1px solid var(--grid-line);
-  }
-
-  .data-table th:last-child {
-    border-right: none;
-  }
-
-  .data-table td {
-    @apply px-3 py-1;
-    color: var(--ink);
-    border-bottom: 1px solid var(--grid-line);
-    border-right: 1px solid var(--grid-line);
-  }
-
-  .data-table td:last-child {
-    border-right: none;
-  }
-
-  /* Zebra striping */
-  .data-table tr:nth-child(even) td {
-    background-color: var(--grid-zebra);
-  }
-
-  .data-table tr:hover td {
-    background-color: #EEF2FF;
-  }
-
-  /* Status flag - 4px left border */
-  .data-table tr.status-critical td:first-child {
-    border-left: 4px solid var(--alert);
-  }
-
-  .data-table tr.status-warning td:first-child {
-    border-left: 4px solid var(--amber);
-  }
-
-  .data-table tr.status-success td:first-child {
-    border-left: 4px solid var(--success);
-  }
-
-  /* ==========================================
-     SIDEBAR NAVIGATION - File Explorer Style
-     ========================================== */
-
-  .sidebar {
-    background-color: var(--steel);
-    border-right: 1px solid var(--grid-line);
-  }
-
-  .sidebar-item {
-    @apply flex items-center gap-2 px-3 py-2;
-    @apply text-sm;
-    color: var(--ink);
-    cursor: pointer;
-    border-left: 3px solid transparent;
-  }
-
-  .sidebar-item:hover {
-    background-color: var(--canvas);
-  }
-
-  /* INVERTED SELECTION - Classic file explorer */
-  .sidebar-item.active {
-    background-color: var(--navy);
-    color: white;
-    border-left-color: var(--navy);
-  }
-
-  .sidebar-item.active:hover {
-    background-color: var(--navy-light);
-  }
-
-  /* Tree guide lines */
-  .sidebar-tree-line {
-    border-left: 1px dotted var(--ink-muted);
-    margin-left: 10px;
-    padding-left: 12px;
-  }
-
-  /* ==========================================
-     STATUS BADGES - Flat, no pills
-     ========================================== */
-
-  .badge {
-    @apply inline-flex items-center px-2 py-0.5;
-    @apply text-xs font-medium uppercase tracking-wide;
-    border: 1px solid;
-  }
-
-  .badge-critical {
-    @apply badge;
-    background-color: #FEE2E2;
-    color: var(--alert);
-    border-color: var(--alert);
-  }
-
-  .badge-warning {
-    @apply badge;
-    background-color: #FEF3C7;
-    color: var(--amber);
-    border-color: var(--amber);
-  }
-
-  .badge-success {
-    @apply badge;
-    background-color: #D1FAE5;
-    color: var(--success);
-    border-color: var(--success);
-  }
-
-  .badge-info {
-    @apply badge;
-    background-color: #E0E7FF;
-    color: var(--navy);
-    border-color: var(--navy);
-  }
-
-  .badge-neutral {
-    @apply badge;
-    background-color: var(--steel);
-    color: var(--ink-secondary);
-    border-color: var(--border-dark);
-  }
-
-  /* ==========================================
-     AI TERMINAL - System Console
-     ========================================== */
-
-  .terminal {
-    background-color: var(--terminal-bg);
-    font-family: 'JetBrains Mono', monospace;
-    color: var(--terminal-green);
-  }
-
-  .terminal-collapsed {
-    @apply flex items-center justify-between px-4 py-2;
-    background-color: var(--terminal-bg);
-    border-top: 1px solid #333;
-    cursor: pointer;
-  }
-
-  .terminal-collapsed:hover {
-    background-color: #2a2a2a;
-  }
-
-  .terminal-expanded {
-    @apply p-4;
-    background-color: var(--terminal-bg);
-    border-top: 1px solid #333;
-    height: 200px;
-    overflow-y: auto;
-  }
-
-  .terminal-prompt {
-    color: var(--terminal-green);
-  }
-
-  .terminal-prompt::before {
-    content: '> ';
-    color: var(--terminal-amber);
-  }
-
-  .terminal-input {
-    @apply w-full px-0 py-1;
-    background: transparent;
-    border: none;
-    color: var(--terminal-green);
-    font-family: inherit;
-    font-size: 13px;
-    outline: none;
-    caret-color: var(--terminal-green);
-  }
-
-  /* Blinking cursor */
-  .terminal-cursor {
-    display: inline-block;
-    width: 8px;
-    height: 16px;
-    background-color: var(--terminal-green);
-    animation: blink 1s step-end infinite;
-  }
-
-  @keyframes blink {
-    50% { opacity: 0; }
-  }
-
-  /* ==========================================
-     COCKPIT LAYOUT - Fixed Viewport
-     ========================================== */
-
-  .cockpit {
-    @apply h-screen w-screen overflow-hidden;
-    @apply flex flex-col;
-    background-color: var(--canvas);
-  }
-
-  .cockpit-header {
-    @apply flex items-center justify-between px-4;
-    height: 48px;
-    background-color: var(--navy);
-    color: white;
-    flex-shrink: 0;
-  }
-
-  .cockpit-body {
-    @apply flex flex-1 overflow-hidden;
-  }
-
-  .cockpit-sidebar {
-    @apply flex-shrink-0 overflow-y-auto;
-    width: 240px;
-  }
-
-  .cockpit-main {
-    @apply flex-1 overflow-hidden flex flex-col;
-  }
-
-  .cockpit-content {
-    @apply flex-1 overflow-auto p-4;
-    background-color: var(--canvas);
-  }
-
-  .cockpit-terminal {
-    @apply flex-shrink-0;
-  }
-
-  /* ==========================================
-     SCROLLBARS - Thin, Professional
-     ========================================== */
-
-  .custom-scrollbar::-webkit-scrollbar {
+  .scrollbar-dark::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: var(--steel);
+  .scrollbar-dark::-webkit-scrollbar-track {
+    background: #0A0E14;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: var(--border-dark);
-    border: 1px solid var(--steel);
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    background: #30363D;
+    border-radius: 4px;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: var(--ink-muted);
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background: #444C56;
   }
 
-  /* ==========================================
-     PRIORITY INDICATORS - Left border
-     ========================================== */
-
-  .priority-fatal {
-    border-left: 4px solid var(--alert) !important;
-  }
-
-  .priority-critical {
-    border-left: 4px solid #DC2626 !important;
-  }
-
-  .priority-important {
-    border-left: 4px solid var(--amber) !important;
-  }
-
-  .priority-standard {
-    border-left: 4px solid var(--border-dark) !important;
-  }
-
-  .priority-informational {
-    border-left: 4px solid var(--border-light) !important;
-  }
-
-  /* ==========================================
-     MODAL / DIALOG
-     ========================================== */
-
-  .modal-overlay {
-    @apply fixed inset-0 z-50;
-    background-color: rgba(0, 0, 0, 0.5);
-  }
-
-  .modal {
-    @apply fixed z-50;
-    @apply bg-white;
-    border: 1px solid var(--border-dark);
-    box-shadow: 8px 8px 0px 0px rgba(0, 0, 0, 0.2);
-    max-width: 90vw;
-    max-height: 90vh;
-  }
-
-  .modal-header {
-    @apply flex items-center justify-between px-4 py-3;
-    @apply font-serif font-bold;
-    background-color: var(--navy);
-    color: white;
-  }
-
-  .modal-body {
-    @apply p-4 overflow-auto;
-    max-height: calc(90vh - 120px);
-  }
-
-  .modal-footer {
-    @apply flex items-center justify-end gap-2 px-4 py-3;
-    background-color: var(--grid-header);
-    border-top: 1px solid var(--grid-line);
+  /* Default scrollbar styling for all scrollable areas */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #30363D #0A0E14;
   }
 }
-
-/* ============================================
-   UTILITY LAYER
-   ============================================ */
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  /* Quick background utilities */
-  .bg-canvas { background-color: var(--canvas); }
-  .bg-steel { background-color: var(--steel); }
-  .bg-paper { background-color: var(--paper); }
-  .bg-paper-white { background-color: var(--paper-white); }
+  /* Background utilities */
+  .bg-terminal-bg { background-color: #0A0E14; }
+  .bg-terminal-panel { background-color: #14181F; }
+  .bg-terminal-elevated { background-color: #1C2128; }
+  .bg-terminal-surface { background-color: #161B22; }
 
   /* Text utilities */
-  .text-ink { color: var(--ink); }
-  .text-ink-secondary { color: var(--ink-secondary); }
-  .text-ink-muted { color: var(--ink-muted); }
-  .text-navy { color: var(--navy); }
-  .text-alert { color: var(--alert); }
-  .text-amber { color: var(--amber); }
+  .text-text-primary { color: #E6EDF3; }
+  .text-text-secondary { color: #8B949E; }
+  .text-text-muted { color: #57606A; }
 
   /* Border utilities */
-  .border-grid { border-color: var(--grid-line); }
+  .border-border-subtle { border-color: #30363D; }
+  .border-border-emphasis { border-color: #444C56; }
 
-  /* HARD BEVEL - Depth without shadows */
-  .bevel {
-    border-bottom: 2px solid var(--border-dark);
-    border-right: 2px solid var(--border-dark);
-  }
+  /* Accent utilities */
+  .text-accent-critical { color: #FF4757; }
+  .text-accent-warning { color: #FFA502; }
+  .text-accent-success { color: #26DE81; }
+  .text-accent-info { color: #45AAF2; }
 
-  .bevel-sm {
-    border-bottom: 1px solid var(--border-dark);
-    border-right: 1px solid var(--border-dark);
-  }
-
-  .bevel-inset {
-    border-top: 2px solid var(--border-dark);
-    border-left: 2px solid var(--border-dark);
-    border-bottom: 2px solid var(--border-light);
-    border-right: 2px solid var(--border-light);
-  }
-
-  .bevel-raised {
-    border-top: 2px solid var(--border-light);
-    border-left: 2px solid var(--border-light);
-    border-bottom: 2px solid var(--border-dark);
-    border-right: 2px solid var(--border-dark);
-  }
-}
-
-/* ============================================
-   PRINT STYLES
-   ============================================ */
-
-@media print {
-  body {
-    font-family: 'Times New Roman', serif;
-    font-size: 12pt;
-    background: white;
-    color: black;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
-  .cockpit-sidebar,
-  .cockpit-terminal,
-  .cockpit-header {
-    display: none !important;
-  }
-
-  .cockpit-content {
-    overflow: visible;
-    height: auto;
-  }
+  .bg-accent-critical { background-color: #FF4757; }
+  .bg-accent-warning { background-color: #FFA502; }
+  .bg-accent-success { background-color: #26DE81; }
+  .bg-accent-info { background-color: #45AAF2; }
 }
