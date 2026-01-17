@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
+import apiClient from '@/lib/api-client';
 
 // ============================================================================
 // PDF.js Worker Configuration
@@ -30,6 +31,55 @@ export default function DocumentViewer({
   const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfBlob, setPdfBlob] = useState<string | null>(null);
+
+  // Fetch PDF with authentication and create blob URL
+  useEffect(() => {
+    let blobUrl: string | null = null;
+
+    const fetchPdf = async () => {
+      try {
+        console.log('[DocumentViewer] Fetching PDF with authentication:', documentUrl);
+        setLoading(true);
+        setError(null);
+
+        // Fetch with authentication using apiClient
+        // responseType: 'blob' ensures we get binary data
+        const response = await apiClient.get(documentUrl, {
+          responseType: 'blob',
+        });
+
+        console.log('[DocumentViewer] PDF fetched successfully, creating blob URL');
+
+        // Create blob URL for PDF.js to load
+        blobUrl = URL.createObjectURL(response.data);
+        setPdfBlob(blobUrl);
+
+        console.log('[DocumentViewer] Blob URL created:', blobUrl);
+      } catch (err: any) {
+        console.error('[DocumentViewer] Failed to fetch PDF:', err);
+        const errorMessage = err.response?.status === 401
+          ? 'Authentication failed. Please refresh the page and try again.'
+          : err.response?.status === 404
+          ? 'Document not found on server.'
+          : err.message || 'Failed to load PDF document';
+        setError(errorMessage);
+        setLoading(false);
+      }
+    };
+
+    if (documentUrl) {
+      fetchPdf();
+    }
+
+    // Cleanup: revoke blob URL when component unmounts or URL changes
+    return () => {
+      if (blobUrl) {
+        console.log('[DocumentViewer] Cleaning up blob URL:', blobUrl);
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [documentUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     console.log('[DocumentViewer] PDF loaded successfully:', { numPages, documentUrl });
@@ -59,8 +109,37 @@ export default function DocumentViewer({
   const zoomIn = () => setScale(prev => Math.min(prev + 0.2, 3.0));
   const zoomOut = () => setScale(prev => Math.max(prev - 0.2, 0.5));
 
-  const handleDownload = () => {
-    window.open(documentUrl, '_blank');
+  const handleDownload = async () => {
+    try {
+      console.log('[DocumentViewer] Initiating download for:', documentName);
+
+      // Use pdfBlob if available (already fetched with auth)
+      if (pdfBlob) {
+        // Create a temporary anchor element to trigger download
+        const link = document.createElement('a');
+        link.href = pdfBlob;
+        link.download = documentName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Fallback: fetch with auth then download
+        const response = await apiClient.get(documentUrl, {
+          responseType: 'blob',
+        });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = documentName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('[DocumentViewer] Download failed:', err);
+      alert('Failed to download document. Please try again.');
+    }
   };
 
   if (!isOpen) return null;
@@ -151,9 +230,9 @@ export default function DocumentViewer({
             </div>
           )}
 
-          {!error && (
+          {!error && pdfBlob && (
             <Document
-              file={documentUrl}
+              file={pdfBlob}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}
               loading=""
