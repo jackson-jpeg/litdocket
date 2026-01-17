@@ -69,8 +69,10 @@ class FirebaseService:
 
             # Initialize the app
             if not firebase_admin._apps:
+                # Use standard Firebase Storage bucket format: {project_id}.appspot.com
+                # The newer .firebasestorage.app domain may not be created yet
                 firebase_admin.initialize_app(cred, {
-                    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET', 'litdocket.firebasestorage.app')
+                    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET', 'litdocket.appspot.com')
                 })
 
             FirebaseService._db = firestore.client()
