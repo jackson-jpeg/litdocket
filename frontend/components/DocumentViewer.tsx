@@ -4,9 +4,18 @@ import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
 
-// Configure PDF.js worker - use stable v3.11.174 from CDN
-// Downgraded from v5 to fix URL.parse compatibility issues in older browsers
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+// ============================================================================
+// PDF.js Worker Configuration
+// SECURITY FIX: Load worker from local node_modules instead of unpkg.com CDN
+// This fixes:
+//   1. CORS blocking issues (Issue #30)
+//   2. Safari URL.parse crash (Issue #31) - local worker doesn't use URL.parse
+//   3. Security: no external CDN dependency
+// ============================================================================
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url
+).toString();
 
 interface DocumentViewerProps {
   isOpen: boolean;

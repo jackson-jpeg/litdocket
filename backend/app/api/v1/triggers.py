@@ -22,6 +22,151 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# ============================================================================
+# TRIGGER TYPE DEFINITIONS
+# Friendly names + metadata for the TriggerType enum
+# Used by SmartEventEntry command bar for autocomplete
+# ============================================================================
+
+TRIGGER_TYPE_METADATA = {
+    TriggerType.TRIAL_DATE: {
+        "name": "Trial Date",
+        "friendly_name": "Start of Jury Trial",
+        "description": "Set trial date to generate all pretrial deadlines (expert disclosures, motions in limine, witness lists, etc.)",
+        "category": "trial",
+        "icon": "gavel",
+        "example": "June 15, 2025",
+        "generates_approx": 47,
+    },
+    TriggerType.COMPLAINT_SERVED: {
+        "name": "Complaint Served",
+        "friendly_name": "Service of Complaint on Defendant",
+        "description": "Date complaint was served on defendant - triggers answer deadline and discovery timeline",
+        "category": "pleading",
+        "icon": "file-text",
+        "example": "Defendant served on March 1",
+        "generates_approx": 23,
+    },
+    TriggerType.SERVICE_COMPLETED: {
+        "name": "Service Completed",
+        "friendly_name": "Service of Process Completed",
+        "description": "Service of process completed on all defendants",
+        "category": "pleading",
+        "icon": "check-circle",
+        "example": "All defendants served",
+        "generates_approx": 15,
+    },
+    TriggerType.CASE_FILED: {
+        "name": "Case Filed",
+        "friendly_name": "Case Filing Date",
+        "description": "Date case was filed with the court - starts statute of limitations calculations",
+        "category": "pleading",
+        "icon": "folder-plus",
+        "example": "Complaint filed January 15",
+        "generates_approx": 8,
+    },
+    TriggerType.ANSWER_DUE: {
+        "name": "Answer Due",
+        "friendly_name": "Answer Deadline",
+        "description": "Defendant's answer due date - triggers discovery and responsive pleading deadlines",
+        "category": "pleading",
+        "icon": "file-edit",
+        "example": "Answer due in 20 days",
+        "generates_approx": 12,
+    },
+    TriggerType.DISCOVERY_COMMENCED: {
+        "name": "Discovery Commenced",
+        "friendly_name": "Start of Discovery Period",
+        "description": "Discovery period begins - triggers interrogatories, RFPs, deposition deadlines",
+        "category": "discovery",
+        "icon": "search",
+        "example": "Discovery opens after initial disclosures",
+        "generates_approx": 18,
+    },
+    TriggerType.DISCOVERY_DEADLINE: {
+        "name": "Discovery Deadline",
+        "friendly_name": "Discovery Cutoff Date",
+        "description": "Last day to complete discovery - triggers expert disclosure and deposition deadlines",
+        "category": "discovery",
+        "icon": "calendar-clock",
+        "example": "Discovery closes 60 days before trial",
+        "generates_approx": 15,
+    },
+    TriggerType.DISPOSITIVE_MOTIONS_DUE: {
+        "name": "Dispositive Motions Due",
+        "friendly_name": "Summary Judgment Deadline",
+        "description": "Deadline for filing dispositive motions (MSJ, MTD) - triggers response and reply deadlines",
+        "category": "motion",
+        "icon": "scale",
+        "example": "MSJ due 90 days before trial",
+        "generates_approx": 8,
+    },
+    TriggerType.MOTION_FILED: {
+        "name": "Motion Filed",
+        "friendly_name": "Motion Filing Date",
+        "description": "Date motion was filed - triggers response deadline (typically 14-21 days)",
+        "category": "motion",
+        "icon": "file-signature",
+        "example": "Motion to Compel filed",
+        "generates_approx": 5,
+    },
+    TriggerType.HEARING_SCHEDULED: {
+        "name": "Hearing Scheduled",
+        "friendly_name": "Motion Hearing Date",
+        "description": "Hearing date set - triggers exhibit exchange, witness disclosure, trial prep deadlines",
+        "category": "motion",
+        "icon": "calendar",
+        "example": "Hearing on May 10 at 9:00 AM",
+        "generates_approx": 6,
+    },
+    TriggerType.PRETRIAL_CONFERENCE: {
+        "name": "Pretrial Conference",
+        "friendly_name": "Pretrial Conference Date",
+        "description": "Pretrial/calendar call date - triggers joint pretrial statement deadlines",
+        "category": "trial",
+        "icon": "users",
+        "example": "Final pretrial conference 2 weeks before trial",
+        "generates_approx": 10,
+    },
+    TriggerType.ORDER_ENTERED: {
+        "name": "Order Entered",
+        "friendly_name": "Court Order Entry Date",
+        "description": "Date court order was entered - triggers compliance deadlines and appeal windows",
+        "category": "other",
+        "icon": "stamp",
+        "example": "Order granting MSJ entered",
+        "generates_approx": 4,
+    },
+    TriggerType.APPEAL_FILED: {
+        "name": "Appeal Filed",
+        "friendly_name": "Notice of Appeal Filed",
+        "description": "Notice of appeal filed - triggers appellate briefing schedule",
+        "category": "appellate",
+        "icon": "arrow-up-circle",
+        "example": "Appeal to 11th Circuit filed",
+        "generates_approx": 12,
+    },
+    TriggerType.MEDIATION_SCHEDULED: {
+        "name": "Mediation Scheduled",
+        "friendly_name": "Mediation Conference Date",
+        "description": "Mediation date set - triggers mediation statement and document exchange deadlines",
+        "category": "other",
+        "icon": "handshake",
+        "example": "Mediation scheduled for April 20",
+        "generates_approx": 5,
+    },
+    TriggerType.CUSTOM_TRIGGER: {
+        "name": "Custom Event",
+        "friendly_name": "Custom Trigger Event",
+        "description": "User-defined trigger event with custom deadline rules",
+        "category": "other",
+        "icon": "plus-circle",
+        "example": "Any custom event",
+        "generates_approx": 0,
+    },
+}
+
+
 class CreateTriggerRequest(BaseModel):
     case_id: str
     trigger_type: str
@@ -59,6 +204,261 @@ class PreviewTriggerRequest(BaseModel):
     jurisdiction: str  # "federal", "florida_state"
     court_type: str  # "civil", "criminal", "appellate"
     service_method: Optional[str] = "email"
+
+
+@router.get("/types")
+def get_trigger_types(
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    GET /api/v1/triggers/types - Command bar autocomplete endpoint
+
+    Returns all trigger types with friendly names mapped to TriggerType enum.
+    Used by SmartEventEntry cmdk-style command bar.
+
+    Performance: Single dict lookup, no database queries - instant response (<10ms)
+
+    Query params:
+        q: Optional search query to filter by name/description
+        category: Optional category filter (trial, pleading, discovery, motion, appellate, other)
+
+    Returns: List of trigger types with metadata for UI rendering
+    """
+    results = []
+
+    for trigger_type, metadata in TRIGGER_TYPE_METADATA.items():
+        # Apply category filter
+        if category and metadata["category"] != category:
+            continue
+
+        # Apply search filter (fuzzy match on name, friendly_name, description)
+        if q:
+            q_lower = q.lower()
+            searchable = f"{metadata['name']} {metadata['friendly_name']} {metadata['description']}".lower()
+            if q_lower not in searchable:
+                continue
+
+        results.append({
+            "id": trigger_type.value,
+            "trigger_type": trigger_type.value,
+            "name": metadata["name"],
+            "friendly_name": metadata["friendly_name"],
+            "description": metadata["description"],
+            "category": metadata["category"],
+            "icon": metadata["icon"],
+            "example": metadata["example"],
+            "generates_approx": metadata["generates_approx"],
+        })
+
+    # Sort by category priority, then by name
+    category_order = {"trial": 0, "pleading": 1, "discovery": 2, "motion": 3, "appellate": 4, "other": 5}
+    results.sort(key=lambda x: (category_order.get(x["category"], 99), x["name"]))
+
+    return {
+        "success": True,
+        "count": len(results),
+        "types": results
+    }
+
+
+# ============================================================================
+# SIMULATE ENDPOINT - Pre-Flight Audit for Deadline Calculation
+# Returns calculated deadlines WITHOUT saving to database
+# ============================================================================
+
+class SimulateTriggerRequest(BaseModel):
+    """Request schema for simulating trigger deadlines (Pre-Flight Audit)"""
+    trigger_type: str
+    trigger_date: str  # ISO format YYYY-MM-DD
+    case_id: str
+    service_method: Optional[str] = "email"
+
+
+class SimulatedDeadline(BaseModel):
+    """A simulated deadline returned by the simulate endpoint"""
+    title: str
+    description: str
+    deadline_date: str  # ISO format
+    priority: str
+    party_role: str
+    action_required: str
+    rule_citation: str
+    calculation_basis: str
+    trigger_formula: str
+    days_count: int
+    calculation_type: str
+    short_explanation: str
+
+
+@router.post("/simulate")
+def simulate_trigger_deadlines(
+    request: SimulateTriggerRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    POST /api/v1/triggers/simulate - Pre-Flight Audit endpoint
+
+    Simulates deadline calculation for a trigger event WITHOUT saving to database.
+    Powers the Pre-Flight Audit UI where users can preview 50+ deadlines before committing.
+
+    Request:
+        trigger_type: One of TriggerType enum values (e.g., "trial_date")
+        trigger_date: ISO format date (e.g., "2025-06-15")
+        case_id: UUID of the case
+        service_method: Optional service method ("email", "mail", "personal")
+
+    Returns:
+        List of calculated deadlines with:
+        - title: CompuLaw-style title
+        - description: Full description with trigger formula
+        - deadline_date: Calculated date
+        - priority: FATAL, CRITICAL, IMPORTANT, STANDARD, INFORMATIONAL
+        - party_role: Who is responsible
+        - action_required: What needs to be done
+        - rule_citation: Legal rule citation
+        - calculation_basis: Full calculation explanation
+        - trigger_formula: CompuLaw-style formula (e.g., "triggered 90 Days before $TR")
+        - days_count: Number of days from trigger
+        - calculation_type: calendar_days or court_days
+        - short_explanation: Brief explanation for UI
+
+    Constraint: Does NOT save to database - this is a preview/simulation only.
+    """
+    # Validate trigger_type
+    try:
+        trigger_type_enum = TriggerType(request.trigger_type)
+    except ValueError:
+        valid_types = [t.value for t in TriggerType]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid trigger_type. Must be one of: {valid_types}"
+        )
+
+    # Parse trigger date
+    try:
+        trigger_date = datetime.strptime(request.trigger_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid trigger_date format. Use YYYY-MM-DD"
+        )
+
+    # Get case for jurisdiction and court_type (with ownership check)
+    case = db.query(Case).filter(
+        Case.id == request.case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Determine jurisdiction and court_type from case
+    jurisdiction = case.jurisdiction or "florida_state"
+    court_type = case.case_type or "civil"
+
+    # Map common case_type values to rules engine court_type
+    court_type_map = {
+        "personal_injury": "civil",
+        "contract_dispute": "civil",
+        "real_estate": "civil",
+        "employment": "civil",
+        "criminal": "criminal",
+        "appellate": "appellate",
+    }
+    court_type = court_type_map.get(court_type.lower(), court_type.lower())
+
+    # Get applicable rule templates for this trigger type
+    applicable_rules = rules_engine.get_applicable_rules(
+        jurisdiction=jurisdiction,
+        court_type=court_type,
+        trigger_type=trigger_type_enum
+    )
+
+    if not applicable_rules:
+        # Return empty but successful response if no rules found
+        logger.warning(
+            f"No rule templates found for {trigger_type_enum.value} in "
+            f"{jurisdiction}/{court_type}"
+        )
+        return {
+            "success": True,
+            "trigger_type": request.trigger_type,
+            "trigger_date": request.trigger_date,
+            "case_id": request.case_id,
+            "jurisdiction": jurisdiction,
+            "court_type": court_type,
+            "deadlines_count": 0,
+            "deadlines": [],
+            "message": f"No rule templates found for {trigger_type_enum.value} in {jurisdiction}/{court_type}"
+        }
+
+    # Build case context for CompuLaw-style formatting
+    case_context = {
+        "case_number": case.case_number,
+        "plaintiffs": [case.plaintiff] if case.plaintiff else [],
+        "defendants": [case.defendant] if case.defendant else [],
+        "source_document": None,
+    }
+
+    # Calculate deadlines from ALL applicable templates
+    all_calculated_deadlines = []
+
+    for rule_template in applicable_rules:
+        calculated = rules_engine.calculate_dependent_deadlines(
+            trigger_date=trigger_date,
+            rule_template=rule_template,
+            service_method=request.service_method or "email",
+            case_context=case_context
+        )
+        all_calculated_deadlines.extend(calculated)
+
+    # Format response - convert to serializable format
+    formatted_deadlines = []
+    for deadline in all_calculated_deadlines:
+        formatted_deadlines.append({
+            "title": deadline.get("title", ""),
+            "description": deadline.get("description", ""),
+            "deadline_date": deadline["deadline_date"].isoformat() if deadline.get("deadline_date") else None,
+            "priority": deadline.get("priority", "STANDARD"),
+            "party_role": deadline.get("party_role", ""),
+            "action_required": deadline.get("action_required", ""),
+            "rule_citation": deadline.get("rule_citation", ""),
+            "calculation_basis": deadline.get("calculation_basis", ""),
+            "trigger_formula": deadline.get("trigger_formula", ""),
+            "days_count": deadline.get("days_count", 0),
+            "calculation_type": deadline.get("calculation_type", "calendar_days"),
+            "short_explanation": deadline.get("short_explanation", ""),
+            # Extra fields for UI
+            "trigger_event": deadline.get("trigger_event", request.trigger_type),
+            "trigger_date": trigger_date.isoformat(),
+            "jurisdiction": deadline.get("jurisdiction", jurisdiction),
+            "court_type": deadline.get("court_type", court_type),
+            "trigger_code": deadline.get("trigger_code", ""),
+            "party_string": deadline.get("party_string", ""),
+        })
+
+    # Sort by deadline_date
+    formatted_deadlines.sort(key=lambda d: d["deadline_date"] or "9999-12-31")
+
+    logger.info(
+        f"Simulated {len(formatted_deadlines)} deadlines for {trigger_type_enum.value} "
+        f"on {trigger_date} for case {request.case_id}"
+    )
+
+    return {
+        "success": True,
+        "trigger_type": request.trigger_type,
+        "trigger_date": request.trigger_date,
+        "case_id": request.case_id,
+        "case_number": case.case_number,
+        "jurisdiction": jurisdiction,
+        "court_type": court_type,
+        "deadlines_count": len(formatted_deadlines),
+        "deadlines": formatted_deadlines,
+    }
 
 
 @router.get("/event-types")
@@ -564,7 +964,14 @@ def get_case_triggers(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     try:
-        # Get all trigger deadlines (non-dependent, active only)
+        # ============================================================================
+        # PERFORMANCE FIX: Avoid N+1 query problem (Issue #4)
+        # Instead of querying child deadlines for each trigger in a loop,
+        # we fetch ALL deadlines for the case in a single query and group in Python.
+        # This reduces database queries from O(n) to O(1) - instant response time.
+        # ============================================================================
+
+        # Single query: Get ALL trigger deadlines (non-dependent, active only)
         triggers = db.query(Deadline).filter(
             Deadline.case_id == case_id,
             Deadline.is_dependent == False,
@@ -572,17 +979,27 @@ def get_case_triggers(
             Deadline.status.notin_(['completed', 'cancelled'])
         ).order_by(Deadline.deadline_date.asc()).all()
 
-        logger.info(f"Found {len(triggers)} triggers for case {case_id}")
+        # Single query: Get ALL child deadlines for this case at once
+        all_child_deadlines = db.query(Deadline).filter(
+            Deadline.case_id == case_id,
+            Deadline.is_dependent == True
+        ).order_by(Deadline.deadline_date.asc()).all()
+
+        # Group child deadlines by trigger_event in Python (O(n) in-memory, no DB calls)
+        child_deadlines_by_trigger: dict[str, list] = {}
+        for child in all_child_deadlines:
+            trigger_event = child.trigger_event or ''
+            if trigger_event not in child_deadlines_by_trigger:
+                child_deadlines_by_trigger[trigger_event] = []
+            child_deadlines_by_trigger[trigger_event].append(child)
+
+        logger.info(f"Found {len(triggers)} triggers and {len(all_child_deadlines)} child deadlines for case {case_id}")
         today = datetime.now().date()
         result = []
 
         for trigger in triggers:
-            # Get all child deadlines for this trigger
-            child_deadlines = db.query(Deadline).filter(
-                Deadline.case_id == case_id,
-                Deadline.trigger_event == trigger.trigger_event,
-                Deadline.is_dependent == True
-            ).order_by(Deadline.deadline_date.asc()).all()
+            # Get child deadlines from pre-fetched dict (O(1) lookup, no DB query!)
+            child_deadlines = child_deadlines_by_trigger.get(trigger.trigger_event or '', [])
 
             # Calculate status summary for frontend badges
             status_summary = {

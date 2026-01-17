@@ -1,8 +1,10 @@
 """
 Global Search API - Search across cases, documents, and deadlines
+
+Performance: Uses joinedload to prevent N+1 queries when fetching case info
 """
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List, Dict
 from datetime import datetime
 
@@ -67,8 +69,11 @@ async def global_search(
         ]
 
     # Search Documents
+    # PERFORMANCE FIX: Use joinedload to fetch case info in single query (fixes N+1)
     if type_filter in [None, "all", "documents"]:
-        documents = db.query(Document).filter(
+        documents = db.query(Document).options(
+            joinedload(Document.case)
+        ).filter(
             Document.user_id == str(current_user.id),
             (
                 Document.file_name.ilike(search_term) |
@@ -78,14 +83,6 @@ async def global_search(
             )
         ).limit(limit).all()
 
-        # Get case info for each document
-        case_map = {}
-        for doc in documents:
-            if doc.case_id and doc.case_id not in case_map:
-                case = db.query(Case).filter(Case.id == doc.case_id).first()
-                if case:
-                    case_map[doc.case_id] = case.case_number
-
         results["documents"] = [
             {
                 "id": str(doc.id),
@@ -93,7 +90,7 @@ async def global_search(
                 "document_type": doc.document_type,
                 "ai_summary": doc.ai_summary[:200] if doc.ai_summary else None,
                 "case_id": doc.case_id,
-                "case_number": case_map.get(doc.case_id),
+                "case_number": doc.case.case_number if doc.case else None,
                 "filing_date": doc.filing_date.isoformat() if doc.filing_date else None,
                 "match_type": _get_document_match_type(doc, q),
                 "created_at": doc.created_at.isoformat()
@@ -102,8 +99,11 @@ async def global_search(
         ]
 
     # Search Deadlines
+    # PERFORMANCE FIX: Use joinedload to fetch case info in single query (fixes N+1)
     if type_filter in [None, "all", "deadlines"]:
-        deadlines = db.query(Deadline).filter(
+        deadlines = db.query(Deadline).options(
+            joinedload(Deadline.case)
+        ).filter(
             Deadline.user_id == str(current_user.id),
             (
                 Deadline.title.ilike(search_term) |
@@ -114,14 +114,6 @@ async def global_search(
             )
         ).limit(limit).all()
 
-        # Get case info for each deadline
-        case_map = {}
-        for deadline in deadlines:
-            if deadline.case_id and deadline.case_id not in case_map:
-                case = db.query(Case).filter(Case.id == deadline.case_id).first()
-                if case:
-                    case_map[deadline.case_id] = case.case_number
-
         results["deadlines"] = [
             {
                 "id": str(deadline.id),
@@ -131,7 +123,7 @@ async def global_search(
                 "priority": deadline.priority,
                 "status": deadline.status,
                 "case_id": deadline.case_id,
-                "case_number": case_map.get(deadline.case_id),
+                "case_number": deadline.case.case_number if deadline.case else None,
                 "applicable_rule": deadline.applicable_rule,
                 "match_type": _get_deadline_match_type(deadline, q),
                 "created_at": deadline.created_at.isoformat()

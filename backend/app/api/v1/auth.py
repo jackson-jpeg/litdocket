@@ -79,31 +79,25 @@ async def login_with_firebase(
         # Import Firebase Admin SDK and service
         from firebase_admin import auth as firebase_auth
         from app.services.firebase_service import firebase_service
-        from jose import jwt as jose_jwt
 
-        # DEVELOPMENT MODE: Only bypass if explicitly enabled via DEV_AUTH_BYPASS env var
-        # WARNING: This should NEVER be enabled in production
-        import os
-        dev_auth_bypass = os.getenv("DEV_AUTH_BYPASS", "false").lower() == "true"
+        # ============================================================================
+        # SECURITY FIX: DEV_AUTH_BYPASS REMOVED (Issue #2 from DEBUG_DIAGNOSIS.md)
+        #
+        # The previous implementation allowed bypassing Firebase token verification
+        # when DEV_AUTH_BYPASS=true and DEBUG=true. This was a critical security hole:
+        #   - Could be accidentally enabled in production
+        #   - Allowed forged tokens with any user_id
+        #   - Enabled unauthorized access to all user data
+        #
+        # For local development, use Firebase Local Emulator Suite instead:
+        #   https://firebase.google.com/docs/emulator-suite
+        # ============================================================================
 
-        if dev_auth_bypass and settings.DEBUG:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning("DEV_AUTH_BYPASS enabled - bypassing Firebase token verification")
-            try:
-                # Decode token without verification to get email (UNSAFE - DEV ONLY!)
-                unverified_payload = jose_jwt.decode(token_data.id_token, options={"verify_signature": False})
-                email = unverified_payload.get('email') or unverified_payload.get('user_id') or 'dev@docketassist.com'
-                logger.info(f"DEV MODE: Auto-login with email: {email}")
-            except Exception as decode_error:
-                logger.warning("Could not decode token, using demo user")
-                email = 'dev@docketassist.com'
-        else:
-            # PRODUCTION: Verify Firebase token properly
-            firebase_service._initialize_firebase()
-            decoded_token = firebase_auth.verify_id_token(token_data.id_token)
-            firebase_uid = decoded_token['uid']
-            email = decoded_token.get('email')
+        # ALWAYS verify Firebase token - no bypass allowed
+        firebase_service._initialize_firebase()
+        decoded_token = firebase_auth.verify_id_token(token_data.id_token)
+        firebase_uid = decoded_token['uid']
+        email = decoded_token.get('email')
 
         if not email:
             raise HTTPException(
@@ -116,11 +110,8 @@ async def login_with_firebase(
 
         if not user:
             # Auto-create user from Firebase data
-            if settings.DEBUG:
-                # In debug mode, extract name from token if available
-                display_name = email.split('@')[0].title()
-            else:
-                display_name = decoded_token.get('name', email.split('@')[0])
+            # Use display name from Firebase token, fallback to email prefix
+            display_name = decoded_token.get('name') or email.split('@')[0].title()
 
             user = User(
                 email=email,
