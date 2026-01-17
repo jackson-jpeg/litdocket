@@ -182,84 +182,46 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-accent-info animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="h-full">
       {/* Global Search Modal */}
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push('/')}>
-              <Scale className="w-7 h-7 text-blue-600" />
-              <h1 className="text-xl font-bold text-slate-800">
-                LitDocket
-              </h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleManualRefresh}
-                disabled={refreshing}
-                className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
-                title="Refresh dashboard"
-              >
-                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Search (Cmd/Ctrl+K)"
-              >
-                <Search className="w-4 h-4" />
-                <span className="hidden md:inline text-sm">Search</span>
-                <kbd className="hidden md:inline-block ml-1 px-1.5 py-0.5 text-xs bg-slate-200 rounded border border-slate-300">
-                  ⌘K
-                </kbd>
-              </button>
-              <button
-                onClick={() => router.push('/cases')}
-                className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <Folder className="w-4 h-4" />
-                <span className="text-sm">Cases</span>
-              </button>
-              <button
-                onClick={() => router.push('/calendar')}
-                className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">Calendar</span>
-              </button>
-              <NotificationCenter />
-              <button
-                onClick={() => router.push('/settings')}
-                className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-              <div className="h-6 w-px bg-slate-300" />
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden md:inline text-sm">Logout</span>
-              </button>
-            </div>
-          </div>
+      {/* Header Actions Bar */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary mb-1">Dashboard</h1>
+          <p className="text-sm text-text-muted">Overview of all cases and deadlines</p>
         </div>
-      </header>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className="btn-ghost disabled:opacity-50"
+            title="Refresh dashboard"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="btn-ghost"
+            title="Search (Cmd/Ctrl+K)"
+          >
+            <Search className="w-4 h-4" />
+            <kbd className="ml-2 px-1.5 py-0.5 text-xxs bg-terminal-elevated text-text-muted rounded border border-border-subtle font-mono">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <div className="space-y-6">
         {/* Show upload prompt if no cases */}
         {dashboardData && dashboardData.case_statistics.total_cases === 0 ? (
           <div className="max-w-2xl mx-auto">
@@ -330,16 +292,16 @@ export default function DashboardPage() {
               <MorningReport onCaseClick={(caseId) => router.push(`/cases/${caseId}`)} />
             </div>
 
-            {/* View Switcher */}
+            {/* View Switcher - Bloomberg Terminal Style */}
             <div className="mb-6">
               <div className="flex items-center justify-between">
-                <div className="flex gap-2 bg-white rounded-lg p-1 border border-slate-200">
+                <div className="flex gap-2 bg-terminal-surface rounded-lg p-1 border border-border-subtle">
                   <button
                     onClick={() => setActiveView('overview')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                       activeView === 'overview'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-accent-info text-terminal-bg shadow-glow-info'
+                        : 'text-text-secondary hover:bg-terminal-elevated hover:text-text-primary'
                     }`}
                   >
                     Overview
@@ -348,25 +310,25 @@ export default function DashboardPage() {
                     onClick={() => setActiveView('heatmap')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                       activeView === 'heatmap'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-accent-info text-terminal-bg shadow-glow-info'
+                        : 'text-text-secondary hover:bg-terminal-elevated hover:text-text-primary'
                     }`}
                   >
-                    Deadline Heat Map
+                    Heat Map
                   </button>
                   <button
                     onClick={() => setActiveView('cases')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                       activeView === 'cases'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-accent-info text-terminal-bg shadow-glow-info'
+                        : 'text-text-secondary hover:bg-terminal-elevated hover:text-text-primary'
                     }`}
                   >
-                    Case Health
+                    Cases
                   </button>
                 </div>
-                <p className="text-sm text-slate-500">
-                  Auto-refreshes every 30 seconds
+                <p className="text-xs text-text-muted font-mono">
+                  ⟳ Auto-refresh: 30s
                 </p>
               </div>
             </div>
@@ -374,105 +336,65 @@ export default function DashboardPage() {
         {/* Content based on active view */}
         {activeView === 'overview' && (
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {/* Total Cases */}
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                   onClick={() => router.push('/cases')}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-2.5 bg-blue-50 rounded-lg">
-                    <Folder className="w-5 h-5 text-blue-600" />
-                  </div>
+            {/* Stats Grid - Bloomberg Terminal Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Critical/Overdue Card */}
+              <div className={(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? "stat-card-critical" : "stat-card-success"}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Critical</div>
+                  {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 && (
+                    <span className="w-2 h-2 bg-accent-critical rounded-full animate-pulse-slow"></span>
+                  )}
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800">
-                  {dashboardData?.case_statistics.total_cases || 0}
-                </h3>
-                <p className="text-sm text-slate-600 mt-1">Active Cases</p>
-                <div className="mt-3 flex gap-2 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-blue-400" />
-                    {dashboardData?.case_statistics.by_jurisdiction.state || 0} State
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-purple-400" />
-                    {dashboardData?.case_statistics.by_jurisdiction.federal || 0} Federal
-                  </span>
+                <div className="text-4xl font-bold font-mono text-accent-critical">
+                  {(dashboardData?.deadline_alerts.overdue.count || 0) +
+                   (dashboardData?.deadline_alerts.urgent.count || 0)}
+                </div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {dashboardData?.deadline_alerts.overdue.count || 0} overdue, {dashboardData?.deadline_alerts.urgent.count || 0} urgent
                 </div>
               </div>
 
               {/* Pending Deadlines */}
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-2.5 bg-orange-50 rounded-lg">
-                    <Clock className="w-5 h-5 text-orange-600" />
-                  </div>
+              <div className="stat-card-warning">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Pending</div>
+                  <Clock className="w-4 h-4 text-accent-warning" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800">
+                <div className="text-4xl font-bold font-mono text-accent-warning">
                   {dashboardData?.case_statistics.total_pending_deadlines || 0}
-                </h3>
-                <p className="text-sm text-slate-600 mt-1">Pending Deadlines</p>
-                {dashboardData && (
-                  <div className="mt-3 flex gap-2 text-xs text-slate-500">
-                    <span>{dashboardData.deadline_alerts.upcoming_week.count} this week</span>
-                    <span>•</span>
-                    <span>{dashboardData.deadline_alerts.upcoming_month.count} this month</span>
-                  </div>
-                )}
+                </div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {dashboardData?.deadline_alerts.upcoming_week.count || 0} this week · {dashboardData?.deadline_alerts.upcoming_month.count || 0} this month
+                </div>
+              </div>
+
+              {/* Active Cases */}
+              <div className="stat-card-info">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Cases</div>
+                  <Folder className="w-4 h-4 text-accent-info" />
+                </div>
+                <div className="text-4xl font-bold font-mono text-accent-info">
+                  {dashboardData?.case_statistics.total_cases || 0}
+                </div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {dashboardData?.case_statistics.by_jurisdiction.state || 0} State · {dashboardData?.case_statistics.by_jurisdiction.federal || 0} Federal
+                </div>
               </div>
 
               {/* Documents */}
-              <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-2.5 bg-purple-50 rounded-lg">
-                    <FileText className="w-5 h-5 text-purple-600" />
-                  </div>
+              <div className="stat-card">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Documents</div>
+                  <FileText className="w-4 h-4 text-accent-purple" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800">
+                <div className="text-4xl font-bold font-mono text-accent-purple">
                   {dashboardData?.case_statistics.total_documents || 0}
-                </h3>
-                <p className="text-sm text-slate-600 mt-1">Documents</p>
-                {dashboardData && dashboardData.case_statistics.total_cases > 0 && (
-                  <p className="mt-3 text-xs text-slate-500">
-                    ~{Math.round(dashboardData.case_statistics.total_documents / dashboardData.case_statistics.total_cases)} per case
-                  </p>
-                )}
-              </div>
-
-              {/* Overdue/Urgent */}
-              <div className={`bg-white rounded-xl p-5 border shadow-sm hover:shadow-md transition-shadow ${
-                (dashboardData?.deadline_alerts.overdue.count || 0) > 0
-                  ? 'border-red-300 bg-red-50/30'
-                  : 'border-slate-200'
-              }`}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2.5 rounded-lg ${
-                    (dashboardData?.deadline_alerts.overdue.count || 0) > 0
-                      ? 'bg-red-100'
-                      : 'bg-green-50'
-                  }`}>
-                    {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? (
-                      <AlertTriangle className="w-5 h-5 text-red-600" />
-                    ) : (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    )}
-                  </div>
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800">
-                  {(dashboardData?.deadline_alerts.overdue.count || 0) +
-                   (dashboardData?.deadline_alerts.urgent.count || 0)}
-                </h3>
-                <p className="text-sm text-slate-600 mt-1">Needs Attention</p>
-                {dashboardData && (
-                  <div className="mt-3 text-xs">
-                    {dashboardData.deadline_alerts.overdue.count > 0 ? (
-                      <span className="text-red-600 font-medium">
-                        {dashboardData.deadline_alerts.overdue.count} overdue
-                      </span>
-                    ) : (
-                      <span className="text-green-600 font-medium">
-                        No overdue deadlines
-                      </span>
-                    )}
+                {dashboardData && dashboardData.case_statistics.total_cases > 0 && (
+                  <div className="text-xs text-text-secondary mt-1">
+                    ~{Math.round(dashboardData.case_statistics.total_documents / dashboardData.case_statistics.total_cases)} per case
                   </div>
                 )}
               </div>
