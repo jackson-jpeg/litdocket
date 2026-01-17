@@ -697,15 +697,14 @@ async def create_trigger_event(
         case_id=request.case_id,
         user_id=str(current_user.id),
         title=f"{request.trigger_type.replace('_', ' ').title()}",
-        description=f"Trigger event: {request.trigger_type}",
+        description=f"Trigger event: {request.trigger_type}. {request.notes if request.notes else ''}".strip(),
         deadline_date=trigger_date,
         trigger_event=request.trigger_type,
         trigger_date=trigger_date,
         is_calculated=False,
         is_dependent=False,
         priority="important",
-        status="completed",  # Trigger already happened
-        notes=request.notes
+        status="completed"  # Trigger already happened
     )
 
     db.add(trigger_deadline)
