@@ -655,8 +655,8 @@ class DashboardService:
 
         # Now build health cards using pre-fetched data (NO MORE QUERIES IN LOOP!)
         health_cards = []
-        for case in active_cases:
-            case_id_str = str(case.id)
+        for case_obj in active_cases:
+            case_id_str = str(case_obj.id)
 
             # Get counts from pre-fetched data
             counts = deadline_counts.get(case_id_str, {'total': 0, 'completed': 0, 'pending': 0})
@@ -701,24 +701,24 @@ class DashboardService:
 
             # Judge stats (how many other cases with this judge)
             judge_case_count = 0
-            if case.judge:
+            if case_obj.judge:
                 judge_case_count = db.query(func.count(Case.id)).filter(
                     Case.user_id == user_id,
-                    Case.judge == case.judge,
+                    Case.judge == case_obj.judge,
                     Case.status == 'active'
                 ).scalar() or 0
 
             health_cards.append({
-                'case_id': str(case.id),
-                'case_number': case.case_number,
-                'title': case.title,
-                'court': case.court or 'Unknown Court',
-                'judge': case.judge or 'Unassigned',
+                'case_id': str(case_obj.id),
+                'case_number': case_obj.case_number,
+                'title': case_obj.title,
+                'court': case_obj.court or 'Unknown Court',
+                'judge': case_obj.judge or 'Unassigned',
                 'judge_stats': {
                     'total_cases_with_judge': judge_case_count
                 },
-                'jurisdiction': case.jurisdiction,
-                'case_type': case.case_type,
+                'jurisdiction': case_obj.jurisdiction,
+                'case_type': case_obj.case_type,
                 'progress': {
                     'completed': completed_deadlines,
                     'pending': pending_deadlines,
@@ -729,7 +729,7 @@ class DashboardService:
                 'next_deadline_urgency': next_deadline_urgency,
                 'health_status': health_status,
                 'document_count': doc_count,
-                'filing_date': case.filing_date.isoformat() if case.filing_date else None
+                'filing_date': case_obj.filing_date.isoformat() if case_obj.filing_date else None
             })
 
         # Sort by health status priority

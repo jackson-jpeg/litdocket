@@ -966,10 +966,15 @@ class DocumentService:
                     text("DELETE FROM document_embeddings WHERE document_id = :doc_id"),
                     {"doc_id": document_id}
                 )
+                self.db.flush()  # Force SQL execution before expunge
                 logger.info(f"✓ Embeddings purged for document {document_id}")
             except Exception as e:
                 # Non-critical - table might not exist or be empty
                 logger.warning(f"Embedding cleanup failed (ignoring): {e}")
+
+            # CRITICAL: Expunge document from session to prevent ORM cascade queries
+            # This stops SQLAlchemy from trying to SELECT embeddings using the broken ORM model
+            self.db.expunge(document)
 
             # 3. Delete from Storage (GHOST-SAFE: ignore errors)
             if document.storage_path:
@@ -990,8 +995,12 @@ class DocumentService:
                     logger.warning(f"⚠ Storage delete failed (Ghost?): {e}")
                     # DO NOT raise - continue with DB deletion
 
-            # 4. Delete Document Record
-            self.db.delete(document)
+            # 4. Delete Document Record (Using Raw SQL to bypass ORM relationships)
+            logger.info(f"Deleting document record {document_id} via Raw SQL")
+            self.db.execute(
+                text("DELETE FROM documents WHERE id = :doc_id"),
+                {"doc_id": document_id}
+            )
             self.db.commit()
             logger.info(f"✓ Document {document_id} successfully deleted")
             return True
