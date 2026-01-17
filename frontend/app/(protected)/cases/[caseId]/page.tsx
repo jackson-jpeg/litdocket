@@ -13,7 +13,7 @@
 
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { FileText, Upload, Eye } from 'lucide-react';
+import { FileText, Upload, Eye, Trash2 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -82,6 +82,51 @@ export default function CaseRoomPage() {
 
     // Set the viewing document - this will open the viewer
     setViewingDocument(doc);
+  };
+
+  const handleDocumentDelete = async (doc: Document, e: React.MouseEvent) => {
+    // Prevent triggering parent onClick (document view)
+    e.stopPropagation();
+
+    // Confirm deletion
+    if (!confirm(`Delete "${doc.file_name}"?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    console.log('[CaseRoom] Deleting document:', {
+      id: doc.id,
+      file_name: doc.file_name,
+      storage_url: doc.storage_url
+    });
+
+    try {
+      // Optimistic update - remove from UI immediately
+      optimistic.removeDocument(doc.id);
+
+      // Call API
+      await apiClient.delete(`/api/v1/documents/${doc.id}`);
+
+      console.log('[CaseRoom] Document deleted successfully:', doc.id);
+      showSuccess('Document deleted');
+
+      // Refresh documents list (in case optimistic update missed something)
+      refetch.documents();
+    } catch (err: any) {
+      console.error('[CaseRoom] Failed to delete document:', err);
+
+      // Revert optimistic update by refetching
+      refetch.documents();
+
+      // User-friendly error messages
+      if (err.response?.status === 404) {
+        // Ghost document - already deleted or never existed
+        showError('Document not found. It may have already been deleted.');
+      } else if (err.response?.status === 403) {
+        showError('You do not have permission to delete this document.');
+      } else {
+        showError('Failed to delete document. Please try again.');
+      }
+    }
   };
 
   const handleComplete = async (id: string) => {
@@ -362,18 +407,20 @@ export default function CaseRoomPage() {
                 ) : (
                   <div className="divide-y divide-grid-line">
                     {documents.map(doc => (
-                      <button
+                      <div
                         key={doc.id}
-                        onClick={() => handleDocumentClick(doc)}
-                        className={`w-full p-3 text-left transition-colors group ${
+                        className={`group relative transition-colors ${
                           doc.storage_url
-                            ? 'hover:bg-canvas cursor-pointer'
-                            : 'opacity-50 cursor-not-allowed bg-canvas/50'
+                            ? 'hover:bg-canvas'
+                            : 'bg-canvas/50'
                         }`}
-                        disabled={!doc.storage_url}
-                        title={!doc.storage_url ? 'This document is not available for viewing' : 'Click to view document'}
                       >
-                        <div className="flex items-start gap-2">
+                        <button
+                          onClick={() => handleDocumentClick(doc)}
+                          className="w-full p-3 text-left flex items-start gap-2"
+                          disabled={!doc.storage_url}
+                          title={!doc.storage_url ? 'This document is not available for viewing' : 'Click to view document'}
+                        >
                           <FileText className={`w-4 h-4 flex-shrink-0 mt-0.5 ${doc.storage_url ? 'text-navy' : 'text-ink-muted'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{doc.file_name}</p>
@@ -388,10 +435,23 @@ export default function CaseRoomPage() {
                             </p>
                           </div>
                           {doc.storage_url && (
-                            <Eye className="w-4 h-4 text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Eye className="w-4 h-4 text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                           )}
-                        </div>
-                      </button>
+                        </button>
+
+                        {/* Delete Button - Always visible for ghost documents */}
+                        <button
+                          onClick={(e) => handleDocumentDelete(doc, e)}
+                          className={`absolute right-2 top-3 p-1.5 rounded transition-all ${
+                            doc.storage_url
+                              ? 'opacity-0 group-hover:opacity-100 hover:bg-red-100 text-ink-muted hover:text-red-600'
+                              : 'opacity-100 hover:bg-red-100 text-red-600'
+                          }`}
+                          title="Delete document"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}

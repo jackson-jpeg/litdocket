@@ -199,6 +199,10 @@ export function useCaseData(caseId: string) {
     setDeadlines(prev => prev.filter(d => d.id !== deadlineId));
   }, []);
 
+  const removeDocument = useCallback((documentId: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== documentId));
+  }, []);
+
   const updateDeadlineDate = useCallback((deadlineId: string, newDate: string) => {
     setDeadlines(prev => prev.map(d =>
       d.id === deadlineId ? { ...d, deadline_date: newDate } : d
@@ -226,6 +230,7 @@ export function useCaseData(caseId: string) {
       updateDeadlineStatus,
       removeDeadline,
       updateDeadlineDate,
+      removeDocument,
     },
   };
 }
