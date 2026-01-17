@@ -37,22 +37,22 @@ class FirebaseService:
                 # Production: Load from environment variable JSON string
                 cred_dict = json.loads(firebase_cred_json)
 
-                # NUCLEAR FIX: Force correct PEM formatting for private key
-                # Railway/env vars often mangle newlines in multiple ways
+                # NUCLEAR FIX: Force correct Private Key formatting
                 if 'private_key' in cred_dict:
                     raw_key = cred_dict['private_key']
 
-                    # Step 1: Replace all literal \n and \\n with actual newlines
-                    key = raw_key.replace('\\n', '\n').replace('\\\\n', '\n')
+                    # CRITICAL FIX: Handle double-escapes (\\n) BEFORE single escapes (\n)
+                    # This prevents the first replace from corrupting the second.
+                    key = raw_key.replace('\\\\n', '\n').replace('\\n', '\n')
 
-                    # Step 2: If key is one long line (common copy-paste issue), force split headers
+                    # Step 2: Fix PEM headers if they were merged into one line
                     if '-----BEGIN PRIVATE KEY----- ' in key:
-                        key = key.replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
+                         key = key.replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
                     if ' -----END PRIVATE KEY-----' in key:
-                        key = key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+                         key = key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
 
                     cred_dict['private_key'] = key
-                    logger.info(f"Firebase: Key sanitized. Length: {len(key)}. Headers found: {'BEGIN' in key}")
+                    logger.info(f"Firebase: Key sanitized. Final Length: {len(key)}")
 
                 cred = credentials.Certificate(cred_dict)
                 logger.info("Firebase initialized from environment variable")
@@ -62,24 +62,25 @@ class FirebaseService:
 
                 if os.path.exists(cred_path):
                     cred = credentials.Certificate(cred_path)
-                    logger.info("Firebase initialized from service account file")
+                    logger.info(f"Firebase initialized from file: {cred_path}")
                 else:
-                    logger.warning(f"Firebase service account key not found at: {cred_path}")
-                    logger.warning("Set FIREBASE_SERVICE_ACCOUNT_KEY_JSON env var or download key from Firebase Console")
-                    return  # Allow app to continue without Firebase
+                    logger.warning(f"Firebase credentials not found at {cred_path}")
+                    return
 
-            # Initialize Firebase app
-            firebase_admin.initialize_app(cred, {
-                'storageBucket': 'litdocket.appspot.com'
-            })
+            # Initialize the app
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(cred, {
+                    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET', 'litdocket.firebasestorage.app')
+                })
 
             FirebaseService._db = firestore.client()
             FirebaseService._bucket = storage.bucket()
             FirebaseService._initialized = True
+            logger.info("Firebase initialization complete")
 
         except Exception as e:
-            logger.error(f"Firebase initialization error: {e}")
-            # Allow app to continue - some features may not work
+            logger.error(f"Failed to initialize Firebase: {e}")
+            # Do not raise here, allow app to start even if Firebase fails
 
     @property
     def db(self):
