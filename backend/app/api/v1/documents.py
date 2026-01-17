@@ -113,7 +113,14 @@ async def upload_document(
         )
 
         if not analysis_result.get('success'):
-            raise HTTPException(status_code=500, detail=analysis_result.get('error', 'Analysis failed'))
+            error_msg = analysis_result.get('error', 'Analysis failed')
+            # Return 422 for validation/configuration errors (like invalid API key)
+            # instead of 500 which suggests a server bug
+            logger.error(f"Document analysis failed: {error_msg}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Document analysis failed: {error_msg}"
+            )
 
         # CRITICAL FIX: Use Firebase Storage instead of local /tmp storage
         # This fixes 404 errors and ensures documents persist across deployments
@@ -360,10 +367,12 @@ async def bulk_upload_documents(
             )
 
             if not analysis_result.get('success'):
+                error_msg = analysis_result.get('error', 'Analysis failed')
+                logger.error(f"Bulk upload analysis failed for {file.filename}: {error_msg}")
                 results.append(BulkUploadResult(
                     filename=file.filename,
                     success=False,
-                    error=analysis_result.get('error', 'Analysis failed')
+                    error=f"Document analysis failed: {error_msg}"
                 ))
                 continue
 
