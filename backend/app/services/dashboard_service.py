@@ -11,7 +11,7 @@ Provides intelligent overview of all cases and deadlines with:
 from typing import Dict, List, Any, Optional
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, and_, or_
+from sqlalchemy import func, desc, and_, or_, case
 from collections import defaultdict
 import logging
 
@@ -606,7 +606,7 @@ class DashboardService:
         deadline_stats = db.query(
             Deadline.case_id,
             func.count(Deadline.id).label('total_count'),
-            func.sum(func.case([(Deadline.status == 'completed', 1)], else_=0)).label('completed_count')
+            func.sum(case((Deadline.status == 'completed', 1), else_=0)).label('completed_count')
         ).filter(
             Deadline.case_id.in_(case_ids)
         ).group_by(Deadline.case_id).all()
