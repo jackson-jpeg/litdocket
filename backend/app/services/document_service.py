@@ -1,6 +1,7 @@
 from typing import Dict, Optional, List, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import text  # CRITICAL: For raw SQL to bypass ORM schema mismatches
 import uuid
 import logging
 from datetime import datetime
@@ -925,20 +926,19 @@ class DocumentService:
 
     def delete_document(self, document_id: str, user_id: str) -> bool:
         """
-        Delete a document with ghost-safe file deletion and explicit dependency cleanup.
+        NUCLEAR DELETE: Uses Raw SQL to bypass ORM schema mismatches.
 
-        "Ghost Documents" are DB records pointing to files that no longer exist
-        (e.g., manual deletion, storage migration, or deployment cleanup).
+        The DocumentEmbedding ORM model has columns (chunk_page) that don't exist
+        in the actual database table. Using raw SQL bypasses this mismatch.
 
-        This method handles deletion gracefully:
-        1. Fetch document from database
-        2. Manually delete embeddings (fixes Foreign Key constraint errors)
-        3. Try to delete physical file (Firebase or local)
-        4. If file deletion fails (ghost document), log warning and continue
-        5. Always delete database record
+        "Ghost Documents" are DB records pointing to files that no longer exist.
+        This method handles them gracefully.
 
-        This prevents orphaned DB records when files are missing and fixes
-        Foreign Key constraint errors when CASCADE doesn't work properly.
+        Deletion sequence:
+        1. Fetch document from database (verify ownership)
+        2. RAW SQL delete embeddings (bypasses chunk_page schema error)
+        3. Delete from storage (ghost-safe)
+        4. Delete document record
 
         Args:
             document_id: Document UUID
@@ -946,64 +946,57 @@ class DocumentService:
 
         Returns:
             bool: True if document deleted, False if not found
-
-        Raises:
-            SQLAlchemyError: Only if database deletion fails
         """
-        # 1. Get document from DB with ownership check
-        document = self.db.query(Document).filter(
-            Document.id == document_id,
-            Document.user_id == user_id
-        ).first()
-
-        if not document:
-            logger.warning(f"Document {document_id} not found for user {user_id}")
-            return False
-
-        # 2. CRITICAL FIX: Manually delete embeddings BEFORE deleting document
-        # This fixes Foreign Key constraint errors when CASCADE doesn't work
         try:
-            from app.models.document_embedding import DocumentEmbedding
-            deleted_embeddings = self.db.query(DocumentEmbedding).filter(
-                DocumentEmbedding.document_id == document_id
-            ).delete(synchronize_session=False)
-            logger.info(f"✓ Deleted {deleted_embeddings} embedding(s) for document {document_id}")
-        except Exception as e:
-            # Non-critical - embeddings might not exist or table might not exist
-            logger.warning(f"Could not clean up embeddings for {document_id}: {e}")
+            # 1. Get document from DB with ownership check
+            document = self.db.query(Document).filter(
+                Document.id == document_id,
+                Document.user_id == user_id
+            ).first()
 
-        # 3. Try to delete from Storage (GHOST-SAFE: ignore errors)
-        if document.storage_path:
+            if not document:
+                logger.warning(f"Document {document_id} not found for user {user_id}")
+                return False
+
+            # 2. RAW SQL DELETE of Embeddings (Bypasses 'chunk_page' ORM error)
+            # DO NOT use DocumentEmbedding ORM model - it has schema mismatches
             try:
-                # Check if it's a Firebase Storage path
-                if document.storage_path.startswith('documents/'):
-                    logger.info(f"Deleting Firebase file: {document.storage_path}")
-                    firebase_service.delete_file(document.storage_path)
-                    logger.info(f"✓ Firebase file deleted: {document.storage_path}")
-                else:
-                    # Local file path
-                    import os
-                    if os.path.exists(document.storage_path):
-                        logger.info(f"Deleting local file: {document.storage_path}")
-                        os.remove(document.storage_path)
-                        logger.info(f"✓ Local file deleted: {document.storage_path}")
-                    else:
-                        logger.warning(f"⚠ Ghost Document: Local file not found at {document.storage_path}")
-            except Exception as e:
-                # GHOST-SAFE: Log warning but CONTINUE with DB deletion
-                logger.warning(
-                    f"⚠ Ghost Document: Storage delete failed for {document.storage_path} "
-                    f"(file may not exist): {e}"
+                logger.info(f"Purging embeddings for {document_id} via Raw SQL")
+                self.db.execute(
+                    text("DELETE FROM document_embeddings WHERE document_id = :doc_id"),
+                    {"doc_id": document_id}
                 )
-                # DO NOT raise - we still want to delete the DB record
+                logger.info(f"✓ Embeddings purged for document {document_id}")
+            except Exception as e:
+                # Non-critical - table might not exist or be empty
+                logger.warning(f"Embedding cleanup failed (ignoring): {e}")
 
-        # 4. Delete from database (cascades to document_tags)
-        try:
+            # 3. Delete from Storage (GHOST-SAFE: ignore errors)
+            if document.storage_path:
+                try:
+                    if document.storage_path.startswith('documents/'):
+                        logger.info(f"Deleting Firebase file: {document.storage_path}")
+                        firebase_service.delete_file(document.storage_path)
+                        logger.info(f"✓ Firebase file deleted: {document.storage_path}")
+                    else:
+                        import os
+                        if os.path.exists(document.storage_path):
+                            logger.info(f"Deleting local file: {document.storage_path}")
+                            os.remove(document.storage_path)
+                            logger.info(f"✓ Local file deleted: {document.storage_path}")
+                        else:
+                            logger.warning(f"⚠ Ghost Document: File not found at {document.storage_path}")
+                except Exception as e:
+                    logger.warning(f"⚠ Storage delete failed (Ghost?): {e}")
+                    # DO NOT raise - continue with DB deletion
+
+            # 4. Delete Document Record
             self.db.delete(document)
             self.db.commit()
-            logger.info(f"✓ Document {document_id} deleted from database")
+            logger.info(f"✓ Document {document_id} successfully deleted")
             return True
-        except SQLAlchemyError as e:
+
+        except Exception as e:
             self.db.rollback()
-            logger.error(f"✗ Failed to delete document {document_id} from database: {e}")
-            raise  # Re-raise database errors - these are real problems
+            logger.error(f"✗ Critical error deleting document {document_id}: {e}")
+            raise
