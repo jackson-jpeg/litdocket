@@ -55,6 +55,10 @@ export default function CaseRoomPage() {
   const [viewingChainTrigger, setViewingChainTrigger] = useState<Trigger | null>(null);
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
 
+  // Document upload state
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
   // Legacy filter support - Terminal commands (kept for backwards compatibility)
   // The DeadlineListPanel now has its own comprehensive filtering
 
@@ -126,6 +130,36 @@ export default function CaseRoomPage() {
       } else {
         showError('Failed to delete document. Please try again.');
       }
+    }
+  };
+
+  const handleDocumentUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('case_id', caseId); // CRITICAL: Override smart routing - attach to THIS case
+
+      const response = await apiClient.post('/api/v1/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      console.log('[CaseRoom] Document uploaded:', response.data);
+
+      // Refresh document list and deadlines (new document might have extracted deadlines)
+      await Promise.all([
+        refetch.documents(),
+        refetch.deadlines(),
+        refetch.caseSummary()
+      ]);
+
+      setShowUploadDialog(false);
+      showSuccess(`Document uploaded. ${response.data.deadlines_extracted || 0} deadline(s) extracted.`);
+    } catch (err: any) {
+      console.error('[CaseRoom] Upload failed:', err);
+      showError(err.response?.data?.detail || 'Failed to upload document');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -398,11 +432,29 @@ export default function CaseRoomPage() {
                   ✕
                 </button>
               </div>
+
+              {/* Upload Button */}
+              <div className="px-3 py-2 border-b border-grid-line">
+                <button
+                  onClick={() => setShowUploadDialog(true)}
+                  className="w-full px-3 py-2 bg-navy text-white rounded hover:bg-navy/90 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Add Document</span>
+                </button>
+              </div>
+
               <div className="flex-1 overflow-y-auto">
                 {documents.length === 0 ? (
                   <div className="p-4 text-center">
                     <Upload className="w-8 h-8 text-ink-muted mx-auto mb-2" />
-                    <p className="text-xs text-ink-muted">No documents</p>
+                    <p className="text-xs text-ink-muted">No documents uploaded yet</p>
+                    <button
+                      onClick={() => setShowUploadDialog(true)}
+                      className="mt-2 text-xs text-navy hover:underline"
+                    >
+                      Upload your first document
+                    </button>
                   </div>
                 ) : (
                   <div className="divide-y divide-grid-line">
@@ -534,6 +586,54 @@ export default function CaseRoomPage() {
           }}
           onClose={() => setViewingChainTrigger(null)}
         />
+      )}
+
+      {/* Upload Dialog */}
+      {showUploadDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-serif font-bold">Upload Document</h3>
+              <button
+                onClick={() => setShowUploadDialog(false)}
+                className="text-ink-muted hover:text-ink"
+                disabled={uploading}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleDocumentUpload(file);
+                  }
+                }}
+                disabled={uploading}
+                className="block w-full text-sm text-ink-secondary
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-navy file:text-white
+                  hover:file:bg-navy/90
+                  file:cursor-pointer
+                  cursor-pointer"
+              />
+              <p className="mt-3 text-xs text-ink-muted">
+                Upload a PDF document to attach to this case. The document will be analyzed for deadlines and case information.
+              </p>
+              {uploading && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-navy">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-navy"></div>
+                  <span className="text-sm">Uploading and analyzing...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
