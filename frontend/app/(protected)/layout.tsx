@@ -26,16 +26,16 @@ export default function ProtectedLayout({
     }
   }, [user, loading, router]);
 
-  // Show loading state in Sovereign style
+  // Show loading state in Bloomberg Terminal style
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-canvas">
-        <div className="panel panel-raised p-8 text-center">
-          <div className="font-mono text-sm text-ink-secondary mb-2">
+      <div className="h-screen w-screen flex items-center justify-center bg-terminal-bg">
+        <div className="panel-glass p-8 text-center">
+          <div className="font-mono text-sm text-text-secondary mb-4 uppercase tracking-wide">
             AUTHENTICATING
           </div>
-          <div className="w-48 h-1 bg-steel">
-            <div className="h-full bg-navy animate-pulse" style={{ width: '60%' }} />
+          <div className="w-48 h-1 bg-terminal-elevated rounded-full overflow-hidden">
+            <div className="h-full bg-accent-info animate-pulse" style={{ width: '60%' }} />
           </div>
         </div>
       </div>
