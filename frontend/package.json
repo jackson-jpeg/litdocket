@@ -19,7 +19,7 @@
     "firebase": "^12.7.0",
     "lucide-react": "0.323.0",
     "next": "14.1.0",
-    "pdfjs-dist": "3.11.174",
+    "pdfjs-dist": "4.4.168",
     "postcss": "8.4.33",
     "react": "18.2.0",
     "react-big-calendar": "^1.19.4",

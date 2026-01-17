@@ -6,15 +6,11 @@ import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-
 
 // ============================================================================
 // PDF.js Worker Configuration
-// CRITICAL FIX: Use worker file from public directory
-// Previous issue: import.meta.url doesn't work in Next.js production builds
-// Solution: Worker file copied to public/pdf-worker/ and served statically
-// This fixes:
-//   1. "Can't find variable: exports" error (module format mismatch)
-//   2. CORS blocking issues (local file, no CDN)
-//   3. Next.js build compatibility (static asset serving)
+// CRITICAL FIX: Use CDN with version matching react-pdf's pdfjs-dist dependency
+// React-pdf uses pdfjs-dist@4.4.168, so worker must match exactly
+// Using unpkg.com CDN ensures version compatibility and no CORS issues
 // ============================================================================
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs`;
 
 interface DocumentViewerProps {
   isOpen: boolean;
