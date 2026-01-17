@@ -918,3 +918,78 @@ class DocumentService:
             'message': chatbot_message,
             'count': len(all_deadlines)
         }
+
+    # =========================================================================
+    # GHOST-SAFE DELETION
+    # =========================================================================
+
+    def delete_document(self, document_id: str, user_id: str) -> bool:
+        """
+        Delete a document with ghost-safe file deletion.
+
+        "Ghost Documents" are DB records pointing to files that no longer exist
+        (e.g., manual deletion, storage migration, or deployment cleanup).
+
+        This method handles deletion gracefully:
+        1. Fetch document from database
+        2. Try to delete physical file (Firebase or local)
+        3. If file deletion fails (ghost document), log warning and continue
+        4. Always delete database record
+
+        This prevents orphaned DB records when files are missing.
+
+        Args:
+            document_id: Document UUID
+            user_id: User ID for ownership verification
+
+        Returns:
+            bool: True if document deleted, False if not found
+
+        Raises:
+            SQLAlchemyError: Only if database deletion fails
+        """
+        # 1. Get document from DB with ownership check
+        document = self.db.query(Document).filter(
+            Document.id == document_id,
+            Document.user_id == user_id
+        ).first()
+
+        if not document:
+            logger.warning(f"Document {document_id} not found for user {user_id}")
+            return False
+
+        # 2. Try to delete from Storage (GHOST-SAFE: ignore errors)
+        if document.storage_path:
+            try:
+                # Check if it's a Firebase Storage path
+                if document.storage_path.startswith('documents/'):
+                    logger.info(f"Deleting Firebase file: {document.storage_path}")
+                    firebase_service.delete_file(document.storage_path)
+                    logger.info(f"✓ Firebase file deleted: {document.storage_path}")
+                else:
+                    # Local file path
+                    import os
+                    if os.path.exists(document.storage_path):
+                        logger.info(f"Deleting local file: {document.storage_path}")
+                        os.remove(document.storage_path)
+                        logger.info(f"✓ Local file deleted: {document.storage_path}")
+                    else:
+                        logger.warning(f"⚠ Ghost Document: Local file not found at {document.storage_path}")
+            except Exception as e:
+                # GHOST-SAFE: Log warning but CONTINUE with DB deletion
+                logger.warning(
+                    f"⚠ Ghost Document: Storage delete failed for {document.storage_path} "
+                    f"(file may not exist): {e}"
+                )
+                # DO NOT raise - we still want to delete the DB record
+
+        # 3. Delete from database (cascades to document_tags)
+        try:
+            self.db.delete(document)
+            self.db.commit()
+            logger.info(f"✓ Document {document_id} deleted from database")
+            return True
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            logger.error(f"✗ Failed to delete document {document_id} from database: {e}")
+            raise  # Re-raise database errors - these are real problems

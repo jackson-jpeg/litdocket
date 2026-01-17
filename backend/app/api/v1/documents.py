@@ -686,39 +686,32 @@ async def delete_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a document and its associated file"""
-    document = db.query(Document).filter(
-        Document.id == document_id,
-        Document.user_id == str(current_user.id)
-    ).first()
+    """
+    Delete a document and its associated file.
 
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    # Delete the physical file
-    if document.storage_path:
-        # Check if it's a Firebase Storage path (starts with 'documents/')
-        if document.storage_path.startswith('documents/'):
-            try:
-                from app.services.firebase_service import firebase_service
-                firebase_service.delete_file(document.storage_path)
-                logger.info(f"Deleted Firebase file: {document.storage_path}")
-            except Exception as e:
-                logger.warning(f"Failed to delete Firebase file {document.storage_path}: {e}")
-        # Local file path
-        elif os.path.exists(document.storage_path):
-            try:
-                os.remove(document.storage_path)
-                logger.info(f"Deleted local file: {document.storage_path}")
-            except Exception as e:
-                logger.warning(f"Failed to delete local file {document.storage_path}: {e}")
+    Ghost-Safe Deletion:
+    - Handles missing files gracefully (ghost documents)
+    - Always deletes DB record even if file is missing
+    - Logs warnings for missing files but doesn't fail
+    """
+    doc_service = DocumentService(db)
 
     try:
-        # Delete from database (cascades to document_tags)
-        db.delete(document)
-        db.commit()
+        # Use ghost-safe deletion from service layer
+        deleted = doc_service.delete_document(
+            document_id=document_id,
+            user_id=str(current_user.id)
+        )
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Document not found")
+
         return {'success': True, 'message': 'Document deleted'}
+
+    except HTTPException:
+        # Re-raise HTTP exceptions (404, etc.)
+        raise
     except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to delete document: {e}")
+        # Catch any other errors (database errors, etc.)
+        logger.error(f"Failed to delete document {document_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
