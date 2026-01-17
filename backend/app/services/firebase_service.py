@@ -37,11 +37,22 @@ class FirebaseService:
                 # Production: Load from environment variable JSON string
                 cred_dict = json.loads(firebase_cred_json)
 
-                # RESILIENCE FIX: Fix escaped newlines in private key
-                # Railway/env vars often store literal "\n" instead of actual newlines
+                # NUCLEAR FIX: Force correct PEM formatting for private key
+                # Railway/env vars often mangle newlines in multiple ways
                 if 'private_key' in cred_dict:
-                    cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
-                    logger.info("Firebase: Sanitized private key newlines")
+                    raw_key = cred_dict['private_key']
+
+                    # Step 1: Replace all literal \n and \\n with actual newlines
+                    key = raw_key.replace('\\n', '\n').replace('\\\\n', '\n')
+
+                    # Step 2: If key is one long line (common copy-paste issue), force split headers
+                    if '-----BEGIN PRIVATE KEY----- ' in key:
+                        key = key.replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
+                    if ' -----END PRIVATE KEY-----' in key:
+                        key = key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+
+                    cred_dict['private_key'] = key
+                    logger.info(f"Firebase: Key sanitized. Length: {len(key)}. Headers found: {'BEGIN' in key}")
 
                 cred = credentials.Certificate(cred_dict)
                 logger.info("Firebase initialized from environment variable")

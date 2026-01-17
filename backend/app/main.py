@@ -80,6 +80,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     # Get origin from request
     origin = request.headers.get("origin", "")
 
+    # CORS Debug: Log origin mismatch for troubleshooting
+    logger.error(f"CORS/Error: Request Origin: {origin} vs Allowed: {CORS_ORIGINS}")
+
     # Build response with CORS headers
     response = JSONResponse(
         status_code=500,
