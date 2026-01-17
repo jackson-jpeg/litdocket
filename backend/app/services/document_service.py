@@ -332,6 +332,17 @@ class DocumentService:
         try:
             extracted_text = extract_text_from_pdf(pdf_bytes)
             pdf_metadata = get_pdf_metadata(pdf_bytes)
+
+            # Check if OCR is needed (scanned PDF detection)
+            from app.utils.pdf_parser import detect_ocr_needed
+            needs_ocr = detect_ocr_needed(extracted_text)
+
+            if needs_ocr:
+                logger.warning(
+                    f"Document {file_name} appears to need OCR - "
+                    f"text extraction yielded minimal/garbled content (length: {len(extracted_text.strip())})"
+                )
+
         except Exception as e:
             return {
                 'error': f'PDF extraction failed: {str(e)}',
@@ -437,7 +448,8 @@ class DocumentService:
             'storage_path': storage_path,
             'storage_url': storage_url,
             'jurisdiction_detected': jurisdiction_result.detected if jurisdiction_result else False,
-            'assigned_rule_sets': assigned_rule_sets
+            'assigned_rule_sets': assigned_rule_sets,
+            'needs_ocr': needs_ocr  # NEW: OCR detection flag
         }
 
     def create_case_from_analysis(self, user_id: str, analysis: Dict) -> Case:
@@ -531,7 +543,8 @@ class DocumentService:
         storage_path: str,
         extracted_text: str,
         analysis: Dict,
-        file_size_bytes: int
+        file_size_bytes: int,
+        needs_ocr: bool = False
     ) -> Document:
         """Create database record for uploaded document"""
 
@@ -546,7 +559,8 @@ class DocumentService:
             extracted_text=extracted_text,
             ai_summary=analysis.get('summary'),
             extracted_metadata=analysis,
-            analysis_status='completed'
+            needs_ocr=needs_ocr,
+            analysis_status='needs_ocr' if needs_ocr else 'completed'
         )
 
         # Parse filing date

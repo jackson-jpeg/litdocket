@@ -63,6 +63,8 @@ export interface Document {
   extracted_metadata?: DocumentMetadata;
   storage_url?: string;
   created_at: string;
+  needs_ocr?: boolean;  // True if document appears to be scanned/unreadable
+  analysis_status?: string;  // pending, processing, completed, failed, needs_ocr
 }
 
 export interface Deadline {

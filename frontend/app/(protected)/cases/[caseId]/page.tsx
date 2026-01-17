@@ -476,9 +476,16 @@ export default function CaseRoomPage() {
                           <FileText className={`w-4 h-4 flex-shrink-0 mt-0.5 ${doc.storage_url ? 'text-navy' : 'text-ink-muted'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                            {doc.document_type && (
-                              <span className="badge badge-info text-xxs mt-1">{doc.document_type}</span>
-                            )}
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {doc.document_type && (
+                                <span className="badge badge-info text-xxs">{doc.document_type}</span>
+                              )}
+                              {doc.needs_ocr && (
+                                <span className="badge bg-amber-100 text-amber-800 text-xxs" title="This document appears to be scanned. Text extraction may be incomplete.">
+                                  ⚠️ Needs OCR
+                                </span>
+                              )}
+                            </div>
                             {!doc.storage_url && (
                               <p className="text-xxs text-red-600 mt-1">⚠ File unavailable</p>
                             )}

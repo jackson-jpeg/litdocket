@@ -60,3 +60,33 @@ def get_pdf_metadata(pdf_bytes: bytes) -> dict:
         return metadata
     except Exception as e:
         return {'error': str(e)}
+
+
+def detect_ocr_needed(extracted_text: str, min_text_length: int = 100) -> bool:
+    """
+    Detect if a PDF needs OCR processing.
+
+    Returns True if the text appears to be from a scanned image or is unreadable:
+    - Text is empty or too short (< min_text_length chars)
+    - Text is mostly garbled/non-printable characters (> 50% non-alphanumeric)
+    - Text is all symbols/numbers (common in scanned image artifacts)
+
+    Args:
+        extracted_text: Text extracted from PDF
+        min_text_length: Minimum character count to consider readable (default: 100)
+
+    Returns:
+        bool: True if OCR is needed, False if text is readable
+    """
+    if not extracted_text or len(extracted_text.strip()) < min_text_length:
+        return True
+
+    # Check for gibberish (more than 50% non-alphanumeric)
+    clean_text = extracted_text.strip()
+    if len(clean_text) == 0:
+        return True
+
+    alphanumeric_chars = sum(c.isalnum() or c.isspace() for c in clean_text)
+    gibberish_ratio = 1 - (alphanumeric_chars / len(clean_text))
+
+    return gibberish_ratio > 0.5
