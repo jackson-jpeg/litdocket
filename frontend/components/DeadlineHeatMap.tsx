@@ -133,9 +133,9 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
 
             {/* Data Rows */}
             {fatalityLevels.map((level) => (
-              <React.Fragment key={level.key}>
+              <>
                 {/* Row Label */}
-                <div className={`${level.bgColor} ${level.textColor} p-4 flex items-center justify-center font-mono text-xs font-bold uppercase tracking-wider`}>
+                <div key={`label-${level.key}`} className={`${level.bgColor} ${level.textColor} p-4 flex items-center justify-center font-mono text-xs font-bold uppercase tracking-wider`}>
                   {level.label}
                 </div>
 
@@ -147,7 +147,7 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
 
                   return (
                     <div
-                      key={bucket.key}
+                      key={`${level.key}-${bucket.key}`}
                       className={`${cellBg} p-4 cursor-pointer relative group
                         transition-transform hover:translate-x-1 hover:translate-y-1
                         ${count > 0 ? 'hover:border-2 hover:border-ink' : ''}`}
@@ -197,7 +197,7 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
                     </div>
                   );
                 })}
-              </React.Fragment>
+              </>
             ))}
           </div>
         </div>
