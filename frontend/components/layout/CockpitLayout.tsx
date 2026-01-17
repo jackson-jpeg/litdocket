@@ -18,19 +18,19 @@ interface CockpitLayoutProps {
 
 export function CockpitLayout({ children }: CockpitLayoutProps) {
   return (
-    <div className="cockpit">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-terminal-bg">
       {/* Top Header Bar */}
       <CockpitHeader />
 
       {/* Main Body: Sidebar + Content + Terminal */}
-      <div className="cockpit-body">
+      <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
         <Sidebar />
 
         {/* Main Content Area */}
-        <main className="cockpit-main">
+        <main className="flex-1 flex flex-col overflow-hidden">
           {/* Scrollable Content */}
-          <div className="cockpit-content custom-scrollbar">
+          <div className="flex-1 overflow-auto p-6 scrollbar-dark">
             {children}
           </div>
 

@@ -21,14 +21,14 @@ export function CockpitHeader() {
   };
 
   return (
-    <header className="cockpit-header">
+    <header className="h-12 bg-terminal-surface border-b border-border-subtle flex items-center justify-between px-4 flex-shrink-0">
       {/* Logo & Brand */}
-      <div className="flex items-center gap-3">
-        <div className="font-serif font-bold text-lg tracking-tight">
-          LitDocket
+      <div className="flex items-center gap-4">
+        <div className="font-tight font-bold text-base tracking-tight text-accent-info">
+          LITDOCKET
         </div>
-        <div className="text-xs text-white/60 font-mono">
-          PRO
+        <div className="text-xs text-text-muted font-mono">
+          {new Date().toLocaleTimeString('en-US', { hour12: false })} EST
         </div>
       </div>
 
@@ -36,13 +36,13 @@ export function CockpitHeader() {
       <div className="flex items-center gap-4">
         {user && (
           <>
-            <span className="text-sm text-white/80 font-mono">
+            <span className="text-xs text-text-secondary font-mono">
               {user.email}
             </span>
-            <div className="w-px h-4 bg-white/30" />
+            <div className="w-px h-4 bg-border-subtle" />
             <button
               onClick={handleLogout}
-              className="text-sm text-white/80 hover:text-white"
+              className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-1 rounded hover:bg-terminal-elevated"
             >
               Logout
             </button>

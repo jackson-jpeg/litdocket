@@ -69,32 +69,40 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="sidebar cockpit-sidebar flex flex-col custom-scrollbar">
+    <aside className="w-64 bg-terminal-panel border-r border-border-subtle flex-shrink-0 flex flex-col scrollbar-dark overflow-y-auto">
       {/* System Title */}
-      <div className="px-3 py-3 border-b border-grid-line">
-        <div className="text-xxs uppercase tracking-widest text-ink-muted">
+      <div className="px-3 py-3 border-b border-border-subtle">
+        <div className="text-xxs uppercase tracking-widest text-text-muted">
           Navigation
         </div>
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 py-2">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`sidebar-item ${isActive(item.href) ? 'active' : ''}`}
-          >
-            <span className="flex-shrink-0">{item.icon}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
+      <nav className="flex-1 p-3 space-y-1">
+        {navItems.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`
+                flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all
+                ${active
+                  ? 'bg-accent-info text-terminal-bg shadow-glow-info'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-terminal-elevated'
+                }
+              `}
+            >
+              <span className="flex-shrink-0">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       {/* System Info Footer */}
-      <div className="px-3 py-2 border-t border-grid-line text-xxs text-ink-muted">
-        <div>LitDocket v1.0</div>
-        <div className="font-mono">Professional Edition</div>
+      <div className="p-4 border-t border-border-subtle">
+        <div className="text-xs text-text-muted font-mono">v3.0.0-alpha</div>
       </div>
     </aside>
   );
