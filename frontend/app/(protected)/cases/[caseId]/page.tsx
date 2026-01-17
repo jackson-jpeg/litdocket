@@ -595,15 +595,15 @@ export default function CaseRoomPage() {
         />
       )}
 
-      {/* Upload Dialog */}
+      {/* Upload Dialog - Bloomberg Terminal */}
       {showUploadDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-serif font-bold">Upload Document</h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="panel-glass w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border-subtle">
+              <h3 className="text-lg font-semibold text-text-primary">Upload Document</h3>
               <button
                 onClick={() => setShowUploadDialog(false)}
-                className="text-ink-muted hover:text-ink"
+                className="text-text-muted hover:text-text-primary"
                 disabled={uploading}
               >
                 ✕
@@ -620,21 +620,21 @@ export default function CaseRoomPage() {
                   }
                 }}
                 disabled={uploading}
-                className="block w-full text-sm text-ink-secondary
+                className="block w-full text-sm text-text-secondary
                   file:mr-4 file:py-2 file:px-4
-                  file:rounded file:border-0
+                  file:rounded-md file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-navy file:text-white
-                  hover:file:bg-navy/90
+                  file:bg-accent-info file:text-terminal-bg
+                  hover:file:bg-accent-info/90
                   file:cursor-pointer
                   cursor-pointer"
               />
-              <p className="mt-3 text-xs text-ink-muted">
+              <p className="mt-3 text-xs text-text-muted">
                 Upload a PDF document to attach to this case. The document will be analyzed for deadlines and case information.
               </p>
               {uploading && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-navy">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-navy"></div>
+                <div className="mt-4 flex items-center justify-center gap-2 text-accent-info">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent-info"></div>
                   <span className="text-sm">Uploading and analyzing...</span>
                 </div>
               )}
