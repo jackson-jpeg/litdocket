@@ -530,11 +530,11 @@ export default function CaseRoomPage() {
         onSuccess={handleTriggerSuccess}
       />
 
-      {viewingDocument && viewingDocument.storage_url && (
+      {viewingDocument && (
         <DocumentViewerWrapper
           isOpen={true}
           onClose={() => setViewingDocument(null)}
-          documentUrl={viewingDocument.storage_url}
+          documentUrl={`/api/v1/documents/${viewingDocument.id}/download`}
           documentName={viewingDocument.file_name}
         />
       )}
