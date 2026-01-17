@@ -153,8 +153,7 @@ async def upload_document(
             storage_path=storage_path,  # Now a Firebase path like "documents/user_id/timestamp_file.pdf"
             extracted_text=analysis_result['extracted_text'],
             analysis=analysis_result['analysis'],
-            file_size_bytes=analysis_result['file_size_bytes'],
-            needs_ocr=analysis_result.get('needs_ocr', False)
+            file_size_bytes=analysis_result['file_size_bytes']
         )
 
         # Extract deadlines from document (TRIGGER-FIRST ARCHITECTURE)
@@ -409,8 +408,7 @@ async def bulk_upload_documents(
                 storage_path=storage_path,  # Firebase path
                 extracted_text=analysis_result['extracted_text'],
                 analysis=analysis_result['analysis'],
-                file_size_bytes=analysis_result['file_size_bytes'],
-                needs_ocr=analysis_result.get('needs_ocr', False)
+                file_size_bytes=analysis_result['file_size_bytes']
             )
 
             # Extract deadlines (TRIGGER-FIRST ARCHITECTURE)
