@@ -36,6 +36,13 @@ class FirebaseService:
             if firebase_cred_json:
                 # Production: Load from environment variable JSON string
                 cred_dict = json.loads(firebase_cred_json)
+
+                # RESILIENCE FIX: Fix escaped newlines in private key
+                # Railway/env vars often store literal "\n" instead of actual newlines
+                if 'private_key' in cred_dict:
+                    cred_dict['private_key'] = cred_dict['private_key'].replace('\\n', '\n')
+                    logger.info("Firebase: Sanitized private key newlines")
+
                 cred = credentials.Certificate(cred_dict)
                 logger.info("Firebase initialized from environment variable")
             else:
