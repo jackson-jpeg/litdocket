@@ -12,7 +12,14 @@ class AIService:
     """Service for Claude AI integration"""
 
     def __init__(self, model: Optional[str] = None):
-        self.anthropic = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        # RESILIENCE FIX: Sanitize API key to remove accidental whitespace/newlines
+        api_key = settings.ANTHROPIC_API_KEY.strip()
+
+        # Debug logging: Show first 8 chars of key (masked) to verify it loaded correctly
+        logger.info(f"AI Service initialized with key: {api_key[:8]}...")
+
+        # RESILIENCE FIX: Add retry logic to handle minor network blips
+        self.anthropic = Anthropic(api_key=api_key, max_retries=3)
         self.model = model or settings.DEFAULT_AI_MODEL
 
     async def analyze_legal_document(self, text: str, document_type: Optional[str] = None) -> Dict:
