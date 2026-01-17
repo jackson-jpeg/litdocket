@@ -263,17 +263,17 @@ async def download_document(
     db: Session = Depends(get_db)
 ):
     """
-    Download/serve document file.
+    Download/serve document file via backend proxy.
 
-    Handles both Firebase Storage and local file storage:
-    - Firebase Storage: Returns redirect to signed URL
-    - Local Storage: Serves file directly with FileResponse
+    CORS FIX: Instead of redirecting to Firebase signed URL (which has CORS issues),
+    the backend fetches the file and streams it to the frontend.
 
     SECURITY: Always verifies document ownership before serving.
     """
     from app.models.document import Document
     from app.services.firebase_service import firebase_service
-    from fastapi.responses import RedirectResponse
+    from fastapi.responses import StreamingResponse
+    import requests
 
     # CRITICAL: Verify ownership before serving file
     document = db.query(Document).filter(
@@ -289,13 +289,32 @@ async def download_document(
 
     # Check storage type
     if document.storage_path.startswith('documents/'):
-        # Firebase Storage - redirect to signed URL
+        # Firebase Storage - PROXY the file through backend to bypass CORS
         try:
+            # Get signed URL (this works server-side, no CORS)
             signed_url = firebase_service.get_download_url(document.storage_path)
-            return RedirectResponse(url=signed_url, status_code=302)
+
+            # Fetch the file from Firebase using the signed URL
+            response = requests.get(signed_url, stream=True)
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Failed to fetch document from storage")
+
+            # Stream the file to the client with proper CORS headers
+            return StreamingResponse(
+                response.iter_content(chunk_size=8192),
+                media_type='application/pdf',
+                headers={
+                    'Content-Disposition': f'inline; filename="{document.file_name}"',
+                    'Cache-Control': 'private, max-age=3600',
+                    'Access-Control-Allow-Origin': '*',  # Allow all origins for PDF viewing
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                }
+            )
         except Exception as e:
-            logger.error(f"Failed to generate Firebase signed URL for {document_id}: {e}")
-            raise HTTPException(status_code=500, detail="Failed to generate download URL")
+            logger.error(f"Failed to proxy Firebase document {document_id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to download document")
     else:
         # Local file storage - serve directly
         if not os.path.exists(document.storage_path):
