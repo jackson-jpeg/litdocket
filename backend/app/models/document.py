@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, BigInteger, Date, DateTime, ForeignKey, Text, func, JSON
+from sqlalchemy import Column, String, BigInteger, Date, DateTime, ForeignKey, Text, func, JSON, Boolean
 from sqlalchemy.orm import relationship
 import uuid
 
@@ -19,7 +19,8 @@ class Document(Base):
     document_type = Column(String(100))  # motion, order, notice, etc.
     filing_date = Column(Date)
     received_date = Column(Date)
-    analysis_status = Column(String(50), default="pending")  # pending, processing, completed, failed
+    analysis_status = Column(String(50), default="pending")  # pending, processing, completed, failed, needs_ocr
+    needs_ocr = Column(Boolean, default=False)  # True if PDF appears to be scanned/unreadable
     extracted_text = Column(Text)
     ai_summary = Column(Text)
     extracted_metadata = Column(JSON)
