@@ -115,21 +115,35 @@ async def upload_document(
         if not analysis_result.get('success'):
             raise HTTPException(status_code=500, detail=analysis_result.get('error', 'Analysis failed'))
 
-        # For MVP, store files locally (replace with S3 later)
-        storage_dir = f"/tmp/docketassist/{current_user.id}"
-        os.makedirs(storage_dir, exist_ok=True)
-        storage_filename = f"{uuid.uuid4()}.pdf"
-        storage_path = f"{storage_dir}/{storage_filename}"
+        # CRITICAL FIX: Use Firebase Storage instead of local /tmp storage
+        # This fixes 404 errors and ensures documents persist across deployments
+        from app.services.firebase_service import firebase_service
 
-        with open(storage_path, 'wb') as f:
-            f.write(pdf_bytes)
+        try:
+            logger.info(f"Uploading document to Firebase Storage: {file.filename}")
 
-        # Create document record
+            # Upload to Firebase Storage (returns storage_path and signed_url)
+            storage_path, signed_url = firebase_service.upload_pdf(
+                user_id=str(current_user.id),
+                file_name=file.filename,
+                pdf_bytes=pdf_bytes
+            )
+
+            logger.info(f"Document uploaded successfully to Firebase: {storage_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to upload document to Firebase Storage: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload document to cloud storage: {str(e)}"
+            )
+
+        # Create document record with Firebase Storage path
         document = doc_service.create_document_record(
             case_id=analysis_result['case_id'],
             user_id=str(current_user.id),
             file_name=file.filename,
-            storage_path=storage_path,
+            storage_path=storage_path,  # Now a Firebase path like "documents/user_id/timestamp_file.pdf"
             extracted_text=analysis_result['extracted_text'],
             analysis=analysis_result['analysis'],
             file_size_bytes=analysis_result['file_size_bytes']
@@ -353,21 +367,36 @@ async def bulk_upload_documents(
                 ))
                 continue
 
-            # Store file locally
-            storage_dir = f"/tmp/docketassist/{current_user.id}"
-            os.makedirs(storage_dir, exist_ok=True)
-            storage_filename = f"{uuid.uuid4()}.pdf"
-            storage_path = f"{storage_dir}/{storage_filename}"
+            # CRITICAL FIX: Use Firebase Storage for bulk uploads too
+            from app.services.firebase_service import firebase_service
 
-            with open(storage_path, 'wb') as f:
-                f.write(pdf_bytes)
+            try:
+                logger.info(f"Bulk upload: Uploading to Firebase Storage: {file.filename}")
 
-            # Create document record
+                # Upload to Firebase Storage
+                storage_path, signed_url = firebase_service.upload_pdf(
+                    user_id=str(current_user.id),
+                    file_name=file.filename,
+                    pdf_bytes=pdf_bytes
+                )
+
+                logger.info(f"Bulk upload: Document uploaded to Firebase: {storage_path}")
+
+            except Exception as e:
+                logger.error(f"Bulk upload: Failed to upload to Firebase: {e}")
+                results.append(BulkUploadResult(
+                    filename=file.filename,
+                    success=False,
+                    error=f"Failed to upload to cloud storage: {str(e)}"
+                ))
+                continue
+
+            # Create document record with Firebase Storage path
             document = doc_service.create_document_record(
                 case_id=analysis_result['case_id'],
                 user_id=str(current_user.id),
                 file_name=file.filename,
-                storage_path=storage_path,
+                storage_path=storage_path,  # Firebase path
                 extracted_text=analysis_result['extracted_text'],
                 analysis=analysis_result['analysis'],
                 file_size_bytes=analysis_result['file_size_bytes']

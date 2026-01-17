@@ -187,18 +187,54 @@ class FirebaseService:
     # STORAGE OPERATIONS
     # ====================
 
+    @staticmethod
+    def sanitize_storage_path(path: str) -> str:
+        """
+        Sanitize storage path to prevent double slashes and path issues.
+
+        The "Double Slash Killer" - prevents signature mismatches.
+
+        Issues this fixes:
+        - Leading slashes: /tmp/file → tmp/file
+        - Trailing slashes: documents/ → documents
+        - Double slashes: documents//user → documents/user
+        - Multiple slashes: ///path → path
+
+        Args:
+            path: Raw storage path
+
+        Returns:
+            Cleaned path safe for Firebase Storage
+        """
+        if not path:
+            return ""
+
+        # Remove leading/trailing slashes
+        cleaned = path.strip("/")
+
+        # Collapse multiple consecutive slashes to single slash
+        import re
+        cleaned = re.sub(r'/+', '/', cleaned)
+
+        return cleaned
+
     def upload_pdf(self, user_id: str, file_name: str, pdf_bytes: bytes) -> tuple[str, str]:
         """
-        Upload PDF to Firebase Storage
-        Returns: (storage_path, public_url)
+        Upload PDF to Firebase Storage with path sanitization.
+
+        Returns: (storage_path, signed_url)
         """
         # Create a unique path: documents/{userId}/{timestamp}_{filename}
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        storage_path = f"documents/{user_id}/{timestamp}_{file_name}"
 
-        # SECURITY FIX: Strip leading slashes to prevent double-slash in signed URL
-        # (e.g., /tmp/path would become //tmp/path in bucket URL, breaking signature)
-        storage_path = storage_path.lstrip("/")
+        # Sanitize filename to remove any path separators
+        safe_filename = file_name.replace('/', '_').replace('\\', '_')
+
+        # Build path
+        storage_path = f"documents/{user_id}/{timestamp}_{safe_filename}"
+
+        # CRITICAL: Sanitize path to prevent double-slash signature errors
+        storage_path = self.sanitize_storage_path(storage_path)
 
         # Upload to Cloud Storage
         blob = self.bucket.blob(storage_path)
@@ -214,21 +250,19 @@ class FirebaseService:
         return storage_path, url
 
     def get_download_url(self, storage_path: str, expiration_days: int = 7) -> str:
-        """Get a signed download URL for a file"""
+        """Get a signed download URL for a file with path sanitization"""
         from datetime import timedelta
 
-        # CRITICAL FIX: Strip leading slashes to prevent SignatureDoesNotMatch error
-        # When storage_path starts with '/', it creates '/bucket//path' in the signed URL,
-        # which invalidates the cryptographic signature
-        storage_path = storage_path.lstrip("/")
+        # CRITICAL: Sanitize path to prevent SignatureDoesNotMatch errors
+        storage_path = self.sanitize_storage_path(storage_path)
 
         blob = self.bucket.blob(storage_path)
         return blob.generate_signed_url(expiration=timedelta(days=expiration_days))
 
     def delete_file(self, storage_path: str):
-        """Delete a file from Storage"""
-        # Strip leading slashes for consistency
-        storage_path = storage_path.lstrip("/")
+        """Delete a file from Storage with path sanitization"""
+        # Sanitize path for consistency
+        storage_path = self.sanitize_storage_path(storage_path)
 
         blob = self.bucket.blob(storage_path)
         blob.delete()
