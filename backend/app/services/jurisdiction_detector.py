@@ -276,8 +276,10 @@ class JurisdictionDetector:
         if not court_type:
             return None
 
+        # CRITICAL FIX: Use .value to get lowercase string ("district") not .name ("DISTRICT")
+        # The database enum column expects lowercase values
         query = self.db.query(CourtLocation).filter(
-            CourtLocation.court_type == court_type,
+            CourtLocation.court_type == court_type.value,
             CourtLocation.is_active == True
         )
 
@@ -353,7 +355,8 @@ class JurisdictionDetector:
                 RuleSet.is_active == True
             )
             if court_type:
-                base_rule_sets = base_rule_sets.filter(RuleSet.court_type == court_type)
+                # CRITICAL FIX: Use .value to match database enum (lowercase)
+                base_rule_sets = base_rule_sets.filter(RuleSet.court_type == court_type.value)
 
             for rs in base_rule_sets.all():
                 if rs.id not in seen_ids:
