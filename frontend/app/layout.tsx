@@ -1,9 +1,46 @@
 import '@/lib/polyfills';
 import type { Metadata } from "next";
+import { Playfair_Display, Space_Grotesk, Newsreader, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import ErrorBoundary from "@/components/ErrorBoundary";
+
+// ============================================================================
+// PAPER & STEEL TYPOGRAPHY SYSTEM
+// ============================================================================
+
+// Authority Font - Editorial headings (page titles, section headers)
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  display: 'swap',
+  weight: ['400', '700', '900'],
+});
+
+// Data/UI Font - Precision UI (deadlines, case numbers, labels)
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+});
+
+// Body Font - Long-form legal text
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-newsreader',
+  display: 'swap',
+  weight: ['400', '600'],
+});
+
+// Mono Font - Data precision (dates, IDs, statutes)
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+  weight: ['400', '500', '600'],
+});
 
 export const metadata: Metadata = {
   title: "LitDocket - AI Legal Docketing",
@@ -16,7 +53,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${playfair.variable} ${spaceGrotesk.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -35,7 +75,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
+      <body className="font-sans antialiased bg-paper text-ink">
         <ErrorBoundary>
           <AuthProvider>
             <ToastProvider>

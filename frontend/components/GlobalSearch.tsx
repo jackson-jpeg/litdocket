@@ -190,55 +190,55 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'CASE': return 'text-cyan-400';
-      case 'DOC': return 'text-amber-400';
-      case 'DEADLINE': return 'text-rose-400';
-      default: return 'text-slate-400';
+      case 'CASE': return 'text-terminal-green';
+      case 'DOC': return 'text-terminal-amber';
+      case 'DEADLINE': return 'text-fatal';
+      default: return 'text-ink-muted';
     }
   };
 
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
-    if (s === 'fatal' || s === 'critical') return 'text-red-500';
-    if (s === 'important' || s === 'high') return 'text-amber-500';
-    if (s === 'active' || s === 'pending') return 'text-emerald-500';
-    if (s === 'completed') return 'text-slate-500';
-    return 'text-slate-400';
+    if (s === 'fatal' || s === 'critical') return 'text-fatal';
+    if (s === 'important' || s === 'high') return 'text-critical';
+    if (s === 'active' || s === 'pending') return 'text-terminal-green';
+    if (s === 'completed') return 'text-ink-secondary';
+    return 'text-ink-muted';
   };
 
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 flex items-start justify-center z-50 pt-16"
+      className="fixed inset-0 bg-ink/80 flex items-start justify-center z-50 pt-16"
       onClick={handleClose}
     >
       <div
-        className="bg-slate-900 border border-slate-700 w-full max-w-4xl mx-4 flex flex-col shadow-2xl"
+        className="bg-terminal-bg border-2 border-ink w-full max-w-4xl mx-4 flex flex-col"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        {/* Terminal Header */}
-        <div className="bg-slate-800 border-b border-slate-700 px-4 py-3">
+        {/* Terminal Header - Paper & Steel */}
+        <div className="bg-steel border-b-2 border-ink px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="text-emerald-400 font-mono text-sm">&gt;_</span>
+            <span className="text-terminal-green font-mono text-sm font-bold">&gt;_</span>
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="search cases, documents, deadlines..."
-              className="flex-1 bg-transparent text-white font-mono text-sm placeholder-slate-500 focus:outline-none"
+              className="flex-1 bg-transparent text-terminal-text font-mono text-sm placeholder-ink-muted focus:outline-none"
               spellCheck={false}
             />
             {loading && (
-              <span className="text-slate-500 font-mono text-xs animate-pulse">SEARCHING...</span>
+              <span className="text-terminal-amber font-mono text-xs font-bold">SEARCHING_</span>
             )}
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="bg-slate-850 border-b border-slate-700 px-4 py-2 flex items-center gap-1">
+        {/* Filter Tabs - Hard borders, no fade */}
+        <div className="bg-steel border-b border-ink px-4 py-2 flex items-center gap-1">
           {(['ALL', 'CASE', 'DOC', 'DEADLINE'] as const).map((filter) => {
             const count = filter === 'ALL'
               ? (results?.total_results || 0)
@@ -252,46 +252,46 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`px-3 py-1 font-mono text-xs transition-colors ${
+                className={`px-3 py-1 font-mono text-xs border transition-transform hover:translate-x-0.5 ${
                   activeFilter === filter
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    ? 'bg-ink text-terminal-text border-terminal-green'
+                    : 'text-terminal-text border-steel hover:border-terminal-green'
                 }`}
               >
-                {filter} <span className="text-slate-500">({count})</span>
+                {filter} <span className="text-ink-muted">({count})</span>
               </button>
             );
           })}
-          <span className="ml-auto text-slate-600 font-mono text-xs">TAB to cycle</span>
+          <span className="ml-auto text-terminal-text font-mono text-[10px] uppercase tracking-wide">TAB CYCLE</span>
         </div>
 
-        {/* Results Table */}
+        {/* Results Table - Dense, tactical */}
         <div
           ref={resultsContainerRef}
-          className="flex-1 overflow-y-auto max-h-[400px] bg-slate-900"
+          className="flex-1 overflow-y-auto max-h-[400px] bg-terminal-bg"
         >
           {query.length < 2 && (
             <div className="p-8 text-center">
-              <p className="text-slate-500 font-mono text-sm">TYPE TO SEARCH</p>
-              <p className="text-slate-600 font-mono text-xs mt-2">min 2 characters</p>
+              <p className="text-terminal-text font-mono text-sm font-bold">TYPE TO SEARCH</p>
+              <p className="text-ink-muted font-mono text-xs mt-2">min 2 characters</p>
             </div>
           )}
 
           {query.length >= 2 && !loading && flatResults.length === 0 && (
             <div className="p-8 text-center">
-              <p className="text-slate-500 font-mono text-sm">NO RESULTS</p>
-              <p className="text-slate-600 font-mono text-xs mt-2">"{query}"</p>
+              <p className="text-terminal-amber font-mono text-sm font-bold">NO RESULTS</p>
+              <p className="text-ink-muted font-mono text-xs mt-2">"{query}"</p>
             </div>
           )}
 
           {flatResults.length > 0 && (
-            <table className="w-full font-mono text-sm">
-              <thead className="bg-slate-800 sticky top-0">
-                <tr className="text-slate-400 text-xs uppercase">
-                  <th className="text-left px-4 py-2 w-20">Type</th>
-                  <th className="text-left px-4 py-2 w-32">ID</th>
-                  <th className="text-left px-4 py-2">Title</th>
-                  <th className="text-left px-4 py-2 w-24">Status</th>
+            <table className="w-full font-mono text-sm border-collapse">
+              <thead className="bg-steel sticky top-0 border-b-2 border-ink">
+                <tr className="text-terminal-text text-[10px] uppercase tracking-wider font-bold">
+                  <th className="text-left px-4 py-2 w-20 border-r border-ink">Type</th>
+                  <th className="text-left px-4 py-2 w-32 border-r border-ink">ID</th>
+                  <th className="text-left px-4 py-2 border-r border-ink">Title</th>
+                  <th className="text-left px-4 py-2 w-24 border-r border-ink">Status</th>
                   <th className="text-left px-4 py-2 w-32">Case</th>
                 </tr>
               </thead>
@@ -301,25 +301,25 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                     key={`${result.type}-${result.id}`}
                     data-result
                     onClick={() => navigateToResult(result)}
-                    className={`cursor-pointer border-b border-slate-800 transition-colors ${
+                    className={`cursor-pointer border-b border-ink/30 transition-transform ${
                       idx === selectedIndex
-                        ? 'bg-slate-700 text-white'
-                        : 'text-slate-300 hover:bg-slate-800'
+                        ? 'bg-steel text-terminal-text border-terminal-green border-l-4'
+                        : 'text-terminal-text/80 hover:translate-x-1 hover:bg-steel/50'
                     }`}
                   >
-                    <td className={`px-4 py-2 ${getTypeColor(result.type)}`}>
+                    <td className={`px-4 py-2 border-r border-ink/30 font-bold ${getTypeColor(result.type)}`}>
                       {result.type}
                     </td>
-                    <td className="px-4 py-2 text-slate-400 truncate max-w-[120px]">
+                    <td className="px-4 py-2 border-r border-ink/30 text-ink-muted truncate max-w-[120px]">
                       {result.identifier}
                     </td>
-                    <td className="px-4 py-2 truncate max-w-[300px]">
+                    <td className="px-4 py-2 border-r border-ink/30 truncate max-w-[300px]">
                       {result.title}
                     </td>
-                    <td className={`px-4 py-2 ${getStatusColor(result.status)}`}>
+                    <td className={`px-4 py-2 border-r border-ink/30 font-bold ${getStatusColor(result.status)}`}>
                       {result.status.toUpperCase()}
                     </td>
-                    <td className="px-4 py-2 text-slate-500 truncate max-w-[120px]">
+                    <td className="px-4 py-2 text-ink-muted truncate max-w-[120px]">
                       {result.meta || '—'}
                     </td>
                   </tr>
@@ -329,16 +329,16 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="bg-slate-800 border-t border-slate-700 px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-slate-500 font-mono text-xs">
-            <span><kbd className="px-1 bg-slate-700 text-slate-300">↑↓</kbd> navigate</span>
-            <span><kbd className="px-1 bg-slate-700 text-slate-300">↵</kbd> select</span>
-            <span><kbd className="px-1 bg-slate-700 text-slate-300">TAB</kbd> filter</span>
-            <span><kbd className="px-1 bg-slate-700 text-slate-300">ESC</kbd> close</span>
+        {/* Footer - Hard keyboard navigation legend */}
+        <div className="bg-steel border-t-2 border-ink px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-terminal-text font-mono text-[10px] uppercase tracking-wide">
+            <span><kbd className="px-1.5 py-0.5 border border-terminal-green text-terminal-green">↑↓</kbd> NAV</span>
+            <span><kbd className="px-1.5 py-0.5 border border-terminal-green text-terminal-green">↵</kbd> SEL</span>
+            <span><kbd className="px-1.5 py-0.5 border border-terminal-green text-terminal-green">TAB</kbd> FLTR</span>
+            <span><kbd className="px-1.5 py-0.5 border border-terminal-green text-terminal-green">ESC</kbd> EXIT</span>
           </div>
           {flatResults.length > 0 && (
-            <span className="text-slate-500 font-mono text-xs">
+            <span className="text-terminal-text font-mono text-xs font-bold">
               {selectedIndex + 1}/{flatResults.length}
             </span>
           )}

@@ -26,70 +26,72 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
+        // PAPER & STEEL TYPOGRAPHY STACK
         // Authority Font (Serif) - Headers, Case Titles, Legal Citations
-        serif: ['Merriweather', 'Georgia', 'Times New Roman', 'serif'],
-        display: ['Merriweather', 'Georgia', 'Times New Roman', 'serif'],
-        // Utility Font (Sans) - UI Labels, Navigation, Buttons
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Arial', 'sans-serif'],
-        // Data Font (Mono) - Dates, Case Numbers, Statutes
-        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+        heading: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+        serif: ['var(--font-newsreader)', 'Newsreader', 'Georgia', 'Times New Roman', 'serif'],
+        // Data/UI Font - Deadlines, Case Numbers, Tables
+        sans: ['var(--font-space-grotesk)', 'Space Grotesk', 'system-ui', 'sans-serif'],
+        // Precision Font (Mono) - Dates, IDs, Statutes
+        mono: ['var(--font-jetbrains)', 'JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
       },
       colors: {
         // ============================================
-        // THE "PAPER & STEEL" PALETTE
+        // PAPER & STEEL PALETTE (Editorial Legal Utility)
         // ============================================
 
         // The Canvas (Backgrounds)
-        steel: '#F2F2F2',           // App Chrome - Neutral Grey
-        paper: '#FFFCF9',           // Data Surfaces - Warm White
-        canvas: '#ECE9D8',          // Classic Windows warm grey (USER SELECTED)
+        paper: '#FDFBF7',           // Warm paper background
+        surface: '#F5F2EB',         // Card stock surface
+        steel: '#2C3E50',           // Deep charcoal/steel primary
+        wax: '#8B0000',             // Sealing-wax crimson accent
 
         // The Ink (Typography)
         ink: {
-          DEFAULT: '#111111',       // Primary Text - Near Black
-          secondary: '#555555',     // Secondary Text - Graphite
+          DEFAULT: '#1A1A1A',       // Near black - hard borders
+          secondary: '#4A4A4A',     // Secondary text
           muted: '#888888',         // Muted text
         },
 
-        // Accent Colors
-        navy: {
-          DEFAULT: '#0A2540',       // The "Firm" color - Headers/Primary Buttons
-          light: '#1a3a5c',         // Hover state
-          dark: '#061829',          // Active/pressed state
-        },
-        alert: '#B91C1C',           // Critical deadlines - deeply saturated
-        amber: '#D97706',           // Warnings - Court Amber
+        // Deadline Fatality Colors (High Contrast)
+        fatal: '#C0392B',           // Fatal deadlines - dark crimson
+        critical: '#D35400',        // Critical - burnt orange
+        important: '#E67E22',       // Important - orange
+        standard: '#2C3E50',        // Standard - steel
+        informational: '#7F8C8D',   // Info - graphite
 
-        // Status Colors (muted, professional)
+        // Status Colors (Restrained, authoritative)
         status: {
-          critical: '#B91C1C',
-          warning: '#D97706',
-          success: '#15803D',
-          info: '#0A2540',
-          pending: '#6B7280',
+          fatal: '#C0392B',
+          critical: '#D35400',
+          important: '#E67E22',
+          success: '#27AE60',
+          pending: '#7F8C8D',
         },
 
-        // Legacy surface colors (for compatibility)
-        surface: {
-          DEFAULT: '#ECE9D8',
-          light: '#F2F2F2',
-          panel: '#FFFFFF',
-          dark: '#D4D0C8',
+        // Legacy compatibility (minimized)
+        navy: {
+          DEFAULT: '#2C3E50',
+          light: '#34495E',
+          dark: '#1A252F',
         },
+        alert: '#C0392B',
+        amber: '#D35400',
 
-        // Grid colors for data tables
+        // Grid colors for dense data tables
         grid: {
-          line: '#E5E5E5',
-          header: '#F5F5F5',
-          zebra: '#F9FAFB',
+          line: '#1A1A1A',          // Hard black lines
+          header: '#F5F2EB',        // Card stock
+          zebra: '#FDFBF7',         // Paper
+          dark: '#1A1A1A',          // Dark grid background
         },
 
-        // Terminal colors for AI dock
+        // Terminal colors
         terminal: {
-          bg: '#1E1E1E',
-          green: '#10B981',
-          amber: '#F59E0B',
-          text: '#D4D4D4',
+          bg: '#1A1A1A',
+          green: '#27AE60',
+          amber: '#D35400',
+          text: '#F5F2EB',
         },
       },
       spacing: {

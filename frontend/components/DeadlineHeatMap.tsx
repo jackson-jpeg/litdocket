@@ -1,5 +1,16 @@
 'use client';
 
+/**
+ * DEADLINE HEAT MAP V2 - Tactical Grid
+ * Paper & Steel Design System: Dense, authoritative, editorial
+ *
+ * Visual Language:
+ * - gap-px dark container for hard grid lines
+ * - Mono typography for counts (precision)
+ * - Hard borders on hover (instant, no fade)
+ * - High density layout (no wasted space)
+ */
+
 import { AlertTriangle, Clock, Calendar } from 'lucide-react';
 
 interface HeatMapDeadline {
@@ -48,156 +59,168 @@ interface DeadlineHeatMapProps {
 export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHeatMapProps) {
   const { matrix, summary } = heatMapData;
 
+  // Paper & Steel Palette - Restrained, authoritative colors
   const fatalityLevels = [
-    { key: 'fatal', label: 'Fatal', color: 'bg-red-600', textColor: 'text-white' },
-    { key: 'critical', label: 'Critical', color: 'bg-orange-500', textColor: 'text-white' },
-    { key: 'important', label: 'Important', color: 'bg-yellow-500', textColor: 'text-white' },
-    { key: 'standard', label: 'Standard', color: 'bg-blue-500', textColor: 'text-white' },
-    { key: 'informational', label: 'Info', color: 'bg-slate-400', textColor: 'text-white' }
+    { key: 'fatal', label: 'FATAL', bgColor: 'bg-fatal', textColor: 'text-white', borderColor: 'border-fatal' },
+    { key: 'critical', label: 'CRITICAL', bgColor: 'bg-critical', textColor: 'text-white', borderColor: 'border-critical' },
+    { key: 'important', label: 'IMPORTANT', bgColor: 'bg-important', textColor: 'text-white', borderColor: 'border-important' },
+    { key: 'standard', label: 'STANDARD', bgColor: 'bg-steel', textColor: 'text-white', borderColor: 'border-steel' },
+    { key: 'informational', label: 'INFO', bgColor: 'bg-informational', textColor: 'text-white', borderColor: 'border-informational' }
   ];
 
   const urgencyBuckets = [
-    { key: 'today', label: 'Today', icon: AlertTriangle, subtext: '0 days' },
-    { key: '3_day', label: '3-Day', icon: Clock, subtext: '1-3 days' },
-    { key: '7_day', label: '7-Day', icon: Calendar, subtext: '4-7 days' },
-    { key: '30_day', label: '30-Day', icon: Calendar, subtext: '8-30 days' }
+    { key: 'today', label: 'TODAY', subtext: '0d' },
+    { key: '3_day', label: '3-DAY', subtext: '1-3d' },
+    { key: '7_day', label: '7-DAY', subtext: '4-7d' },
+    { key: '30_day', label: '30-DAY', subtext: '8-30d' }
   ];
 
-  const getCellColor = (fatalityKey: string, count: number) => {
-    if (count === 0) return 'bg-slate-50 border-slate-200';
+  const getCellBgColor = (fatalityKey: string, count: number) => {
+    if (count === 0) return 'bg-surface';
 
-    switch (fatalityKey) {
-      case 'fatal':
-        return count > 5 ? 'bg-red-600 border-red-700' : count > 2 ? 'bg-red-500 border-red-600' : 'bg-red-400 border-red-500';
-      case 'critical':
-        return count > 5 ? 'bg-orange-600 border-orange-700' : count > 2 ? 'bg-orange-500 border-orange-600' : 'bg-orange-400 border-orange-500';
-      case 'important':
-        return count > 5 ? 'bg-yellow-600 border-yellow-700' : count > 2 ? 'bg-yellow-500 border-yellow-600' : 'bg-yellow-400 border-yellow-500';
-      case 'standard':
-        return count > 5 ? 'bg-blue-600 border-blue-700' : count > 2 ? 'bg-blue-500 border-blue-600' : 'bg-blue-400 border-blue-500';
-      default:
-        return count > 5 ? 'bg-slate-600 border-slate-700' : count > 2 ? 'bg-slate-500 border-slate-600' : 'bg-slate-400 border-slate-500';
-    }
-  };
+    const intensity = count > 5 ? 'high' : count > 2 ? 'mid' : 'low';
 
-  const getCellTextColor = (count: number) => {
-    return count === 0 ? 'text-slate-400' : 'text-white';
+    const colorMap: Record<string, Record<string, string>> = {
+      fatal: { low: 'bg-fatal/40', mid: 'bg-fatal/70', high: 'bg-fatal' },
+      critical: { low: 'bg-critical/40', mid: 'bg-critical/70', high: 'bg-critical' },
+      important: { low: 'bg-important/40', mid: 'bg-important/70', high: 'bg-important' },
+      standard: { low: 'bg-steel/40', mid: 'bg-steel/70', high: 'bg-steel' },
+      informational: { low: 'bg-informational/40', mid: 'bg-informational/70', high: 'bg-informational' }
+    };
+
+    return colorMap[fatalityKey]?.[intensity] || 'bg-surface';
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-      <div className="p-6 border-b border-slate-200">
-        <div className="flex items-center justify-between">
+    <div className="bg-paper border border-ink">
+      {/* Header - Editorial Authority */}
+      <div className="p-6 border-b border-ink bg-surface">
+        <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              Deadline Heat Map - Visual Triage
+            <h3 className="text-xl font-heading font-bold text-ink flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-fatal" />
+              Deadline Heat Map
             </h3>
-            <p className="text-sm text-slate-600 mt-1">
-              {summary.total_deadlines} deadline{summary.total_deadlines !== 1 ? 's' : ''} in next 30 days
+            <p className="text-sm font-mono text-ink-secondary mt-2">
+              {summary.total_deadlines} deadlines × next 30 days
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Fatality × Urgency Matrix</p>
-            <p className="text-xs text-slate-500">Darker = More Deadlines</p>
+          <div className="text-right font-mono text-xs text-ink-secondary uppercase tracking-wider">
+            <p>Fatality × Urgency</p>
+            <p className="mt-1">Darker = Higher Density</p>
           </div>
         </div>
       </div>
 
+      {/* Tactical Grid - gap-px creates hard 1px grid lines */}
       <div className="p-6 overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="p-3 text-left text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200">
-                Fatality →<br />Urgency ↓
-              </th>
-              {urgencyBuckets.map((bucket) => (
-                <th key={bucket.key} className="p-3 text-center text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 min-w-[140px]">
-                  <div className="flex flex-col items-center gap-1">
-                    <bucket.icon className="w-4 h-4" />
-                    <span className="font-bold">{bucket.label}</span>
-                    <span className="text-slate-500 font-normal">{bucket.subtext}</span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+        <div className="bg-ink p-px">
+          <div className="grid grid-cols-5 gap-px bg-ink">
+            {/* Header Row */}
+            <div className="bg-surface p-4 font-mono text-xs font-bold text-ink-secondary uppercase">
+              Fatality →<br />Urgency ↓
+            </div>
+            {urgencyBuckets.map((bucket) => (
+              <div key={bucket.key} className="bg-surface p-4 text-center font-mono">
+                <div className="text-xs font-bold text-ink uppercase tracking-wide">
+                  {bucket.label}
+                </div>
+                <div className="text-[10px] text-ink-secondary mt-1 uppercase tracking-wider">
+                  {bucket.subtext}
+                </div>
+              </div>
+            ))}
+
+            {/* Data Rows */}
             {fatalityLevels.map((level) => (
-              <tr key={level.key}>
-                <td className={`p-3 text-center font-semibold text-xs ${level.color} ${level.textColor} border border-slate-300`}>
-                  {level.label.toUpperCase()}
-                </td>
+              <React.Fragment key={level.key}>
+                {/* Row Label */}
+                <div className={`${level.bgColor} ${level.textColor} p-4 flex items-center justify-center font-mono text-xs font-bold uppercase tracking-wider`}>
+                  {level.label}
+                </div>
+
+                {/* Cells */}
                 {urgencyBuckets.map((bucket) => {
                   const deadlines = matrix[level.key as keyof HeatMapMatrix][bucket.key as keyof typeof matrix.fatal];
                   const count = deadlines.length;
-                  const cellColor = getCellColor(level.key, count);
-                  const textColor = getCellTextColor(count);
+                  const cellBg = getCellBgColor(level.key, count);
 
                   return (
-                    <td
+                    <div
                       key={bucket.key}
-                      className={`p-3 text-center border border-slate-300 cursor-pointer hover:opacity-80 transition-opacity ${cellColor}`}
+                      className={`${cellBg} p-4 cursor-pointer relative group
+                        transition-transform hover:translate-x-1 hover:translate-y-1
+                        ${count > 0 ? 'hover:border-2 hover:border-ink' : ''}`}
                       title={count > 0 ? `${count} deadline${count !== 1 ? 's' : ''}` : 'No deadlines'}
                     >
-                      <div className="flex flex-col items-center gap-2">
-                        <span className={`text-2xl font-bold ${textColor}`}>
+                      {/* Count - Large, bold, mono */}
+                      <div className="text-center">
+                        <div className={`font-mono text-4xl font-bold ${count === 0 ? 'text-ink-muted' : 'text-white'}`}>
                           {count}
-                        </span>
-                        {count > 0 && (
-                          <div className="w-full max-h-32 overflow-y-auto space-y-1">
-                            {deadlines.slice(0, 3).map((deadline) => (
+                        </div>
+                      </div>
+
+                      {/* Tooltip on hover - appears with hard snap (no fade) */}
+                      {count > 0 && (
+                        <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-10
+                          bg-paper border-2 border-ink p-3 min-w-[280px] max-w-[320px]">
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {deadlines.slice(0, 4).map((deadline) => (
                               <div
                                 key={deadline.id}
-                                className="text-xs bg-white bg-opacity-90 p-2 rounded shadow-sm text-slate-800 text-left hover:bg-opacity-100 transition-all"
-                                onClick={() => onCaseClick?.(deadline.case_id)}
+                                className="text-xs border-b border-ink/20 pb-2 last:border-0
+                                  cursor-pointer hover:translate-x-1 transition-transform"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onCaseClick?.(deadline.case_id);
+                                }}
                               >
-                                <p className="font-semibold truncate" title={deadline.title}>
+                                <p className="font-sans font-semibold text-ink truncate" title={deadline.title}>
                                   {deadline.title}
                                 </p>
-                                <p className="text-slate-600 truncate" title={deadline.case_title}>
+                                <p className="font-mono text-[10px] text-ink-secondary truncate mt-1" title={deadline.case_title}>
                                   {deadline.case_title}
                                 </p>
-                                <p className="text-slate-500 mt-1">
-                                  {deadline.deadline_date} ({deadline.days_until}d)
+                                <p className="font-mono text-[10px] text-ink-muted mt-1">
+                                  {deadline.deadline_date} · {deadline.days_until}d
                                 </p>
                               </div>
                             ))}
-                            {count > 3 && (
-                              <p className="text-xs text-white font-semibold">
-                                +{count - 3} more
+                            {count > 4 && (
+                              <p className="font-mono text-xs text-ink font-bold text-center pt-1">
+                                +{count - 4} MORE
                               </p>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </td>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </tr>
+              </React.Fragment>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="p-6 border-t border-slate-200 bg-slate-50">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-red-600">{summary.by_fatality.fatal}</p>
-            <p className="text-xs text-slate-600 mt-1">Fatal</p>
+      {/* Summary Footer - Dense stat display */}
+      <div className="p-6 border-t border-ink bg-surface">
+        <div className="grid grid-cols-4 gap-4">
+          <div className="text-center border-l-4 border-fatal pl-3">
+            <p className="font-mono text-3xl font-bold text-fatal">{summary.by_fatality.fatal}</p>
+            <p className="font-mono text-xs text-ink-secondary mt-1 uppercase tracking-wide">Fatal</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-orange-600">{summary.by_fatality.critical}</p>
-            <p className="text-xs text-slate-600 mt-1">Critical</p>
+          <div className="text-center border-l-4 border-critical pl-3">
+            <p className="font-mono text-3xl font-bold text-critical">{summary.by_fatality.critical}</p>
+            <p className="font-mono text-xs text-ink-secondary mt-1 uppercase tracking-wide">Critical</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-yellow-600">{summary.by_fatality.important}</p>
-            <p className="text-xs text-slate-600 mt-1">Important</p>
+          <div className="text-center border-l-4 border-important pl-3">
+            <p className="font-mono text-3xl font-bold text-important">{summary.by_fatality.important}</p>
+            <p className="font-mono text-xs text-ink-secondary mt-1 uppercase tracking-wide">Important</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">{summary.by_fatality.standard}</p>
-            <p className="text-xs text-slate-600 mt-1">Standard</p>
+          <div className="text-center border-l-4 border-steel pl-3">
+            <p className="font-mono text-3xl font-bold text-steel">{summary.by_fatality.standard}</p>
+            <p className="font-mono text-xs text-ink-secondary mt-1 uppercase tracking-wide">Standard</p>
           </div>
         </div>
       </div>
