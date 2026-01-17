@@ -1,15 +1,13 @@
 'use client';
 
 /**
- * TriggerAlertBar - Sovereign Design System
+ * TriggerAlertBar - Bloomberg Terminal Design
  *
- * A system alert bar showing pending triggers that need attention.
- * Amber banner style, sits above the main data grid.
- *
- * "⚠️ 1 Trigger Event requires attention: [Trial Date Set] -> [Generate Pretrial Schedule]"
+ * System alert bar with neon accents and glow effects.
+ * Shows trigger status with urgency-based color coding.
  */
 
-import { AlertTriangle, ChevronRight, Plus, Clock } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Plus, Clock, CheckCircle } from 'lucide-react';
 import type { Trigger, Deadline } from '@/hooks/useCaseData';
 
 interface TriggerAlertBarProps {
@@ -25,15 +23,11 @@ export default function TriggerAlertBar({
   onAddTrigger,
   onEditTrigger,
 }: TriggerAlertBarProps) {
-  // Find triggers that need attention (no date set, or have pending deadlines)
+  // Find triggers that need attention
   const pendingTriggers = triggers.filter(t => {
-    // Count deadlines from this trigger
     const relatedDeadlines = deadlines.filter(
       d => d.trigger_event === t.trigger_type
     );
-    const pendingCount = relatedDeadlines.filter(
-      d => d.status !== 'completed' && d.status !== 'cancelled'
-    ).length;
     const overdueCount = relatedDeadlines.filter(d => {
       const isActive = d.status !== 'completed' && d.status !== 'cancelled';
       const isOverdue = d.deadline_date && new Date(d.deadline_date) < new Date(new Date().setHours(0, 0, 0, 0));
@@ -57,18 +51,18 @@ export default function TriggerAlertBar({
   // If no triggers at all, show setup prompt
   if (triggers.length === 0) {
     return (
-      <div className="relative bg-blue-100 border-y-2 border-blue-600 px-4 py-3 mb-4">
+      <div className="panel-glass border-accent-info px-4 py-3 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Clock className="w-5 h-5 text-blue-700" />
-            <span className="text-blue-900 font-medium">
+            <Clock className="w-5 h-5 text-accent-info" />
+            <span className="text-text-primary font-medium">
               No triggers configured. Set a trigger event to generate calculated deadlines.
             </span>
           </div>
           {onAddTrigger && (
             <button
               onClick={onAddTrigger}
-              className="btn btn-primary btn-raised text-sm"
+              className="btn-primary btn-sm"
             >
               <Plus className="w-4 h-4 mr-1" />
               Add Trigger
@@ -79,24 +73,27 @@ export default function TriggerAlertBar({
     );
   }
 
-  // If there are overdue deadlines, show critical alert
+  // If there are overdue deadlines, show critical alert with glow
   if (overdueDeadlines > 0) {
     return (
-      <div className="relative bg-red-100 border-y-2 border-red-600 px-4 py-3 mb-4">
+      <div className="panel-glass glow-critical border-accent-critical px-4 py-3 mb-4 relative">
+        {/* Pulsing LED indicator */}
+        <span className="absolute top-3 right-3 w-2 h-2 bg-accent-critical rounded-full animate-pulse-slow"></span>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-700" />
-            <span className="text-red-900 font-medium">
-              <strong>{overdueDeadlines}</strong> overdue deadline{overdueDeadlines > 1 ? 's' : ''} require immediate attention
+            <AlertTriangle className="w-5 h-5 text-accent-critical" />
+            <span className="text-text-primary font-semibold">
+              <strong className="text-accent-critical">{overdueDeadlines}</strong> overdue deadline{overdueDeadlines > 1 ? 's' : ''} require immediate attention
             </span>
-            <span className="text-red-700 text-sm">
-              ({totalPendingDeadlines} pending total from {totalTriggers} trigger{totalTriggers > 1 ? 's' : ''})
+            <span className="text-text-muted text-sm font-mono">
+              ({totalPendingDeadlines} pending from {totalTriggers} trigger{totalTriggers > 1 ? 's' : ''})
             </span>
           </div>
           {onAddTrigger && (
             <button
               onClick={onAddTrigger}
-              className="btn btn-secondary btn-raised text-sm"
+              className="btn-ghost btn-sm"
             >
               <Plus className="w-4 h-4 mr-1" />
               Add Trigger
@@ -111,16 +108,16 @@ export default function TriggerAlertBar({
   if (pendingTriggers.length > 0) {
     const firstPending = pendingTriggers[0];
     return (
-      <div className="relative bg-amber-100 border-y-2 border-amber-600 px-4 py-3 mb-4">
+      <div className="panel-glass border-accent-warning glow-warning px-4 py-3 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-700" />
-            <span className="text-amber-900 font-medium">
+            <AlertTriangle className="w-5 h-5 text-accent-warning" />
+            <span className="text-text-primary font-medium">
               {pendingTriggers.length} trigger{pendingTriggers.length > 1 ? 's' : ''} require{pendingTriggers.length === 1 ? 's' : ''} attention:
             </span>
             <button
               onClick={() => onEditTrigger?.(firstPending)}
-              className="flex items-center gap-1 text-amber-800 hover:text-amber-900 hover:underline font-medium"
+              className="flex items-center gap-1 text-accent-warning hover:text-accent-warning/80 font-medium"
             >
               [{firstPending.title}]
               <ChevronRight className="w-4 h-4" />
@@ -130,7 +127,7 @@ export default function TriggerAlertBar({
           {onAddTrigger && (
             <button
               onClick={onAddTrigger}
-              className="btn btn-secondary btn-raised text-sm"
+              className="btn-ghost btn-sm"
             >
               <Plus className="w-4 h-4 mr-1" />
               Add Trigger
@@ -141,23 +138,23 @@ export default function TriggerAlertBar({
     );
   }
 
-  // All good - show status bar
+  // All good - show success status
   return (
-    <div className="relative bg-green-100 border-y-2 border-green-600 px-4 py-3 mb-4">
+    <div className="panel-glass border-accent-success px-4 py-3 mb-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-green-700 font-bold">✓</span>
-          <span className="text-green-900 font-medium">
+          <CheckCircle className="w-5 h-5 text-accent-success" />
+          <span className="text-text-primary font-medium">
             {totalTriggers} trigger{totalTriggers > 1 ? 's' : ''} active
           </span>
-          <span className="text-green-700 text-sm">
+          <span className="text-text-muted text-sm font-mono">
             ({totalPendingDeadlines} pending deadline{totalPendingDeadlines !== 1 ? 's' : ''})
           </span>
         </div>
         {onAddTrigger && (
           <button
             onClick={onAddTrigger}
-            className="btn btn-secondary btn-raised text-sm"
+            className="btn-ghost btn-sm"
           >
             <Plus className="w-4 h-4 mr-1" />
             Add Trigger
