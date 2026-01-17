@@ -925,18 +925,20 @@ class DocumentService:
 
     def delete_document(self, document_id: str, user_id: str) -> bool:
         """
-        Delete a document with ghost-safe file deletion.
+        Delete a document with ghost-safe file deletion and explicit dependency cleanup.
 
         "Ghost Documents" are DB records pointing to files that no longer exist
         (e.g., manual deletion, storage migration, or deployment cleanup).
 
         This method handles deletion gracefully:
         1. Fetch document from database
-        2. Try to delete physical file (Firebase or local)
-        3. If file deletion fails (ghost document), log warning and continue
-        4. Always delete database record
+        2. Manually delete embeddings (fixes Foreign Key constraint errors)
+        3. Try to delete physical file (Firebase or local)
+        4. If file deletion fails (ghost document), log warning and continue
+        5. Always delete database record
 
-        This prevents orphaned DB records when files are missing.
+        This prevents orphaned DB records when files are missing and fixes
+        Foreign Key constraint errors when CASCADE doesn't work properly.
 
         Args:
             document_id: Document UUID
@@ -958,7 +960,19 @@ class DocumentService:
             logger.warning(f"Document {document_id} not found for user {user_id}")
             return False
 
-        # 2. Try to delete from Storage (GHOST-SAFE: ignore errors)
+        # 2. CRITICAL FIX: Manually delete embeddings BEFORE deleting document
+        # This fixes Foreign Key constraint errors when CASCADE doesn't work
+        try:
+            from app.models.document_embedding import DocumentEmbedding
+            deleted_embeddings = self.db.query(DocumentEmbedding).filter(
+                DocumentEmbedding.document_id == document_id
+            ).delete(synchronize_session=False)
+            logger.info(f"✓ Deleted {deleted_embeddings} embedding(s) for document {document_id}")
+        except Exception as e:
+            # Non-critical - embeddings might not exist or table might not exist
+            logger.warning(f"Could not clean up embeddings for {document_id}: {e}")
+
+        # 3. Try to delete from Storage (GHOST-SAFE: ignore errors)
         if document.storage_path:
             try:
                 # Check if it's a Firebase Storage path
@@ -983,7 +997,7 @@ class DocumentService:
                 )
                 # DO NOT raise - we still want to delete the DB record
 
-        # 3. Delete from database (cascades to document_tags)
+        # 4. Delete from database (cascades to document_tags)
         try:
             self.db.delete(document)
             self.db.commit()
