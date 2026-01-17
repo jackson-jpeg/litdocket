@@ -273,70 +273,70 @@ export default function CaseRoomPage() {
         onEditTrigger={(trigger) => setEditingTrigger(trigger)}
       />
 
-      {/* 3-Pane Layout */}
+      {/* 3-Pane Layout - Bloomberg Terminal */}
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT PANE: Case Metadata */}
-        <div className="w-64 flex-shrink-0 border-r border-grid-line bg-steel overflow-y-auto">
+        <div className="w-64 flex-shrink-0 border-r border-border-subtle bg-terminal-panel overflow-y-auto scrollbar-dark">
           <div className="p-4">
             {/* Case Number Header */}
-            <div className="panel panel-raised mb-4">
+            <div className="panel mb-4">
               <div className="panel-header">
-                <span className="font-mono text-sm">{caseData.case_number}</span>
+                <span className="font-mono text-sm text-accent-info">{caseData.case_number}</span>
               </div>
-              <div className="panel-body space-y-2">
+              <div className="panel-body space-y-3">
                 {caseData.court && (
                   <div>
-                    <label className="text-xxs text-ink-muted uppercase tracking-wide">Court</label>
-                    <p className="text-sm">{caseData.court}</p>
+                    <label className="text-xxs text-text-muted uppercase tracking-wide">Court</label>
+                    <p className="text-sm text-text-primary font-mono mt-0.5">{caseData.court}</p>
                   </div>
                 )}
                 {caseData.judge && (
                   <div>
-                    <label className="text-xxs text-ink-muted uppercase tracking-wide">Judge</label>
-                    <p className="text-sm">{caseData.judge}</p>
+                    <label className="text-xxs text-text-muted uppercase tracking-wide">Judge</label>
+                    <p className="text-sm text-text-primary mt-0.5">{caseData.judge}</p>
                   </div>
                 )}
                 {caseData.case_type && (
                   <div>
-                    <label className="text-xxs text-ink-muted uppercase tracking-wide">Type</label>
-                    <p className="text-sm capitalize">{caseData.case_type}</p>
+                    <label className="text-xxs text-text-muted uppercase tracking-wide">Type</label>
+                    <p className="text-sm text-text-primary capitalize mt-0.5">{caseData.case_type}</p>
                   </div>
                 )}
                 {caseData.jurisdiction && (
                   <div>
-                    <label className="text-xxs text-ink-muted uppercase tracking-wide">Jurisdiction</label>
-                    <p className="text-sm capitalize">{caseData.jurisdiction}</p>
+                    <label className="text-xxs text-text-muted uppercase tracking-wide">Jurisdiction</label>
+                    <p className="text-sm text-text-primary capitalize mt-0.5">{caseData.jurisdiction}</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Stats - Sovereign Design with border accents */}
+            {/* Stats - Bloomberg Style */}
             <div className="panel mb-4">
               <div className="panel-header text-sm">Statistics</div>
               <div className="panel-body">
                 <div className="grid grid-cols-2 gap-2 text-center">
-                  {/* Overdue - Red left border */}
-                  <div className={`p-2 bg-white border border-gray-200 ${overdueCount > 0 ? 'border-l-4 border-l-red-600' : 'border-l-4 border-l-gray-300'}`}>
-                    <div className={`text-lg font-mono font-bold ${overdueCount > 0 ? 'text-red-600' : 'text-ink'}`}>
+                  {/* Overdue - Red accent */}
+                  <div className={`p-2 bg-terminal-elevated border ${overdueCount > 0 ? 'border-l-4 border-l-accent-critical' : 'border-border-subtle'}`}>
+                    <div className={`text-lg font-mono font-bold ${overdueCount > 0 ? 'text-accent-critical' : 'text-text-primary'}`}>
                       {overdueCount}
                     </div>
-                    <div className="text-xxs text-ink-muted uppercase">Overdue</div>
+                    <div className="text-xxs text-text-muted uppercase">Overdue</div>
                   </div>
-                  {/* Pending - Gray left border */}
-                  <div className="p-2 bg-white border border-gray-200 border-l-4 border-l-gray-600">
-                    <div className="text-lg font-mono font-bold text-ink">{pendingCount}</div>
-                    <div className="text-xxs text-ink-muted uppercase">Pending</div>
+                  {/* Pending - Warning accent */}
+                  <div className="p-2 bg-terminal-elevated border border-border-subtle border-l-4 border-l-accent-warning">
+                    <div className="text-lg font-mono font-bold text-text-primary">{pendingCount}</div>
+                    <div className="text-xxs text-text-muted uppercase">Pending</div>
                   </div>
-                  {/* Triggers - Navy left border */}
-                  <div className="p-2 bg-white border border-gray-200 border-l-4 border-l-navy">
-                    <div className="text-lg font-mono font-bold text-ink">{triggers.length}</div>
-                    <div className="text-xxs text-ink-muted uppercase">Triggers</div>
+                  {/* Triggers - Info accent */}
+                  <div className="p-2 bg-terminal-elevated border border-border-subtle border-l-4 border-l-accent-info">
+                    <div className="text-lg font-mono font-bold text-text-primary">{triggers.length}</div>
+                    <div className="text-xxs text-text-muted uppercase">Triggers</div>
                   </div>
-                  {/* Documents - Gray left border */}
-                  <div className="p-2 bg-white border border-gray-200 border-l-4 border-l-gray-400">
-                    <div className="text-lg font-mono font-bold text-ink">{documents.length}</div>
-                    <div className="text-xxs text-ink-muted uppercase">Documents</div>
+                  {/* Documents - Purple accent */}
+                  <div className="p-2 bg-terminal-elevated border border-border-subtle border-l-4 border-l-accent-purple">
+                    <div className="text-lg font-mono font-bold text-text-primary">{documents.length}</div>
+                    <div className="text-xxs text-text-muted uppercase">Documents</div>
                   </div>
                 </div>
               </div>
@@ -353,18 +353,18 @@ export default function CaseRoomPage() {
                   + Add
                 </button>
               </div>
-              <div className="divide-y divide-grid-line">
+              <div className="divide-y divide-border-subtle">
                 {triggers.length === 0 ? (
-                  <div className="p-3 text-center text-ink-muted text-xs">No triggers</div>
+                  <div className="p-3 text-center text-text-muted text-xs">No triggers</div>
                 ) : (
                   triggers.map(trigger => (
                     <button
                       key={trigger.id}
                       onClick={() => setEditingTrigger(trigger)}
-                      className="w-full p-2 text-left hover:bg-canvas transition-colors"
+                      className="w-full p-2 text-left hover:bg-terminal-elevated transition-colors"
                     >
-                      <div className="text-sm font-medium truncate">{trigger.title}</div>
-                      <div className="text-xs text-ink-muted font-mono">
+                      <div className="text-sm font-medium truncate text-text-primary">{trigger.title}</div>
+                      <div className="text-xs text-text-muted font-mono">
                         {trigger.trigger_date ? formatDeadlineDate(trigger.trigger_date) : 'No date'}
                       </div>
                     </button>
@@ -377,11 +377,11 @@ export default function CaseRoomPage() {
             {caseData.parties && caseData.parties.length > 0 && (
               <div className="panel mt-4">
                 <div className="panel-header text-sm">Parties</div>
-                <div className="divide-y divide-grid-line">
+                <div className="divide-y divide-border-subtle">
                   {caseData.parties.map((party, idx) => (
                     <div key={idx} className="p-2">
-                      <div className="text-xxs text-ink-muted uppercase">{party.role}</div>
-                      <div className="text-sm truncate">{party.name}</div>
+                      <div className="text-xxs text-text-muted uppercase">{party.role}</div>
+                      <div className="text-sm truncate text-text-primary">{party.name}</div>
                     </div>
                   ))}
                 </div>
@@ -391,7 +391,7 @@ export default function CaseRoomPage() {
         </div>
 
         {/* CENTER PANE: Deadline List Panel */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-canvas p-4">
+        <div className="flex-1 flex flex-col overflow-hidden bg-terminal-bg p-4">
           <DeadlineListPanel
             deadlines={deadlines}
             triggers={triggers}
@@ -407,64 +407,64 @@ export default function CaseRoomPage() {
           />
         </div>
 
-        {/* RIGHT PANE: Documents */}
-        <div className={`${rightPaneCollapsed ? 'w-8' : 'w-72'} flex-shrink-0 border-l border-grid-line bg-steel overflow-hidden transition-all`}>
+        {/* RIGHT PANE: Documents - Bloomberg Terminal */}
+        <div className={`${rightPaneCollapsed ? 'w-8' : 'w-72'} flex-shrink-0 border-l border-border-subtle bg-terminal-panel overflow-hidden transition-all`}>
           {rightPaneCollapsed ? (
             <button
               onClick={() => setRightPaneCollapsed(false)}
-              className="w-full h-full flex items-center justify-center text-ink-muted hover:bg-canvas"
+              className="w-full h-full flex items-center justify-center text-text-muted hover:bg-terminal-elevated"
               title="Expand Documents"
             >
               <FileText className="w-4 h-4" />
             </button>
           ) : (
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-grid-line bg-grid-header">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-terminal-surface">
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-ink-secondary" />
-                  <span className="font-serif font-bold text-sm">Documents</span>
+                  <FileText className="w-4 h-4 text-accent-purple" />
+                  <span className="font-semibold text-sm text-text-primary">Documents</span>
                   <span className="badge badge-neutral text-xs">{documents.length}</span>
                 </div>
                 <button
                   onClick={() => setRightPaneCollapsed(true)}
-                  className="text-ink-muted hover:text-ink text-xs"
+                  className="text-text-muted hover:text-text-primary text-xs"
                 >
                   ✕
                 </button>
               </div>
 
               {/* Upload Button */}
-              <div className="px-3 py-2 border-b border-grid-line">
+              <div className="px-3 py-2 border-b border-border-subtle">
                 <button
                   onClick={() => setShowUploadDialog(true)}
-                  className="w-full px-3 py-2 bg-navy text-white rounded hover:bg-navy/90 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                  className="btn-primary w-full flex items-center justify-center gap-2"
                 >
                   <Upload className="w-4 h-4" />
                   <span>Add Document</span>
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-dark">
                 {documents.length === 0 ? (
                   <div className="p-4 text-center">
-                    <Upload className="w-8 h-8 text-ink-muted mx-auto mb-2" />
-                    <p className="text-xs text-ink-muted">No documents uploaded yet</p>
+                    <Upload className="w-8 h-8 text-text-muted mx-auto mb-2" />
+                    <p className="text-xs text-text-muted">No documents uploaded yet</p>
                     <button
                       onClick={() => setShowUploadDialog(true)}
-                      className="mt-2 text-xs text-navy hover:underline"
+                      className="mt-2 text-xs text-accent-info hover:text-accent-info/80"
                     >
                       Upload your first document
                     </button>
                   </div>
                 ) : (
-                  <div className="divide-y divide-grid-line">
+                  <div className="divide-y divide-border-subtle">
                     {documents.map(doc => (
                       <div
                         key={doc.id}
                         className={`group relative transition-colors ${
                           doc.storage_url
-                            ? 'hover:bg-canvas'
-                            : 'bg-canvas/50'
+                            ? 'hover:bg-terminal-elevated'
+                            : 'bg-terminal-elevated/50'
                         }`}
                       >
                         <button
@@ -473,28 +473,28 @@ export default function CaseRoomPage() {
                           disabled={!doc.storage_url}
                           title={!doc.storage_url ? 'This document is not available for viewing' : 'Click to view document'}
                         >
-                          <FileText className={`w-4 h-4 flex-shrink-0 mt-0.5 ${doc.storage_url ? 'text-navy' : 'text-ink-muted'}`} />
+                          <FileText className={`w-4 h-4 flex-shrink-0 mt-0.5 ${doc.storage_url ? 'text-accent-purple' : 'text-text-muted'}`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{doc.file_name}</p>
+                            <p className="text-sm font-medium truncate text-text-primary">{doc.file_name}</p>
                             <div className="flex gap-1 mt-1 flex-wrap">
                               {doc.document_type && (
-                                <span className="badge badge-info text-xxs">{doc.document_type}</span>
+                                <span className="badge-info text-xxs">{doc.document_type}</span>
                               )}
                               {doc.needs_ocr && (
-                                <span className="badge bg-amber-100 text-amber-800 text-xxs" title="This document appears to be scanned. Text extraction may be incomplete.">
-                                  ⚠️ Needs OCR
+                                <span className="badge-warning text-xxs" title="This document appears to be scanned. Text extraction may be incomplete.">
+                                  ⚠️ OCR
                                 </span>
                               )}
                             </div>
                             {!doc.storage_url && (
-                              <p className="text-xxs text-red-600 mt-1">⚠ File unavailable</p>
+                              <p className="text-xxs text-accent-critical mt-1">⚠ File unavailable</p>
                             )}
-                            <p className="text-xxs text-ink-muted mt-1">
+                            <p className="text-xxs text-text-muted mt-1 font-mono">
                               {formatDateTime(doc.created_at)}
                             </p>
                           </div>
                           {doc.storage_url && (
-                            <Eye className="w-4 h-4 text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                            <Eye className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                           )}
                         </button>
 
@@ -503,8 +503,8 @@ export default function CaseRoomPage() {
                           onClick={(e) => handleDocumentDelete(doc, e)}
                           className={`absolute right-2 top-3 p-1.5 rounded transition-all ${
                             doc.storage_url
-                              ? 'opacity-0 group-hover:opacity-100 hover:bg-red-100 text-ink-muted hover:text-red-600'
-                              : 'opacity-100 hover:bg-red-100 text-red-600'
+                              ? 'opacity-0 group-hover:opacity-100 hover:bg-accent-critical/10 text-text-muted hover:text-accent-critical'
+                              : 'opacity-100 hover:bg-accent-critical/10 text-accent-critical'
                           }`}
                           title="Delete document"
                         >
