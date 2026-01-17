@@ -66,6 +66,24 @@ export default function CaseRoomPage() {
     showSuccess('Trigger created successfully');
   };
 
+  const handleDocumentClick = (doc: Document) => {
+    console.log('[CaseRoom] Document clicked:', {
+      id: doc.id,
+      file_name: doc.file_name,
+      storage_url: doc.storage_url,
+      document_type: doc.document_type
+    });
+
+    if (!doc.storage_url) {
+      console.error('[CaseRoom] Document has no storage_url:', doc);
+      showError('This document cannot be opened. The file may not be available on the server.');
+      return;
+    }
+
+    // Set the viewing document - this will open the viewer
+    setViewingDocument(doc);
+  };
+
   const handleComplete = async (id: string) => {
     try {
       optimistic.updateDeadlineStatus(id, 'completed');
@@ -346,21 +364,32 @@ export default function CaseRoomPage() {
                     {documents.map(doc => (
                       <button
                         key={doc.id}
-                        onClick={() => setViewingDocument(doc)}
-                        className="w-full p-3 text-left hover:bg-canvas transition-colors group"
+                        onClick={() => handleDocumentClick(doc)}
+                        className={`w-full p-3 text-left transition-colors group ${
+                          doc.storage_url
+                            ? 'hover:bg-canvas cursor-pointer'
+                            : 'opacity-50 cursor-not-allowed bg-canvas/50'
+                        }`}
+                        disabled={!doc.storage_url}
+                        title={!doc.storage_url ? 'This document is not available for viewing' : 'Click to view document'}
                       >
                         <div className="flex items-start gap-2">
-                          <FileText className="w-4 h-4 text-navy flex-shrink-0 mt-0.5" />
+                          <FileText className={`w-4 h-4 flex-shrink-0 mt-0.5 ${doc.storage_url ? 'text-navy' : 'text-ink-muted'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{doc.file_name}</p>
                             {doc.document_type && (
                               <span className="badge badge-info text-xxs mt-1">{doc.document_type}</span>
                             )}
+                            {!doc.storage_url && (
+                              <p className="text-xxs text-red-600 mt-1">⚠ File unavailable</p>
+                            )}
                             <p className="text-xxs text-ink-muted mt-1">
                               {formatDateTime(doc.created_at)}
                             </p>
                           </div>
-                          <Eye className="w-4 h-4 text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                          {doc.storage_url && (
+                            <Eye className="w-4 h-4 text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
                         </div>
                       </button>
                     ))}

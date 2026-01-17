@@ -33,15 +33,24 @@ export default function DocumentViewer({
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log('[DocumentViewer] PDF loaded successfully:', { numPages, documentUrl });
     setNumPages(numPages);
     setLoading(false);
+    setError(null);
   };
 
   const onDocumentLoadError = (error: Error) => {
-    console.error('Error loading PDF:', error);
+    console.error('[DocumentViewer] Error loading PDF:', {
+      error,
+      message: error.message,
+      documentUrl,
+      workerSrc: pdfjs.GlobalWorkerOptions.workerSrc
+    });
     setLoading(false);
+    setError(error.message || 'Failed to load PDF document');
   };
 
   const changePage = (offset: number) => {
@@ -119,28 +128,50 @@ export default function DocumentViewer({
 
         {/* PDF Viewer */}
         <div className="flex-1 overflow-auto bg-slate-100 flex items-center justify-center p-4">
-          {loading && (
+          {loading && !error && (
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-slate-600">Loading PDF...</p>
             </div>
           )}
 
-          <Document
-            file={documentUrl}
-            onLoadSuccess={onDocumentLoadSuccess}
-            onLoadError={onDocumentLoadError}
-            loading=""
-            className="flex justify-center"
-          >
-            <Page
-              pageNumber={pageNumber}
-              scale={scale}
-              className="shadow-lg"
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-            />
-          </Document>
+          {error && (
+            <div className="text-center max-w-md">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                <div className="text-red-600 mb-2">
+                  <svg className="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-red-800 mb-2">Failed to Load PDF</h3>
+                <p className="text-sm text-red-700 mb-4">{error}</p>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!error && (
+            <Document
+              file={documentUrl}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
+              loading=""
+              className="flex justify-center"
+            >
+              <Page
+                pageNumber={pageNumber}
+                scale={scale}
+                className="shadow-lg"
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+              />
+            </Document>
+          )}
         </div>
 
         {/* Navigation Footer */}

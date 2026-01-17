@@ -162,22 +162,29 @@ def get_case_documents(
     from app.services.firebase_service import firebase_service
 
     def get_document_url(doc):
-        """Get download URL for document, handling both Firebase and local storage"""
+        """
+        Get download URL for document, handling both Firebase and local storage.
+
+        Returns:
+        - Firebase Storage: Signed URL (https://...)
+        - Local Storage: API endpoint URL (/api/v1/documents/{id}/download)
+        """
         if not doc.storage_path:
             return None
 
         # Check if this is a Firebase Storage path (starts with 'documents/')
         # vs a local file path (starts with '/' or '/tmp/')
         if doc.storage_path.startswith('documents/'):
+            # Firebase Storage - return signed URL
             try:
                 return firebase_service.get_download_url(doc.storage_path)
             except Exception as e:
                 logger.warning(f"Failed to generate Firebase URL for {doc.storage_path}: {e}")
                 return None
         else:
-            # Local files: return None or implement local file serving endpoint
-            # For now, return None to prevent 500 errors
-            return None
+            # Local file storage - return API download endpoint
+            # The /download endpoint verifies ownership and serves the file
+            return f"/api/v1/documents/{doc.id}/download"
 
     return [
         {

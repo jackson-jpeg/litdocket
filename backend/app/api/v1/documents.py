@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form, Query, Request
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, List
@@ -231,6 +232,64 @@ async def get_document(
         'created_at': document.created_at.isoformat(),
         'tags': [{'id': t.id, 'name': t.name, 'color': t.color} for t in doc_tags]
     }
+
+
+@router.get("/{document_id}/download")
+async def download_document(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Download/serve document file.
+
+    Handles both Firebase Storage and local file storage:
+    - Firebase Storage: Returns redirect to signed URL
+    - Local Storage: Serves file directly with FileResponse
+
+    SECURITY: Always verifies document ownership before serving.
+    """
+    from app.models.document import Document
+    from app.services.firebase_service import firebase_service
+    from fastapi.responses import RedirectResponse
+
+    # CRITICAL: Verify ownership before serving file
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)  # OWNERSHIP CHECK
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.storage_path:
+        raise HTTPException(status_code=404, detail="Document file not found")
+
+    # Check storage type
+    if document.storage_path.startswith('documents/'):
+        # Firebase Storage - redirect to signed URL
+        try:
+            signed_url = firebase_service.get_download_url(document.storage_path)
+            return RedirectResponse(url=signed_url, status_code=302)
+        except Exception as e:
+            logger.error(f"Failed to generate Firebase signed URL for {document_id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate download URL")
+    else:
+        # Local file storage - serve directly
+        if not os.path.exists(document.storage_path):
+            logger.error(f"Local file not found: {document.storage_path}")
+            raise HTTPException(status_code=404, detail="Document file not found on server")
+
+        # Serve file with proper content type
+        return FileResponse(
+            path=document.storage_path,
+            media_type='application/pdf',
+            filename=document.file_name,
+            headers={
+                'Content-Disposition': f'inline; filename="{document.file_name}"',
+                'Cache-Control': 'private, max-age=3600'
+            }
+        )
 
 
 # ===================
