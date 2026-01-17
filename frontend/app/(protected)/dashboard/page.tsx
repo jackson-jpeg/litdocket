@@ -226,9 +226,9 @@ export default function DashboardPage() {
         {dashboardData && dashboardData.case_statistics.total_cases === 0 ? (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <Scale className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-slate-800 mb-2">Welcome to DocketAssist</h2>
-              <p className="text-slate-600">
+              <Scale className="w-16 h-16 text-accent-info mx-auto mb-4" />
+              <h2 className="text-3xl font-bold text-text-primary mb-2">Welcome to LitDocket</h2>
+              <p className="text-text-secondary">
                 Get started by uploading your first court document. We'll analyze it and extract deadlines automatically.
               </p>
             </div>
