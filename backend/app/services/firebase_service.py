@@ -196,6 +196,10 @@ class FirebaseService:
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         storage_path = f"documents/{user_id}/{timestamp}_{file_name}"
 
+        # SECURITY FIX: Strip leading slashes to prevent double-slash in signed URL
+        # (e.g., /tmp/path would become //tmp/path in bucket URL, breaking signature)
+        storage_path = storage_path.lstrip("/")
+
         # Upload to Cloud Storage
         blob = self.bucket.blob(storage_path)
         blob.upload_from_string(pdf_bytes, content_type='application/pdf')
@@ -212,11 +216,20 @@ class FirebaseService:
     def get_download_url(self, storage_path: str, expiration_days: int = 7) -> str:
         """Get a signed download URL for a file"""
         from datetime import timedelta
+
+        # CRITICAL FIX: Strip leading slashes to prevent SignatureDoesNotMatch error
+        # When storage_path starts with '/', it creates '/bucket//path' in the signed URL,
+        # which invalidates the cryptographic signature
+        storage_path = storage_path.lstrip("/")
+
         blob = self.bucket.blob(storage_path)
         return blob.generate_signed_url(expiration=timedelta(days=expiration_days))
 
     def delete_file(self, storage_path: str):
         """Delete a file from Storage"""
+        # Strip leading slashes for consistency
+        storage_path = storage_path.lstrip("/")
+
         blob = self.bucket.blob(storage_path)
         blob.delete()
 
