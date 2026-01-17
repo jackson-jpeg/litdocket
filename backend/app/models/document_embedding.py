@@ -65,7 +65,8 @@ class DocumentEmbedding(Base):
     # Chunking information
     chunk_text = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)  # Position in document
-    chunk_page = Column(Integer)  # Which page this chunk came from
+    # chunk_page = Column(Integer)  # REMOVED: Column doesn't exist in production DB
+    # Page numbers now stored in chunk_metadata JSON: {"page": 3, ...}
 
     # Embedding vector - pgvector Vector or JSON depending on environment
     # pgvector: Uses Vector(1536) with HNSW index for O(log n) similarity search
