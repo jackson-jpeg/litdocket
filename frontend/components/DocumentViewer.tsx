@@ -6,16 +6,15 @@ import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-
 
 // ============================================================================
 // PDF.js Worker Configuration
-// SECURITY FIX: Load worker from local node_modules instead of unpkg.com CDN
+// CRITICAL FIX: Use worker file from public directory
+// Previous issue: import.meta.url doesn't work in Next.js production builds
+// Solution: Worker file copied to public/pdf-worker/ and served statically
 // This fixes:
-//   1. CORS blocking issues (Issue #30)
-//   2. Safari URL.parse crash (Issue #31) - local worker doesn't use URL.parse
-//   3. Security: no external CDN dependency
+//   1. "Can't find variable: exports" error (module format mismatch)
+//   2. CORS blocking issues (local file, no CDN)
+//   3. Next.js build compatibility (static asset serving)
 // ============================================================================
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url
-).toString();
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.mjs';
 
 interface DocumentViewerProps {
   isOpen: boolean;
