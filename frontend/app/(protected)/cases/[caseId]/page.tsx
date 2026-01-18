@@ -480,11 +480,6 @@ export default function CaseRoomPage() {
                               {doc.document_type && (
                                 <span className="badge-info text-xxs">{doc.document_type}</span>
                               )}
-                              {doc.needs_ocr && (
-                                <span className="badge-warning text-xxs" title="This document appears to be scanned. Text extraction may be incomplete.">
-                                  ⚠️ OCR
-                                </span>
-                              )}
                             </div>
                             {!doc.storage_url && (
                               <p className="text-xxs text-accent-critical mt-1">⚠ File unavailable</p>
