@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Query
+from fastapi import Depends, HTTPException, status, Query, Header
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -127,7 +127,7 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 
 def get_current_user_from_query(
-    token: str = Query(..., description="JWT access token"),
+    token: str = Query(..., description="JWT access token for SSE"),
     db: Session = Depends(get_db)
 ) -> User:
     """
@@ -150,19 +150,31 @@ def get_current_user_from_query(
     Raises:
         HTTPException: If token is invalid or user not found
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Could not validate credentials. SSE requires token in query param.",
     )
+
+    if not token:
+        logger.error("[SSE Auth] No token provided in query parameter")
+        raise credentials_exception
+
+    logger.info(f"[SSE Auth] Attempting to validate token (length: {len(token)})")
 
     # Decode token
     user_id = decode_access_token(token)
     if user_id is None:
+        logger.error("[SSE Auth] Token decode failed - invalid or expired")
         raise credentials_exception
 
     # Get user from database
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
+        logger.error(f"[SSE Auth] User {user_id} not found in database")
         raise credentials_exception
 
+    logger.info(f"[SSE Auth] Successfully authenticated user {user_id}")
     return user

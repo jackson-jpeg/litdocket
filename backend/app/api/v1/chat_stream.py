@@ -75,8 +75,8 @@ async def stream_chat(
         - done: {"status": "completed", "message_id": "...", "tokens_used": 1234}
     """
     logger.info(
-        f"SSE stream request from user {current_user.id} "
-        f"for case {case_id}, session {session_id}"
+        f"[SSE] Stream request from user {current_user.id} "
+        f"for case {case_id}, session {session_id}, message: {message[:50]}..."
     )
 
     # Verify case ownership
