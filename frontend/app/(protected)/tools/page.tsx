@@ -10,6 +10,7 @@
  * - Uppercase tracking headers
  */
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Calculator,
@@ -23,6 +24,9 @@ import {
   ArrowRight,
   Lock,
   Wrench,
+  Info,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 interface Tool {
@@ -33,6 +37,8 @@ interface Tool {
   href: string;
   status: 'active' | 'beta' | 'coming_soon';
   category: 'calculation' | 'navigation' | 'analysis' | 'export';
+  shortcut?: string;
+  docsLink?: string;
 }
 
 const TOOLS: Tool[] = [
@@ -44,6 +50,8 @@ const TOOLS: Tool[] = [
     href: '/tools/deadline-calculator',
     status: 'active',
     category: 'calculation',
+    shortcut: 'Alt+C',
+    docsLink: '/docs/tools/deadline-calculator',
   },
   {
     id: 'jurisdiction-selector',
@@ -53,6 +61,8 @@ const TOOLS: Tool[] = [
     href: '/tools/jurisdiction-selector',
     status: 'active',
     category: 'navigation',
+    shortcut: 'Alt+J',
+    docsLink: '/docs/tools/jurisdiction-selector',
   },
   {
     id: 'rule-graph',
@@ -62,6 +72,7 @@ const TOOLS: Tool[] = [
     href: '/tools/rule-graph',
     status: 'coming_soon',
     category: 'navigation',
+    docsLink: '/docs/tools/rule-graph',
   },
   {
     id: 'calendar-export',
@@ -71,6 +82,7 @@ const TOOLS: Tool[] = [
     href: '/tools/calendar-export',
     status: 'coming_soon',
     category: 'export',
+    docsLink: '/docs/tools/calendar-export',
   },
   {
     id: 'document-analyzer',
@@ -80,6 +92,8 @@ const TOOLS: Tool[] = [
     href: '/tools/document-analyzer',
     status: 'beta',
     category: 'analysis',
+    shortcut: 'Alt+D',
+    docsLink: '/docs/tools/document-analyzer',
   },
   {
     id: 'statute-lookup',
@@ -89,6 +103,7 @@ const TOOLS: Tool[] = [
     href: '/tools/statute-lookup',
     status: 'coming_soon',
     category: 'analysis',
+    docsLink: '/docs/tools/statute-lookup',
   },
   {
     id: 'time-calculator',
@@ -98,6 +113,7 @@ const TOOLS: Tool[] = [
     href: '/tools/time-calculator',
     status: 'coming_soon',
     category: 'calculation',
+    docsLink: '/docs/tools/time-calculator',
   },
   {
     id: 'batch-import',
@@ -107,6 +123,7 @@ const TOOLS: Tool[] = [
     href: '/tools/batch-import',
     status: 'coming_soon',
     category: 'export',
+    docsLink: '/docs/tools/batch-import',
   },
 ];
 
@@ -126,6 +143,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export default function ToolsHubPage() {
   const router = useRouter();
+  const [comingSoonExpanded, setComingSoonExpanded] = useState(false);
 
   const getStatusBadge = (status: Tool['status']) => {
     switch (status) {
@@ -200,24 +218,31 @@ export default function ToolsHubPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Quick Access - Active Tools */}
+        {/* Quick Access - Active/Beta Tools */}
         <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="w-4 h-4 text-green-600" />
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Access</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {TOOLS.filter(t => t.status === 'active').map((tool) => (
+            {TOOLS.filter(t => t.status !== 'coming_soon').map((tool) => (
               <button
                 key={tool.id}
                 onClick={() => handleToolClick(tool)}
-                className="group bg-white border border-slate-200 hover:border-slate-400 hover:shadow-md p-6 text-left transition-all rounded-xl"
+                className="group bg-white border border-slate-200 hover:border-slate-400 hover:shadow-lg p-6 text-left transition-all duration-200 rounded-xl hover:-translate-y-1 hover:scale-[1.02] focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
                     {tool.icon}
                   </div>
-                  {getStatusBadge(tool.status)}
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(tool.status)}
+                    {tool.shortcut && (
+                      <kbd className="px-2 py-1 bg-slate-200 text-slate-700 text-xs font-mono rounded border border-slate-300">
+                        {tool.shortcut}
+                      </kbd>
+                    )}
+                  </div>
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2 group-hover:text-blue-700 transition-colors">
                   {tool.name}
@@ -225,61 +250,138 @@ export default function ToolsHubPage() {
                 <p className="text-sm text-slate-500 mb-4">
                   {tool.description}
                 </p>
-                <div className="flex items-center gap-2 text-blue-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Launch Tool</span>
-                  <ArrowRight className="w-4 h-4" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span>Launch Tool</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                  {tool.docsLink && (
+                    <a
+                      href={tool.docsLink}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        alert(`Documentation: ${tool.name}\n\nDocs will be available soon at: ${tool.docsLink}`);
+                      }}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Info className="w-3 h-3" />
+                      <span>Learn more</span>
+                    </a>
+                  )}
                 </div>
               </button>
             ))}
           </div>
         </section>
 
-        {/* All Tools by Category */}
-        {Object.entries(toolsByCategory).map(([category, tools]) => (
-          <section key={category} className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-slate-400">{CATEGORY_ICONS[category]}</span>
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                {CATEGORY_LABELS[category]}
-              </h2>
-              <div className="flex-1 h-px bg-slate-200" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {tools.map((tool) => (
-                <button
+        {/* All Tools by Category (excluding coming soon) */}
+        {Object.entries(toolsByCategory).map(([category, tools]) => {
+          const activeTools = tools.filter(t => t.status !== 'coming_soon');
+          if (activeTools.length === 0) return null;
+
+          return (
+            <section key={category} className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-slate-400">{CATEGORY_ICONS[category]}</span>
+                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  {CATEGORY_LABELS[category]}
+                </h2>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {activeTools.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => handleToolClick(tool)}
+                    className="group p-4 text-left border bg-white border-slate-200 rounded-lg transition-all duration-200 hover:border-slate-400 hover:shadow-md hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-slate-600">
+                        {tool.icon}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {tool.status === 'beta' && (
+                          <span className="text-xs font-mono text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">BETA</span>
+                        )}
+                        {tool.shortcut && (
+                          <kbd className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-xs font-mono rounded border border-slate-200">
+                            {tool.shortcut}
+                          </kbd>
+                        )}
+                      </div>
+                    </div>
+                    <h3 className="text-sm font-medium mb-1 text-slate-900 group-hover:text-blue-700 transition-colors">
+                      {tool.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-2">
+                      {tool.description}
+                    </p>
+                    {tool.docsLink && (
+                      <a
+                        href={tool.docsLink}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          alert(`Documentation: ${tool.name}\n\nDocs will be available soon at: ${tool.docsLink}`);
+                        }}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Info className="w-3 h-3" />
+                        <span>Learn more</span>
+                      </a>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
+        {/* Coming Soon Section - Collapsed by default */}
+        <section className="mb-8">
+          <button
+            onClick={() => setComingSoonExpanded(!comingSoonExpanded)}
+            className="w-full flex items-center gap-2 mb-4 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+          >
+            {comingSoonExpanded ? (
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            )}
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Coming Soon ({TOOLS.filter(t => t.status === 'coming_soon').length} tools)
+            </h2>
+            <div className="flex-1 h-px bg-slate-200" />
+          </button>
+          {comingSoonExpanded && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 opacity-60">
+              {TOOLS.filter(t => t.status === 'coming_soon').map((tool) => (
+                <div
                   key={tool.id}
-                  onClick={() => handleToolClick(tool)}
-                  disabled={tool.status === 'coming_soon'}
-                  className={`group p-4 text-left border rounded-lg transition-all ${
-                    tool.status === 'coming_soon'
-                      ? 'bg-slate-50 border-slate-200 cursor-not-allowed opacity-60'
-                      : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-sm'
-                  }`}
+                  className="group p-4 text-left border bg-slate-50 border-slate-200 rounded-lg cursor-not-allowed"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className={`${tool.status === 'coming_soon' ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <div className="text-slate-400">
                       {tool.icon}
                     </div>
-                    {tool.status === 'coming_soon' && (
-                      <Lock className="w-3 h-3 text-slate-400" />
-                    )}
-                    {tool.status === 'beta' && (
-                      <span className="text-xs font-mono text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">BETA</span>
-                    )}
+                    <Lock className="w-3 h-3 text-slate-400" />
                   </div>
-                  <h3 className={`text-sm font-medium mb-1 ${
-                    tool.status === 'coming_soon' ? 'text-slate-500' : 'text-slate-900'
-                  }`}>
+                  <h3 className="text-sm font-medium mb-1 text-slate-500">
                     {tool.name}
                   </h3>
-                  <p className="text-xs text-slate-500 line-clamp-2">
+                  <p className="text-xs text-slate-500 line-clamp-2 mb-2">
                     {tool.description}
                   </p>
-                </button>
+                  {tool.docsLink && (
+                    <div className="flex items-center gap-1 text-xs text-slate-400">
+                      <Info className="w-3 h-3" />
+                      <span>Docs coming soon</span>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
-          </section>
-        ))}
+          )}
+        </section>
 
         {/* Footer Stats */}
         <footer className="mt-12 pt-8 border-t border-slate-200">
