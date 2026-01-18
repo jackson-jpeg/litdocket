@@ -123,9 +123,12 @@ async def stream_chat(
 
         try:
             # Send immediate status event to establish connection
-            logger.info(f"[SSE] Sending initial connection event for session {session_id}")
+            logger.info(f"[SSE] About to yield initial connection event for session {session_id}")
             yield f'event: status\ndata: {{"status": "connected", "message": "Stream established"}}\n\n'
+            logger.info(f"[SSE] Initial connection event yielded for session {session_id}")
 
+            logger.info(f"[SSE] Starting message stream for session {session_id}")
+            event_count = 0
             async for sse_event in streaming_chat_service.stream_message(
                 user_message=message,
                 case_id=case_id,
@@ -133,14 +136,16 @@ async def stream_chat(
                 session_id=session_id,
                 db=db
             ):
+                event_count += 1
+                logger.info(f"[SSE] Yielding event #{event_count} for session {session_id}")
                 yield sse_event.to_sse_format()
 
-            logger.info(f"[SSE] Stream completed successfully for session {session_id}")
+            logger.info(f"[SSE] Stream completed successfully for session {session_id}. Total events: {event_count}")
 
         except Exception as e:
             logger.error(f"[SSE] Streaming error for session {session_id}: {e}", exc_info=True)
             # Send error event
-            yield f'event: error\ndata: {{"error": "Stream error", "code": "STREAM_ERROR"}}\n\n'
+            yield f'event: error\ndata: {{"error": "Stream error", "code": "STREAM_ERROR", "detail": "{str(e)}"}}\n\n'
 
     # Get the origin from the request to set CORS headers dynamically
     origin = request.headers.get("origin", "")
