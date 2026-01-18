@@ -62,6 +62,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const maxReconnectAttempts = 3;
   const receivedDataRef = useRef(false);  // Track if we received any data
+  const streamCompletedRef = useRef(false);  // Track if stream completed successfully
 
   // Cleanup on unmount
   useEffect(() => {
@@ -85,9 +86,10 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
     // Generate unique session ID
     const sessionId = uuidv4();
 
-    // Reset message buffer and data flag
+    // Reset message buffer and flags
     setCurrentMessage('');
     receivedDataRef.current = false;
+    streamCompletedRef.current = false;
 
     // Set connecting state
     setStreamState({ type: 'connecting', sessionId });
@@ -224,18 +226,18 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       eventSource.addEventListener('done', (e) => {
         const data = JSON.parse(e.data);
 
+        // CRITICAL: Set completion flag FIRST to prevent onerror race
+        streamCompletedRef.current = true;
+
         if (onDone) {
           onDone(data);
         }
 
-        // Mark stream as completed before closing
-        receivedDataRef.current = true;
-
-        // Return to idle BEFORE closing to prevent onerror race
+        // Return to idle
         setStreamState({ type: 'idle' });
         setReconnectAttempts(0);
 
-        // Close connection (this will trigger onerror but we'll ignore it)
+        // Close connection (will trigger onerror but streamCompletedRef prevents error)
         eventSource.close();
         eventSourceRef.current = null;
       });
@@ -248,17 +250,17 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
       // Handle connection errors (EventSource standard error event)
       eventSource.onerror = (e) => {
-        console.log('[SSE] onerror fired. ReadyState:', eventSource.readyState, 'StreamState:', streamState.type);
-
-        // If we're already idle, the stream completed successfully - ignore this error
-        if (streamState.type === 'idle') {
-          console.log('[SSE] Ignoring onerror - stream already completed');
+        // CRITICAL: Check completion flag FIRST - this is synchronous and reliable
+        if (streamCompletedRef.current) {
+          console.log('[SSE] Ignoring onerror - stream completed successfully');
           return;
         }
 
+        console.log('[SSE] onerror fired. ReadyState:', eventSource.readyState);
+
         // If we received any data, this is likely normal connection close
         if (receivedDataRef.current) {
-          console.log('[SSE] Connection closed after receiving data - ignoring error');
+          console.log('[SSE] Connection closed after receiving data - ignoring');
           eventSource.close();
           eventSourceRef.current = null;
           setStreamState({ type: 'idle' });
@@ -267,12 +269,12 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         }
 
         // If we NEVER received data, this is a real connection failure
-        console.error('[SSE] Connection failed before receiving any data');
+        console.error('[SSE] Real connection failure - no data received');
 
         // Only retry if we haven't exceeded max attempts
         if (reconnectAttempts < maxReconnectAttempts) {
           const delay = 2000 * (reconnectAttempts + 1);
-          console.log(`[SSE] Retrying in ${delay}ms... (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+          console.log(`[SSE] Retrying in ${delay}ms... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
           eventSource.close();
           eventSourceRef.current = null;
 
@@ -283,16 +285,16 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
           return;
         }
 
-        // Max retries exceeded - this is a real error
-        console.error('[SSE] Max retries exceeded - connection failed');
+        // Max retries exceeded
+        console.error('[SSE] Max retries exceeded');
         setStreamState({
           type: 'error',
-          error: 'Failed to connect to AI service. Please check your connection and try again.',
+          error: 'Failed to connect to AI service. Please try again.',
           code: 'MAX_RETRIES'
         });
 
         if (onError) {
-          onError('Failed to connect to AI service. Please check your connection and try again.', 'MAX_RETRIES');
+          onError('Failed to connect to AI service. Please try again.', 'MAX_RETRIES');
         }
 
         eventSource.close();
