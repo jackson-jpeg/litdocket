@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import apiClient from '@/lib/api-client';
 
 interface SearchResult {
@@ -206,18 +207,26 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     return 'text-ink-muted';
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-ink/80 flex items-start justify-center z-50 pt-16"
-      onClick={handleClose}
-    >
-      <div
-        className="bg-terminal-bg border-2 border-ink w-full max-w-4xl mx-4 flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="fixed inset-0 bg-ink/80 flex items-start justify-center z-50 pt-16"
+          onClick={handleClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="bg-terminal-bg border-2 border-ink w-full max-w-4xl mx-4 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={handleKeyDown}
+          >
         {/* Terminal Header - Paper & Steel */}
         <div className="bg-steel border-b-2 border-ink px-4 py-3">
           <div className="flex items-center gap-3">
@@ -343,7 +352,9 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             </span>
           )}
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
