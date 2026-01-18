@@ -134,10 +134,10 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
   if (loading) {
     return (
-      <div className="panel-beveled p-8">
+      <div className="panel-glass p-8">
         <div className="flex items-center justify-center gap-3">
-          <Loader2 className="w-5 h-5 text-navy animate-spin" />
-          <span className="text-enterprise-grey-600 text-sm">Loading intelligence briefing...</span>
+          <Loader2 className="w-5 h-5 text-accent-info animate-spin" />
+          <span className="text-text-secondary text-sm">Loading intelligence briefing...</span>
         </div>
       </div>
     );
@@ -145,8 +145,8 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
   if (error || !report) {
     return (
-      <div className="panel-beveled p-6">
-        <p className="text-enterprise-grey-600 text-sm text-center">Unable to load briefing data</p>
+      <div className="panel-glass p-6">
+        <p className="text-text-secondary text-sm text-center">Unable to load briefing data</p>
       </div>
     );
   }
@@ -161,22 +161,22 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
   return (
     <div className="space-y-4">
-      {/* Header Bar - Window Titlebar Style */}
-      <div className="window-frame">
-        <div className="window-titlebar flex items-baseline justify-between">
+      {/* Header Bar - Bloomberg Terminal Style */}
+      <div className="panel-glass border-border-emphasis">
+        <div className="bg-terminal-surface border-b border-border-subtle px-4 py-3 flex items-baseline justify-between">
           <div>
-            <h1 className="window-titlebar-text text-lg tracking-tight">
+            <h1 className="text-lg font-bold tracking-tight text-text-primary">
               Daily Intelligence Briefing
             </h1>
           </div>
           <div className="text-right text-xs">
-            <span className="opacity-75">{dateStr}</span>
+            <span className="text-text-muted font-mono">{dateStr}</span>
           </div>
         </div>
 
         {/* Summary Panel */}
-        <div className="window-content p-4">
-          <p className="text-enterprise-grey-800 leading-relaxed text-sm">{report.summary}</p>
+        <div className="p-4 bg-terminal-panel">
+          <p className="text-text-primary leading-relaxed text-sm">{report.summary}</p>
 
           {/* Stats Row - Dense Data Grid */}
           <div className="grid grid-cols-4 gap-3 mt-4 pt-3 border-t border-enterprise-grey-300">
