@@ -185,17 +185,25 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         setStreamState({ type: 'streaming', sessionId, eventSource });
       });
 
-      // Handle error events
+      // Handle error events from server (custom events with data)
       eventSource.addEventListener('error', (e: any) => {
-        let errorData = { error: 'Connection error', code: 'CONNECTION_ERROR' };
+        // Only process if this is a real error event with data from the server
+        // Native EventSource errors don't have .data
+        if (!e.data) {
+          console.log('[SSE] Ignoring native error event (will be handled by onerror)');
+          return;
+        }
+
+        receivedDataRef.current = true;  // Mark that we received data
+        let errorData = { error: 'Unknown error', code: 'UNKNOWN' };
 
         try {
           errorData = JSON.parse(e.data);
-        } catch {
-          // Default error if parsing fails
+        } catch (err) {
+          console.error('[SSE] Failed to parse error event data:', err);
         }
 
-        console.error('SSE error:', errorData);
+        console.error('[SSE] Server error:', errorData);
 
         if (onError) {
           onError(errorData.error, errorData.code);
