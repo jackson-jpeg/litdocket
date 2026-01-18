@@ -63,7 +63,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
-    expose_headers=["*"],
+    expose_headers=["*", "Content-Type", "Cache-Control", "X-Accel-Buffering"],
 )
 
 

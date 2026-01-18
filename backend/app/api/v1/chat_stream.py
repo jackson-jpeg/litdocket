@@ -24,6 +24,32 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/stream-test")
+async def stream_test():
+    """
+    Simple SSE test endpoint to verify streaming works.
+    Visit this endpoint in a browser to see a countdown.
+    """
+    import asyncio
+
+    async def test_generator():
+        for i in range(5, 0, -1):
+            yield f"data: Countdown: {i}\n\n"
+            await asyncio.sleep(1)
+        yield f"data: Done!\n\n"
+
+    return EventSourceResponse(
+        test_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Content-Encoding": "none",
+        }
+    )
+
+
 class ApprovalRequest(BaseModel):
     """Request body for tool approval."""
     approved: bool
@@ -91,9 +117,15 @@ async def stream_chat(
 
     # Event generator wrapper
     async def event_generator():
+        import asyncio
+
         try:
             # Send immediate status event to establish connection
+            logger.info(f"[SSE] Sending initial connection event for session {session_id}")
             yield f'event: status\ndata: {{"status": "connected", "message": "Stream established"}}\n\n'
+
+            # Add a small delay to ensure the connection is established
+            await asyncio.sleep(0.1)
 
             async for sse_event in streaming_chat_service.stream_message(
                 user_message=message,
@@ -102,10 +134,13 @@ async def stream_chat(
                 session_id=session_id,
                 db=db
             ):
+                logger.debug(f"[SSE] Yielding event: {sse_event.event_type}")
                 yield sse_event.to_sse_format()
 
+            logger.info(f"[SSE] Stream completed successfully for session {session_id}")
+
         except Exception as e:
-            logger.error(f"Streaming error for session {session_id}: {e}", exc_info=True)
+            logger.error(f"[SSE] Streaming error for session {session_id}: {e}", exc_info=True)
             # Send error event
             yield f'event: error\ndata: {{"error": "Stream error", "code": "STREAM_ERROR"}}\n\n'
 
