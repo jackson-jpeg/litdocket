@@ -18,7 +18,7 @@ from app.models.user import User
 from app.models.case import Case
 from app.services.streaming_chat_service import streaming_chat_service
 from app.services.approval_manager import approval_manager
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_current_user_from_query
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -36,7 +36,7 @@ async def stream_chat(
     case_id: str = Query(..., description="Case UUID"),
     session_id: str = Query(..., description="Unique session ID"),
     message: str = Query(..., description="User message"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_from_query),
     db: Session = Depends(get_db)
 ):
     """

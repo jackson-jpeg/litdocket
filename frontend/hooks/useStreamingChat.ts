@@ -8,6 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import apiClient from '@/lib/api-client';
+import { API_URL } from '@/lib/config';
 
 // Stream states
 export type StreamState =
@@ -90,8 +91,19 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
     setStreamState({ type: 'connecting', sessionId });
 
     try {
-      // Build SSE URL
-      const url = `/api/v1/chat/stream?case_id=${encodeURIComponent(caseId)}&session_id=${sessionId}&message=${encodeURIComponent(message)}`;
+      // Get auth token from localStorage
+      // EventSource doesn't support custom headers, so we pass token as query param
+      if (typeof window === 'undefined') {
+        throw new Error('Cannot connect to SSE from server-side');
+      }
+
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in.');
+      }
+
+      // Build SSE URL with full backend URL
+      const url = `${API_URL}/api/v1/chat/stream?case_id=${encodeURIComponent(caseId)}&session_id=${sessionId}&message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`;
 
       // Create EventSource
       const eventSource = new EventSource(url);

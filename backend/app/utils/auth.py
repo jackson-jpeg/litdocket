@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -112,15 +112,57 @@ def get_current_user(
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Get the current active user (can add additional checks here)
-    
+
     Args:
         current_user: Current user from get_current_user
-    
+
     Returns:
         User object if active
-    
+
     Raises:
         HTTPException: If user is inactive
     """
     # Can add is_active check here if we add that field to User model
     return current_user
+
+
+def get_current_user_from_query(
+    token: str = Query(..., description="JWT access token"),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Get the current authenticated user from JWT token in query parameter.
+
+    This is used for SSE endpoints where EventSource API doesn't support
+    custom headers. Token is passed as a query parameter instead.
+
+    SECURITY NOTE: Only use this for SSE streaming endpoints where EventSource
+    limitations require it. Regular endpoints should use get_current_user with
+    Authorization header.
+
+    Args:
+        token: JWT token from query parameter
+        db: Database session
+
+    Returns:
+        User object if authenticated
+
+    Raises:
+        HTTPException: If token is invalid or user not found
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+    )
+
+    # Decode token
+    user_id = decode_access_token(token)
+    if user_id is None:
+        raise credentials_exception
+
+    # Get user from database
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+
+    return user
