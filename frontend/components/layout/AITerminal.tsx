@@ -615,8 +615,8 @@ AI QUERIES (STREAMING):
       {/* Expanded Terminal */}
       {expanded && (
         <div className="terminal">
-          {/* Terminal Header */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
+          {/* Terminal Header - Sticky so it stays visible when scrolling */}
+          <div className="sticky top-0 z-10 bg-terminal-bg flex items-center justify-between px-4 py-2 border-b border-gray-700">
             <div className="flex items-center gap-3">
               <span className="text-terminal-green font-mono text-sm">{'>'}_</span>
               <span className="text-terminal-text font-mono text-sm">
@@ -727,9 +727,9 @@ AI QUERIES (STREAMING):
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Staged File Preview */}
+          {/* Staged File Preview - Sticky above input */}
           {stagedFile && !isUploading && (
-            <div className="px-4 py-2 bg-slate-800 border-t border-gray-700 flex items-center gap-3">
+            <div className="sticky bottom-14 z-10 px-4 py-2 bg-slate-800 border-t border-gray-700 flex items-center gap-3">
               <FileText className="w-4 h-4 text-cyan-400" />
               <span className="text-white font-mono text-sm flex-1 truncate">{stagedFile.name}</span>
               <span className="text-slate-400 font-mono text-xs">
@@ -747,8 +747,8 @@ AI QUERIES (STREAMING):
             </div>
           )}
 
-          {/* Input Area */}
-          <form onSubmit={handleSubmit} className="flex items-center px-4 py-2 border-t border-gray-700 bg-terminal-bg">
+          {/* Input Area - Sticky at bottom */}
+          <form onSubmit={handleSubmit} className="sticky bottom-0 z-10 flex items-center px-4 py-2 border-t border-gray-700 bg-terminal-bg">
             {/* Paperclip Upload Button */}
             <button
               type="button"
