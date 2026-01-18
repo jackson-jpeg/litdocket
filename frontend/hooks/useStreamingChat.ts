@@ -61,6 +61,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const maxReconnectAttempts = 3;
+  const receivedDataRef = useRef(false);  // Track if we received any data
 
   // Cleanup on unmount
   useEffect(() => {
@@ -84,8 +85,9 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
     // Generate unique session ID
     const sessionId = uuidv4();
 
-    // Reset message buffer
+    // Reset message buffer and data flag
     setCurrentMessage('');
+    receivedDataRef.current = false;
 
     // Set connecting state
     setStreamState({ type: 'connecting', sessionId });
@@ -113,7 +115,9 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
       // Handle status events
       eventSource.addEventListener('status', (e) => {
+        receivedDataRef.current = true;  // Mark that we received data
         const data = JSON.parse(e.data);
+        console.log('[SSE] Status:', data);
         if (onStatus) {
           onStatus(data.status, data.message);
         }
@@ -121,6 +125,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
       // Handle token events (streaming text)
       eventSource.addEventListener('token', (e) => {
+        receivedDataRef.current = true;  // Mark that we received data
         const data = JSON.parse(e.data);
         setCurrentMessage(prev => prev + data.text);
 
@@ -226,26 +231,45 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
       // Handle connection errors (EventSource standard error event)
       eventSource.onerror = (e) => {
-        console.error('EventSource connection error:', e);
+        console.error('[SSE] EventSource error event. ReadyState:', eventSource.readyState);
+        console.error('[SSE] Received any data?', receivedDataRef.current);
 
-        // Attempt reconnection
+        // If we received data, the stream is working - this error is just the connection closing
+        // This is normal behavior when the stream completes
+        if (receivedDataRef.current) {
+          console.log('[SSE] Connection closed after receiving data - this is normal');
+          eventSource.close();
+          eventSourceRef.current = null;
+          // Don't set error state - just go back to idle
+          setStreamState({ type: 'idle' });
+          setReconnectAttempts(0);
+          return;
+        }
+
+        // If we never received data, this is a real connection error
+        console.error('[SSE] Connection error before receiving any data');
+
+        // Only retry if we haven't exceeded max attempts
         if (reconnectAttempts < maxReconnectAttempts) {
           const delay = 2000 * (reconnectAttempts + 1); // Exponential backoff
+          console.log(`[SSE] Retrying in ${delay}ms... attempt ${reconnectAttempts + 1}`);
+          eventSource.close();
+          eventSourceRef.current = null;
           setTimeout(() => {
-            console.log(`Reconnecting... attempt ${reconnectAttempts + 1}`);
             setReconnectAttempts(prev => prev + 1);
             sendMessage(message);
           }, delay);
         } else {
           // Max retries exceeded
+          console.error('[SSE] Max retries exceeded');
           setStreamState({
             type: 'error',
-            error: 'Connection lost. Please try again.',
+            error: 'Failed to connect to AI service. Please check your connection and try again.',
             code: 'MAX_RETRIES'
           });
 
           if (onError) {
-            onError('Connection lost. Please try again.', 'MAX_RETRIES');
+            onError('Failed to connect to AI service. Please check your connection and try again.', 'MAX_RETRIES');
           }
 
           eventSource.close();

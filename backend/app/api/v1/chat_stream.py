@@ -92,6 +92,9 @@ async def stream_chat(
     # Event generator wrapper
     async def event_generator():
         try:
+            # Send immediate status event to establish connection
+            yield f'event: status\ndata: {{"status": "connected", "message": "Stream established"}}\n\n'
+
             async for sse_event in streaming_chat_service.stream_message(
                 user_message=message,
                 case_id=case_id,
@@ -104,14 +107,16 @@ async def stream_chat(
         except Exception as e:
             logger.error(f"Streaming error for session {session_id}: {e}", exc_info=True)
             # Send error event
-            yield f"event: error\ndata: {{\"error\": \"Stream error\", \"code\": \"STREAM_ERROR\"}}\n\n"
+            yield f'event: error\ndata: {{"error": "Stream error", "code": "STREAM_ERROR"}}\n\n'
 
     return EventSourceResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no"  # Disable proxy buffering
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "Content-Encoding": "none",  # Prevent compression that breaks SSE
         }
     )
 
