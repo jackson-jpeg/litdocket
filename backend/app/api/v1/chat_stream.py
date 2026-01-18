@@ -126,9 +126,6 @@ async def stream_chat(
             logger.info(f"[SSE] Sending initial connection event for session {session_id}")
             yield f'event: status\ndata: {{"status": "connected", "message": "Stream established"}}\n\n'
 
-            # Add a small delay to ensure the connection is established
-            await asyncio.sleep(0.1)
-
             async for sse_event in streaming_chat_service.stream_message(
                 user_message=message,
                 case_id=case_id,
