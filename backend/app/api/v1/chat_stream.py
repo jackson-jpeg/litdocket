@@ -5,7 +5,7 @@ Server-Sent Events (SSE) endpoints for real-time AI chat streaming
 with interactive tool approval flow.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -19,6 +19,7 @@ from app.models.case import Case
 from app.services.streaming_chat_service import streaming_chat_service
 from app.services.approval_manager import approval_manager
 from app.utils.auth import get_current_user, get_current_user_from_query
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,6 +60,7 @@ class ApprovalRequest(BaseModel):
 
 @router.get("/stream")
 async def stream_chat(
+    request: Request,
     case_id: str = Query(..., description="Case UUID"),
     session_id: str = Query(..., description="Unique session ID"),
     message: str = Query(..., description="User message"),
@@ -144,6 +146,19 @@ async def stream_chat(
             # Send error event
             yield f'event: error\ndata: {{"error": "Stream error", "code": "STREAM_ERROR"}}\n\n'
 
+    # Get the origin from the request to set CORS headers dynamically
+    origin = request.headers.get("origin", "")
+    logger.info(f"[SSE] Request origin: {origin}, Allowed origins: {settings.ALLOWED_ORIGINS}")
+
+    # Check if origin is allowed
+    cors_headers = {}
+    if origin in settings.ALLOWED_ORIGINS:
+        cors_headers["Access-Control-Allow-Origin"] = origin
+        cors_headers["Access-Control-Allow-Credentials"] = "true"
+        logger.info(f"[SSE] Setting CORS headers for origin: {origin}")
+    else:
+        logger.warning(f"[SSE] Origin not allowed: {origin}")
+
     return EventSourceResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -152,6 +167,7 @@ async def stream_chat(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
             "Content-Encoding": "none",  # Prevent compression that breaks SSE
+            **cors_headers  # Add CORS headers dynamically
         }
     )
 
