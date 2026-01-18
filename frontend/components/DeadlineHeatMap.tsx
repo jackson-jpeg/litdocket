@@ -59,13 +59,13 @@ interface DeadlineHeatMapProps {
 export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHeatMapProps) {
   const { matrix, summary } = heatMapData;
 
-  // Paper & Steel Palette - Restrained, authoritative colors
+  // Bloomberg Terminal Neon Palette
   const fatalityLevels = [
-    { key: 'fatal', label: 'FATAL', bgColor: 'bg-fatal', textColor: 'text-white', borderColor: 'border-fatal' },
-    { key: 'critical', label: 'CRITICAL', bgColor: 'bg-critical', textColor: 'text-white', borderColor: 'border-critical' },
-    { key: 'important', label: 'IMPORTANT', bgColor: 'bg-important', textColor: 'text-white', borderColor: 'border-important' },
-    { key: 'standard', label: 'STANDARD', bgColor: 'bg-steel', textColor: 'text-white', borderColor: 'border-steel' },
-    { key: 'informational', label: 'INFO', bgColor: 'bg-informational', textColor: 'text-white', borderColor: 'border-informational' }
+    { key: 'fatal', label: 'FATAL', bgColor: 'bg-priority-fatal', textColor: 'text-white', borderColor: 'border-priority-fatal' },
+    { key: 'critical', label: 'CRITICAL', bgColor: 'bg-priority-critical', textColor: 'text-white', borderColor: 'border-priority-critical' },
+    { key: 'important', label: 'IMPORTANT', bgColor: 'bg-priority-high', textColor: 'text-terminal-bg', borderColor: 'border-priority-high' },
+    { key: 'standard', label: 'STANDARD', bgColor: 'bg-priority-low', textColor: 'text-terminal-bg', borderColor: 'border-priority-low' },
+    { key: 'informational', label: 'INFO', bgColor: 'bg-priority-info', textColor: 'text-white', borderColor: 'border-priority-info' }
   ];
 
   const urgencyBuckets = [
@@ -76,56 +76,56 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
   ];
 
   const getCellBgColor = (fatalityKey: string, count: number) => {
-    if (count === 0) return 'bg-surface';
+    if (count === 0) return 'bg-terminal-elevated';
 
     const intensity = count > 5 ? 'high' : count > 2 ? 'mid' : 'low';
 
     const colorMap: Record<string, Record<string, string>> = {
-      fatal: { low: 'bg-fatal/40', mid: 'bg-fatal/70', high: 'bg-fatal' },
-      critical: { low: 'bg-critical/40', mid: 'bg-critical/70', high: 'bg-critical' },
-      important: { low: 'bg-important/40', mid: 'bg-important/70', high: 'bg-important' },
-      standard: { low: 'bg-steel/40', mid: 'bg-steel/70', high: 'bg-steel' },
-      informational: { low: 'bg-informational/40', mid: 'bg-informational/70', high: 'bg-informational' }
+      fatal: { low: 'bg-priority-fatal/30', mid: 'bg-priority-fatal/60', high: 'bg-priority-fatal' },
+      critical: { low: 'bg-priority-critical/30', mid: 'bg-priority-critical/60', high: 'bg-priority-critical' },
+      important: { low: 'bg-priority-high/30', mid: 'bg-priority-high/60', high: 'bg-priority-high' },
+      standard: { low: 'bg-priority-low/30', mid: 'bg-priority-low/60', high: 'bg-priority-low' },
+      informational: { low: 'bg-priority-info/30', mid: 'bg-priority-info/60', high: 'bg-priority-info' }
     };
 
-    return colorMap[fatalityKey]?.[intensity] || 'bg-surface';
+    return colorMap[fatalityKey]?.[intensity] || 'bg-terminal-elevated';
   };
 
   return (
-    <div className="bg-paper border border-ink">
-      {/* Header - Editorial Authority */}
-      <div className="p-6 border-b border-ink bg-surface">
+    <div className="panel-glass border-border-emphasis">
+      {/* Header - Bloomberg Style */}
+      <div className="p-6 border-b border-border-subtle bg-terminal-surface">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-xl font-heading font-bold text-ink flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-fatal" />
+            <h3 className="text-xl font-bold text-text-primary flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-accent-critical" />
               Deadline Heat Map
             </h3>
-            <p className="text-sm font-mono text-ink-secondary mt-2">
+            <p className="text-sm font-mono text-text-secondary mt-2">
               {summary.total_deadlines} deadlines × next 30 days
             </p>
           </div>
-          <div className="text-right font-mono text-xs text-ink-secondary uppercase tracking-wider">
+          <div className="text-right font-mono text-xs text-text-muted uppercase tracking-wider">
             <p>Fatality × Urgency</p>
-            <p className="mt-1">Darker = Higher Density</p>
+            <p className="mt-1">Brighter = Higher Density</p>
           </div>
         </div>
       </div>
 
-      {/* Tactical Grid - gap-px creates hard 1px grid lines */}
+      {/* Tactical Grid - Bloomberg neon color scale */}
       <div className="p-6 overflow-x-auto">
-        <div className="bg-ink p-px">
-          <div className="grid grid-cols-5 gap-px bg-ink">
+        <div className="bg-border-subtle p-px rounded-lg">
+          <div className="grid grid-cols-5 gap-px bg-border-subtle">
             {/* Header Row */}
-            <div className="bg-surface p-4 font-mono text-xs font-bold text-ink-secondary uppercase">
+            <div className="bg-terminal-surface p-4 font-mono text-xs font-bold text-text-muted uppercase rounded-tl-lg">
               Fatality →<br />Urgency ↓
             </div>
-            {urgencyBuckets.map((bucket) => (
-              <div key={bucket.key} className="bg-surface p-4 text-center font-mono">
-                <div className="text-xs font-bold text-ink uppercase tracking-wide">
+            {urgencyBuckets.map((bucket, idx) => (
+              <div key={bucket.key} className={`bg-terminal-surface p-4 text-center font-mono ${idx === urgencyBuckets.length - 1 ? 'rounded-tr-lg' : ''}`}>
+                <div className="text-xs font-bold text-text-primary uppercase tracking-wide">
                   {bucket.label}
                 </div>
-                <div className="text-[10px] text-ink-secondary mt-1 uppercase tracking-wider">
+                <div className="text-[10px] text-text-muted mt-1 uppercase tracking-wider">
                   {bucket.subtext}
                 </div>
               </div>
