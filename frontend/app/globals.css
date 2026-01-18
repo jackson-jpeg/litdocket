@@ -243,6 +243,12 @@
     @apply input px-2 py-1.5 text-xs;
   }
 
+  /* Terminal-specific input - monospace with green text */
+  .terminal-input {
+    @apply w-full bg-transparent text-terminal-text font-mono text-sm;
+    @apply placeholder-[#57606A] focus:outline-none;
+  }
+
   /* ==========================================
      GLOW EFFECTS - Critical Item Highlighting
      ========================================== */

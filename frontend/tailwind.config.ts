@@ -25,6 +25,9 @@ const config: Config = {
           panel: '#14181F',
           elevated: '#1C2128',
           surface: '#161B22',
+          text: '#E6EDF3',      // Light gray text
+          green: '#26DE81',     // Success/ready green
+          amber: '#FFA502',     // Warning/attention amber
         },
 
         // Text Hierarchy
