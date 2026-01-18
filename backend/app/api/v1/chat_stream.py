@@ -136,7 +136,6 @@ async def stream_chat(
                 session_id=session_id,
                 db=db
             ):
-                logger.debug(f"[SSE] Yielding event: {sse_event.event_type}")
                 yield sse_event.to_sse_format()
 
             logger.info(f"[SSE] Stream completed successfully for session {session_id}")
