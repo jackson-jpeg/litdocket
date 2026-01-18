@@ -6,6 +6,8 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Tippy from '@tippyjs/react';
+import 'tippy.js/dist/tippy.css';
 import { CalendarDeadline } from '@/hooks/useCalendarDeadlines';
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -41,6 +43,7 @@ interface CalendarGridProps {
   selectedPriority: string;
   selectedStatus: string;
   selectedCaseId: string;
+  navigateToDate?: Date;
 }
 
 export default function CalendarGrid({
@@ -51,9 +54,21 @@ export default function CalendarGrid({
   selectedPriority,
   selectedStatus,
   selectedCaseId,
+  navigateToDate,
 }: CalendarGridProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<View>('month');
+  const [highlightedDate, setHighlightedDate] = useState<Date | null>(null);
+
+  // Update current date when navigateToDate changes
+  if (navigateToDate && navigateToDate.getTime() !== currentDate.getTime()) {
+    setCurrentDate(navigateToDate);
+    // Set highlighted date and clear after 2 seconds
+    setHighlightedDate(navigateToDate);
+    setTimeout(() => {
+      setHighlightedDate(null);
+    }, 2000);
+  }
 
   // Convert deadlines to calendar events with filtering
   const events: CalendarEvent[] = useMemo(() => {
@@ -85,6 +100,23 @@ export default function CalendarGrid({
         resource: deadline,
       }));
   }, [deadlines, selectedPriority, selectedStatus, selectedCaseId]);
+
+  // Group deadlines by date for indicator dots
+  const deadlinesByDate = useMemo(() => {
+    const grouped = new Map<string, CalendarDeadline[]>();
+
+    deadlines
+      .filter(d => d.deadline_date)
+      .forEach(deadline => {
+        const dateKey = format(new Date(deadline.deadline_date!), 'yyyy-MM-dd');
+        if (!grouped.has(dateKey)) {
+          grouped.set(dateKey, []);
+        }
+        grouped.get(dateKey)!.push(deadline);
+      });
+
+    return grouped;
+  }, [deadlines]);
 
   // Custom event styling
   const eventStyleGetter = useCallback((event: CalendarEvent) => {
@@ -199,6 +231,72 @@ export default function CalendarGrid({
     return format(currentDate, 'MMMM yyyy');
   }, [currentDate, currentView]);
 
+  // Custom month date header with deadline indicator dots
+  const MonthDateHeader = useCallback(({ label, date }: { label: string; date: Date }) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const dayDeadlines = deadlinesByDate.get(dateKey) || [];
+
+    // Get unique priority levels for this date
+    const priorities = new Set(dayDeadlines.map(d => d.priority));
+    const hasCritical = priorities.has('fatal') || priorities.has('critical');
+    const hasImportant = priorities.has('important');
+    const hasStandard = priorities.has('standard');
+    const hasInfo = priorities.has('informational');
+
+    // Count by priority
+    const criticalCount = dayDeadlines.filter(d => d.priority === 'fatal' || d.priority === 'critical').length;
+    const importantCount = dayDeadlines.filter(d => d.priority === 'important').length;
+    const standardCount = dayDeadlines.filter(d => d.priority === 'standard').length;
+    const infoCount = dayDeadlines.filter(d => d.priority === 'informational').length;
+
+    // Tooltip content
+    const tooltipContent = dayDeadlines.length > 0 ? (
+      <div className="text-xs">
+        <div className="font-semibold mb-1">{dayDeadlines.length} deadline{dayDeadlines.length !== 1 ? 's' : ''}</div>
+        {criticalCount > 0 && <div className="text-red-200">{criticalCount} Critical</div>}
+        {importantCount > 0 && <div className="text-amber-200">{importantCount} Important</div>}
+        {standardCount > 0 && <div className="text-green-200">{standardCount} Standard</div>}
+        {infoCount > 0 && <div className="text-gray-300">{infoCount} Info</div>}
+        {dayDeadlines[0] && (
+          <div className="mt-1 pt-1 border-t border-gray-600 text-gray-300">
+            Next: {dayDeadlines[0].title}
+          </div>
+        )}
+      </div>
+    ) : null;
+
+    const dateCell = (
+      <div className="flex flex-col items-center">
+        <span>{label}</span>
+        {dayDeadlines.length > 0 && (
+          <div className="flex items-center gap-0.5 mt-0.5">
+            {hasCritical && <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>}
+            {hasImportant && <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>}
+            {hasStandard && <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>}
+            {hasInfo && <div className="w-1.5 h-1.5 rounded-full bg-gray-500"></div>}
+          </div>
+        )}
+      </div>
+    );
+
+    if (dayDeadlines.length === 0) {
+      return dateCell;
+    }
+
+    return (
+      <Tippy
+        content={tooltipContent}
+        placement="top"
+        theme="dark"
+        arrow={true}
+      >
+        <span className="cursor-help">
+          {dateCell}
+        </span>
+      </Tippy>
+    );
+  }, [deadlinesByDate]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Custom Toolbar */}
@@ -270,6 +368,14 @@ export default function CalendarGrid({
           <div className="w-3 h-3 border-2 border-dashed border-red-600 rounded"></div>
           <span className="text-slate-600">Overdue</span>
         </div>
+        <span className="text-slate-400">|</span>
+        <div className="flex items-center gap-1">
+          <div className="flex gap-0.5">
+            <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div>
+            <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+          </div>
+          <span className="text-slate-600">Deadline Indicators</span>
+        </div>
       </div>
 
       {/* Calendar */}
@@ -292,11 +398,31 @@ export default function CalendarGrid({
           popup
           toolbar={false}
           style={{ height: '100%' }}
+          components={{
+            month: {
+              dateHeader: MonthDateHeader,
+            },
+          }}
           dayPropGetter={(date: Date) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const d = new Date(date);
             d.setHours(0, 0, 0, 0);
+
+            // Check if this date is highlighted
+            const isHighlighted = highlightedDate &&
+              d.getTime() === new Date(highlightedDate.getFullYear(), highlightedDate.getMonth(), highlightedDate.getDate()).getTime();
+
+            if (isHighlighted) {
+              return {
+                className: 'highlighted-date',
+                style: {
+                  backgroundColor: '#DBEAFE',
+                  animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1)',
+                },
+              };
+            }
+
             if (d.getTime() === today.getTime()) {
               return {
                 style: {

@@ -28,6 +28,9 @@ export default function CalendarPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createModalDate, setCreateModalDate] = useState<Date | null>(null);
 
+  // Calendar navigation state
+  const [calendarNavigateDate, setCalendarNavigateDate] = useState<Date | undefined>(undefined);
+
   // Get calendar data
   const {
     deadlines,
@@ -255,9 +258,11 @@ export default function CalendarPage() {
           overdueDeadlines={overdueDeadlines}
           upcomingDeadlines={upcomingDeadlines}
           stats={stats}
+          allDeadlines={deadlines}
           onDeadlineClick={handleDeadlineClick}
           onExportICal={handleExportICal}
           onQuickComplete={handleCompleteDeadline}
+          onNavigateToDate={setCalendarNavigateDate}
         />
 
         {/* Calendar Grid */}
@@ -270,6 +275,7 @@ export default function CalendarPage() {
             selectedPriority={selectedPriority}
             selectedStatus={selectedStatus}
             selectedCaseId={selectedCaseId}
+            navigateToDate={calendarNavigateDate}
           />
         </div>
       </div>

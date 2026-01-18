@@ -1,7 +1,7 @@
 export function Skeleton({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 bg-[length:200%_100%] rounded ${className}`}
+      className={`animate-pulse bg-gradient-to-r from-terminal-elevated via-border-subtle to-terminal-elevated bg-[length:200%_100%] rounded ${className}`}
       style={{
         animation: 'shimmer 2s infinite linear'
       }}
@@ -84,6 +84,64 @@ export function CaseSummarySkeleton() {
           <Skeleton className="h-4 w-28" />
         </div>
       </div>
+    </div>
+  )
+}
+
+// Bloomberg Terminal Skeletons
+export function HeatMapSkeleton() {
+  return (
+    <div className="panel-glass border-border-emphasis">
+      <div className="p-6 border-b border-border-subtle bg-terminal-surface">
+        <Skeleton className="h-6 w-48 mb-2" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <div className="p-6">
+        <div className="grid grid-cols-5 gap-2">
+          {Array.from({ length: 25 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function MatterHealthSkeleton() {
+  return (
+    <div className="panel-glass">
+      <div className="p-6 border-b border-border-subtle">
+        <Skeleton className="h-6 w-48 mb-2" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <div className="p-6 space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="panel-elevated p-5 rounded-lg">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <Skeleton className="h-5 w-32 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+              <Skeleton className="h-8 w-24 rounded" />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function StatsCardSkeleton() {
+  return (
+    <div className="stat-card">
+      <Skeleton className="h-4 w-24 mb-2" />
+      <Skeleton className="h-10 w-16 mb-1" />
+      <Skeleton className="h-3 w-32" />
     </div>
   )
 }

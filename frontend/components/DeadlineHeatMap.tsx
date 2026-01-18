@@ -12,6 +12,7 @@
  */
 
 import { AlertTriangle, Clock, Calendar } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface HeatMapDeadline {
   id: string;
@@ -58,6 +59,7 @@ interface DeadlineHeatMapProps {
 
 export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHeatMapProps) {
   const { matrix, summary } = heatMapData;
+  const loadedAt = new Date(); // Track when component loaded
 
   // Bloomberg Terminal Neon Palette
   const fatalityLevels = [
@@ -104,6 +106,10 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
             <p className="text-sm font-mono text-text-secondary mt-2">
               {summary.total_deadlines} deadlines × next 30 days
             </p>
+            <div className="flex items-center gap-2 text-xs text-text-muted font-mono mt-2">
+              <Clock className="w-3 h-3" />
+              Last updated: {formatDistanceToNow(loadedAt, { addSuffix: true })}
+            </div>
           </div>
           <div className="text-right font-mono text-xs text-text-muted uppercase tracking-wider">
             <p>Fatality × Urgency</p>

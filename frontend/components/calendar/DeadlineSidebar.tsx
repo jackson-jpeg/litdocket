@@ -23,21 +23,57 @@ interface DeadlineSidebarProps {
     critical: number;
     completedThisMonth: number;
   };
+  allDeadlines: CalendarDeadline[];
   onDeadlineClick: (deadline: CalendarDeadline) => void;
   onExportICal: () => void;
   onQuickComplete: (deadlineId: string) => void;
+  onNavigateToDate?: (date: Date) => void;
 }
 
 export default function DeadlineSidebar({
   overdueDeadlines,
   upcomingDeadlines,
   stats,
+  allDeadlines,
   onDeadlineClick,
   onExportICal,
   onQuickComplete,
+  onNavigateToDate,
 }: DeadlineSidebarProps) {
   const [overdueExpanded, setOverdueExpanded] = useState(true);
   const [upcomingExpanded, setUpcomingExpanded] = useState(true);
+
+  // Helper to navigate to first deadline of type
+  const handleCardClick = (type: 'pending' | 'overdue' | 'critical' | 'completed') => {
+    let targetDeadline: CalendarDeadline | undefined;
+
+    switch (type) {
+      case 'overdue':
+        targetDeadline = overdueDeadlines[0];
+        break;
+      case 'critical':
+        targetDeadline = allDeadlines.find(d =>
+          d.priority === 'fatal' || d.priority === 'critical'
+        );
+        break;
+      case 'pending':
+        targetDeadline = allDeadlines.find(d => d.status === 'pending');
+        break;
+      case 'completed':
+        const thisMonth = new Date();
+        const monthStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth(), 1);
+        targetDeadline = allDeadlines.find(d => {
+          if (d.status !== 'completed' || !d.deadline_date) return false;
+          const deadlineDate = new Date(d.deadline_date);
+          return deadlineDate >= monthStart;
+        });
+        break;
+    }
+
+    if (targetDeadline && targetDeadline.deadline_date && onNavigateToDate) {
+      onNavigateToDate(new Date(targetDeadline.deadline_date));
+    }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -73,7 +109,14 @@ export default function DeadlineSidebar({
       className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
         isOverdue ? 'bg-red-50 border-red-200 hover:bg-red-100' : 'bg-white border-slate-200 hover:bg-slate-50'
       }`}
-      onClick={() => onDeadlineClick(deadline)}
+      onClick={() => {
+        // Navigate calendar to this deadline's date
+        if (deadline.deadline_date && onNavigateToDate) {
+          onNavigateToDate(new Date(deadline.deadline_date));
+        }
+        // Also open the deadline detail modal
+        onDeadlineClick(deadline);
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -112,23 +155,50 @@ export default function DeadlineSidebar({
       <div className="p-4 bg-white border-b border-slate-200">
         <h2 className="font-semibold text-slate-800 mb-3">Deadline Overview</h2>
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-slate-100 rounded-lg p-2 text-center">
+          {/* Pending Card */}
+          <div
+            onClick={() => handleCardClick('pending')}
+            className="bg-slate-100 rounded-lg p-2 text-center cursor-pointer hover:bg-slate-200 hover:shadow-md transition-all duration-200 hover:scale-105"
+          >
             <p className="text-2xl font-bold text-slate-800">{stats.pending}</p>
             <p className="text-xs text-slate-500">Pending</p>
           </div>
-          <div className={`rounded-lg p-2 text-center ${stats.overdue > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
+
+          {/* Overdue Card */}
+          <div
+            onClick={() => handleCardClick('overdue')}
+            className={`rounded-lg p-2 text-center cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-105 ${
+              stats.overdue > 0
+                ? 'bg-red-100 hover:bg-red-200'
+                : 'bg-green-100 hover:bg-green-200'
+            }`}
+          >
             <p className={`text-2xl font-bold ${stats.overdue > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {stats.overdue}
             </p>
             <p className={`text-xs ${stats.overdue > 0 ? 'text-red-600' : 'text-green-600'}`}>Overdue</p>
           </div>
-          <div className={`rounded-lg p-2 text-center ${stats.critical > 0 ? 'bg-amber-100' : 'bg-slate-100'}`}>
+
+          {/* Critical Card */}
+          <div
+            onClick={() => handleCardClick('critical')}
+            className={`rounded-lg p-2 text-center cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-105 ${
+              stats.critical > 0
+                ? 'bg-amber-100 hover:bg-amber-200'
+                : 'bg-slate-100 hover:bg-slate-200'
+            }`}
+          >
             <p className={`text-2xl font-bold ${stats.critical > 0 ? 'text-amber-600' : 'text-slate-600'}`}>
               {stats.critical}
             </p>
             <p className="text-xs text-slate-500">Critical</p>
           </div>
-          <div className="bg-green-100 rounded-lg p-2 text-center">
+
+          {/* Completed Card */}
+          <div
+            onClick={() => handleCardClick('completed')}
+            className="bg-green-100 rounded-lg p-2 text-center cursor-pointer hover:bg-green-200 hover:shadow-md transition-all duration-200 hover:scale-105"
+          >
             <p className="text-2xl font-bold text-green-600">{stats.completedThisMonth}</p>
             <p className="text-xs text-green-600">Done (Month)</p>
           </div>

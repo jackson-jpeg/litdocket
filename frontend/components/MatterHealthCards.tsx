@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, Clock, CheckCircle, Activity, FileText, Gavel, ChevronRight } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface HealthCard {
   case_id: string;
@@ -34,6 +35,8 @@ interface MatterHealthCardsProps {
 }
 
 export default function MatterHealthCards({ healthCards, onCaseClick }: MatterHealthCardsProps) {
+  const loadedAt = new Date(); // Track when component loaded
+
   const getHealthColor = (status: string) => {
     switch (status) {
       case 'critical': return 'border-red-500 bg-red-50';
@@ -106,6 +109,10 @@ export default function MatterHealthCards({ healthCards, onCaseClick }: MatterHe
             <p className="text-sm text-slate-600 mt-1">
               {healthCards.length} active case{healthCards.length !== 1 ? 's' : ''} with pending deadlines
             </p>
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-2">
+              <Clock className="w-3 h-3" />
+              Last updated: {formatDistanceToNow(loadedAt, { addSuffix: true })}
+            </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <div className="flex items-center gap-1">

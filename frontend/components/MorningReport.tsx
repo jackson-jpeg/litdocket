@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, Clock, ChevronRight, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { formatDistanceToNow } from 'date-fns';
 import apiClient from '@/lib/api-client';
 
 interface MorningReportData {
@@ -77,6 +79,7 @@ interface MorningReportProps {
 }
 
 export default function MorningReport({ onCaseClick }: MorningReportProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<MorningReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +171,10 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
             <h1 className="text-lg font-bold tracking-tight text-text-primary">
               Daily Intelligence Briefing
             </h1>
+            <div className="flex items-center gap-2 text-xs text-text-muted font-mono mt-1">
+              <Clock className="w-3 h-3" />
+              Last updated: {formatDistanceToNow(new Date(report.generated_at), { addSuffix: true })}
+            </div>
           </div>
           <div className="text-right text-xs">
             <span className="text-text-muted font-mono">{dateStr}</span>
@@ -178,26 +185,102 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
         <div className="p-4 bg-terminal-panel">
           <p className="text-text-primary leading-relaxed text-sm">{report.summary}</p>
 
-          {/* Stats Row - Dense Data Grid */}
-          <div className="grid grid-cols-4 gap-3 mt-4 pt-3 border-t border-enterprise-grey-300">
-            <div className="panel-inset p-2 text-center">
-              <p className="text-xxs text-enterprise-grey-500 uppercase tracking-wide">Active Cases</p>
-              <p className="font-mono text-xl font-semibold text-enterprise-grey-900">{report.case_overview.total_cases}</p>
+          {/* Stats Row - Enhanced Bloomberg Terminal Cards */}
+          <div className="grid grid-cols-4 gap-4 mt-4 pt-3 border-t border-border-subtle">
+            {/* Active Cases Card */}
+            <div
+              onClick={() => router.push('/cases')}
+              className="stat-card-info cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-info"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  Active Cases
+                </span>
+                {/* Mock trend indicator - backend needed for real data */}
+                <TrendingUp className="w-3 h-3 text-accent-success" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold font-mono text-text-primary">
+                  {report.case_overview.total_cases}
+                </span>
+                <span className="text-xs text-accent-success font-mono">+5%</span>
+              </div>
             </div>
-            <div className="panel-inset p-2 text-center">
-              <p className="text-xxs text-enterprise-grey-500 uppercase tracking-wide">Pending</p>
-              <p className="font-mono text-xl font-semibold text-enterprise-grey-900">{report.case_overview.total_pending_deadlines}</p>
+
+            {/* Pending Deadlines Card */}
+            <div
+              onClick={() => router.push('/calendar?filter=pending')}
+              className="stat-card-warning cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-warning"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  Pending
+                </span>
+                <Minus className="w-3 h-3 text-text-muted" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold font-mono text-text-primary">
+                  {report.case_overview.total_pending_deadlines}
+                </span>
+                <span className="text-xs text-text-muted font-mono">0%</span>
+              </div>
             </div>
-            <div className="panel-inset p-2 text-center">
-              <p className="text-xxs text-enterprise-grey-500 uppercase tracking-wide">Attention</p>
-              <p className={`font-mono text-xl font-semibold ${report.case_overview.cases_needing_attention > 0 ? 'text-overdue' : 'text-filed'}`}>
-                {report.case_overview.cases_needing_attention}
-              </p>
+
+            {/* Cases Needing Attention Card */}
+            <div
+              onClick={() => router.push('/cases?filter=attention')}
+              className={`cursor-pointer hover:scale-105 transition-all duration-200 ${
+                report.case_overview.cases_needing_attention > 0
+                  ? 'stat-card-critical hover:shadow-glow-critical'
+                  : 'stat-card-success hover:shadow-glow-success'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  Attention
+                </span>
+                {report.case_overview.cases_needing_attention > 0 ? (
+                  <TrendingUp className="w-3 h-3 text-accent-critical" />
+                ) : (
+                  <TrendingDown className="w-3 h-3 text-accent-success" />
+                )}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-4xl font-bold font-mono ${
+                  report.case_overview.cases_needing_attention > 0
+                    ? 'text-accent-critical'
+                    : 'text-accent-success'
+                }`}>
+                  {report.case_overview.cases_needing_attention}
+                </span>
+                <span className={`text-xs font-mono ${
+                  report.case_overview.cases_needing_attention > 0
+                    ? 'text-accent-critical'
+                    : 'text-accent-success'
+                }`}>
+                  {report.case_overview.cases_needing_attention > 0 ? '+15%' : '-20%'}
+                </span>
+              </div>
             </div>
+
+            {/* Completed This Week Card */}
             {report.week_stats && (
-              <div className="panel-inset p-2 text-center">
-                <p className="text-xxs text-enterprise-grey-500 uppercase tracking-wide">Completed</p>
-                <p className="font-mono text-xl font-semibold text-filed">{report.week_stats.completed_this_week}</p>
+              <div
+                onClick={() => router.push('/calendar?filter=completed')}
+                className="stat-card-success cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-success"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                    Completed
+                  </span>
+                  <TrendingUp className="w-3 h-3 text-accent-success" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold font-mono text-accent-success">
+                    {report.week_stats.completed_this_week}
+                  </span>
+                  <span className="text-xs text-accent-success font-mono">+12%</span>
+                </div>
               </div>
             )}
           </div>

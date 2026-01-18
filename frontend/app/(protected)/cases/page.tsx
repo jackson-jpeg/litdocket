@@ -11,7 +11,7 @@
  * - Bulk selection with floating action bar
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, Folder, Calendar, Clock, AlertTriangle,
@@ -22,6 +22,7 @@ import {
 import apiClient from '@/lib/api-client';
 import GlobalSearch from '@/components/GlobalSearch';
 import CaseQuickView from '@/components/cases/CaseQuickView';
+import ContextMenu from '@/components/cases/ContextMenu';
 
 interface Case {
   id: string;
@@ -64,6 +65,13 @@ export default function CasesListPage() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; caseItem: Case } | null>(null);
+
+  // Keyboard navigation state
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const caseRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
   useEffect(() => {
     fetchCases();
   }, []);
@@ -72,25 +80,81 @@ export default function CasesListPage() {
     applyFilters();
   }, [cases, searchQuery, filterJurisdiction, filterCaseType, filterStatus, sortBy]);
 
-  // Keyboard shortcut for global search (Cmd/Ctrl+K)
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Global search (Cmd/Ctrl+K)
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setGlobalSearchOpen(true);
+        return;
       }
-      // Escape to close drawer
+
+      // Select all (Ctrl+A) - only in selection mode
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && selectionMode) {
+        e.preventDefault();
+        toggleSelectAll();
+        return;
+      }
+
+      // Escape to close drawer/context menu
       if (e.key === 'Escape') {
         setQuickViewOpen(false);
+        setContextMenu(null);
         if (selectionMode && selectedIds.size === 0) {
           setSelectionMode(false);
+        }
+        return;
+      }
+
+      // Arrow key navigation (only in list view)
+      if (viewMode === 'list' && filteredCases.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setFocusedIndex((prev) => {
+            const newIndex = prev < filteredCases.length - 1 ? prev + 1 : prev;
+            // Scroll into view
+            const caseId = filteredCases[newIndex]?.id;
+            if (caseId) {
+              const element = caseRowRefs.current.get(caseId);
+              element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            return newIndex;
+          });
+          return;
+        }
+
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setFocusedIndex((prev) => {
+            const newIndex = prev > 0 ? prev - 1 : prev;
+            // Scroll into view
+            const caseId = filteredCases[newIndex]?.id;
+            if (caseId) {
+              const element = caseRowRefs.current.get(caseId);
+              element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            return newIndex;
+          });
+          return;
+        }
+
+        // Enter to open case
+        if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredCases.length) {
+          e.preventDefault();
+          const focusedCase = filteredCases[focusedIndex];
+          if (focusedCase) {
+            setSelectedCase(focusedCase);
+            setQuickViewOpen(true);
+          }
+          return;
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectionMode, selectedIds]);
+  }, [selectionMode, selectedIds, viewMode, filteredCases, focusedIndex]);
 
   const fetchCases = async () => {
     try {
@@ -292,6 +356,40 @@ export default function CasesListPage() {
     router.push(`/cases/${caseId}`);
   };
 
+  // Context menu handlers
+  const handleContextMenu = (e: React.MouseEvent, caseItem: Case) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      caseItem,
+    });
+  };
+
+  const handleArchiveCase = async () => {
+    if (!contextMenu) return;
+    // TODO: Implement archive API call
+    alert(`Archive case: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+  };
+
+  const handleExportDetails = async () => {
+    if (!contextMenu) return;
+    // TODO: Implement export API call
+    alert(`Export details: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+  };
+
+  const handleGenerateReport = async () => {
+    if (!contextMenu) return;
+    // TODO: Implement generate report API call
+    alert(`Generate report: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+  };
+
+  const handleAssignAttorney = async () => {
+    if (!contextMenu) return;
+    // TODO: Implement assign attorney modal
+    alert(`Assign attorney: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -436,6 +534,16 @@ export default function CasesListPage() {
               >
                 {selectionMode ? 'Cancel Selection' : 'Select Cases'}
               </button>
+              {viewMode === 'list' && (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <kbd className="px-1.5 py-0.5 bg-slate-200 rounded border border-slate-300">↑↓</kbd>
+                  <span>Navigate</span>
+                  <kbd className="px-1.5 py-0.5 bg-slate-200 rounded border border-slate-300">Enter</kbd>
+                  <span>Open</span>
+                  <kbd className="px-1.5 py-0.5 bg-slate-200 rounded border border-slate-300">Right-click</kbd>
+                  <span>Menu</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -504,13 +612,22 @@ export default function CasesListPage() {
 
             {/* Table Body */}
             <div className="divide-y divide-slate-200">
-              {filteredCases.map((caseItem) => (
+              {filteredCases.map((caseItem, index) => (
                 <div
                   key={caseItem.id}
+                  ref={(el) => {
+                    if (el) {
+                      caseRowRefs.current.set(caseItem.id, el);
+                    } else {
+                      caseRowRefs.current.delete(caseItem.id);
+                    }
+                  }}
                   onClick={(e) => handleRowClick(caseItem, e)}
+                  onContextMenu={(e) => handleContextMenu(e, caseItem)}
                   className={`
-                    group px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors
+                    group px-6 py-4 cursor-pointer transition-colors
                     border-l-4 ${getHealthBarColor(caseItem)}
+                    ${focusedIndex === index ? 'bg-blue-50 ring-2 ring-blue-500 ring-inset' : 'hover:bg-slate-50'}
                   `}
                 >
                   <div className="flex items-center gap-4">
@@ -776,6 +893,19 @@ export default function CasesListPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onArchive={handleArchiveCase}
+          onExportDetails={handleExportDetails}
+          onGenerateReport={handleGenerateReport}
+          onAssignAttorney={handleAssignAttorney}
+        />
       )}
     </div>
   );

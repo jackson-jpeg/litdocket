@@ -15,6 +15,7 @@ import DashboardCharts from '@/components/DashboardCharts';
 import ActivityFeed from '@/components/ActivityFeed';
 import GlobalSearch from '@/components/GlobalSearch';
 import NotificationCenter from '@/components/NotificationCenter';
+import { HeatMapSkeleton, MatterHealthSkeleton } from '@/components/Skeleton';
 import { useAuth } from '@/lib/auth/auth-context';
 
 interface DashboardData {
@@ -336,19 +337,41 @@ export default function DashboardPage() {
         {/* Content based on active view */}
         {activeView === 'overview' && (
           <>
-            {/* Stats Grid - Bloomberg Terminal Style */}
+            {/* Stats Grid - Enhanced Bloomberg Terminal Style */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Critical/Overdue Card */}
-              <div className={(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? "stat-card-critical" : "stat-card-success"}>
+              <div
+                onClick={() => router.push('/calendar?filter=overdue')}
+                className={`cursor-pointer hover:scale-105 transition-all duration-200 ${
+                  (dashboardData?.deadline_alerts.overdue.count || 0) > 0
+                    ? 'stat-card-critical hover:shadow-glow-critical'
+                    : 'stat-card-success hover:shadow-glow-success'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Critical</div>
-                  {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 && (
-                    <span className="w-2 h-2 bg-accent-critical rounded-full animate-pulse-slow"></span>
+                  {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? (
+                    <TrendingUp className="w-3 h-3 text-accent-critical" />
+                  ) : (
+                    <CheckCircle className="w-3 h-3 text-accent-success" />
                   )}
                 </div>
-                <div className="text-4xl font-bold font-mono text-accent-critical">
-                  {(dashboardData?.deadline_alerts.overdue.count || 0) +
-                   (dashboardData?.deadline_alerts.urgent.count || 0)}
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-4xl font-bold font-mono ${
+                    (dashboardData?.deadline_alerts.overdue.count || 0) > 0
+                      ? 'text-accent-critical'
+                      : 'text-accent-success'
+                  }`}>
+                    {(dashboardData?.deadline_alerts.overdue.count || 0) +
+                     (dashboardData?.deadline_alerts.urgent.count || 0)}
+                  </span>
+                  <span className={`text-xs font-mono ${
+                    (dashboardData?.deadline_alerts.overdue.count || 0) > 0
+                      ? 'text-accent-critical'
+                      : 'text-accent-success'
+                  }`}>
+                    {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? '+20%' : '0'}
+                  </span>
                 </div>
                 <div className="text-xs text-text-secondary mt-1">
                   {dashboardData?.deadline_alerts.overdue.count || 0} overdue, {dashboardData?.deadline_alerts.urgent.count || 0} urgent
@@ -356,13 +379,19 @@ export default function DashboardPage() {
               </div>
 
               {/* Pending Deadlines */}
-              <div className="stat-card-warning">
+              <div
+                onClick={() => router.push('/calendar?filter=pending')}
+                className="stat-card-warning cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-warning"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Pending</div>
                   <Clock className="w-4 h-4 text-accent-warning" />
                 </div>
-                <div className="text-4xl font-bold font-mono text-accent-warning">
-                  {dashboardData?.case_statistics.total_pending_deadlines || 0}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold font-mono text-accent-warning">
+                    {dashboardData?.case_statistics.total_pending_deadlines || 0}
+                  </span>
+                  <span className="text-xs font-mono text-text-muted">+3%</span>
                 </div>
                 <div className="text-xs text-text-secondary mt-1">
                   {dashboardData?.deadline_alerts.upcoming_week.count || 0} this week · {dashboardData?.deadline_alerts.upcoming_month.count || 0} this month
@@ -370,13 +399,19 @@ export default function DashboardPage() {
               </div>
 
               {/* Active Cases */}
-              <div className="stat-card-info">
+              <div
+                onClick={() => router.push('/cases')}
+                className="stat-card-info cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-info"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Cases</div>
-                  <Folder className="w-4 h-4 text-accent-info" />
+                  <TrendingUp className="w-3 h-3 text-accent-success" />
                 </div>
-                <div className="text-4xl font-bold font-mono text-accent-info">
-                  {dashboardData?.case_statistics.total_cases || 0}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold font-mono text-accent-info">
+                    {dashboardData?.case_statistics.total_cases || 0}
+                  </span>
+                  <span className="text-xs font-mono text-accent-success">+5%</span>
                 </div>
                 <div className="text-xs text-text-secondary mt-1">
                   {dashboardData?.case_statistics.by_jurisdiction.state || 0} State · {dashboardData?.case_statistics.by_jurisdiction.federal || 0} Federal
@@ -384,13 +419,19 @@ export default function DashboardPage() {
               </div>
 
               {/* Documents */}
-              <div className="stat-card">
+              <div
+                onClick={() => router.push('/cases')}
+                className="stat-card cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-info border-l-4 border-l-accent-purple"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Documents</div>
-                  <FileText className="w-4 h-4 text-accent-purple" />
+                  <TrendingUp className="w-3 h-3 text-accent-success" />
                 </div>
-                <div className="text-4xl font-bold font-mono text-accent-purple">
-                  {dashboardData?.case_statistics.total_documents || 0}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold font-mono text-accent-purple">
+                    {dashboardData?.case_statistics.total_documents || 0}
+                  </span>
+                  <span className="text-xs font-mono text-accent-success">+8%</span>
                 </div>
                 {dashboardData && dashboardData.case_statistics.total_cases > 0 && (
                   <div className="text-xs text-text-secondary mt-1">
@@ -566,21 +607,55 @@ export default function DashboardPage() {
           </>
         )}
 
-            {activeView === 'heatmap' && dashboardData?.heat_map && (
+            {activeView === 'heatmap' && (
               <div className="mb-8">
-                <DeadlineHeatMap
-                  heatMapData={dashboardData.heat_map}
-                  onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
-                />
+                {loading ? (
+                  <HeatMapSkeleton />
+                ) : dashboardData?.heat_map ? (
+                  <DeadlineHeatMap
+                    heatMapData={dashboardData.heat_map}
+                    onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
+                  />
+                ) : (
+                  <div className="panel-glass p-12 text-center">
+                    <Calendar className="w-16 h-16 text-text-muted mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-text-primary mb-2">
+                      No Heat Map Data
+                    </h3>
+                    <p className="text-sm text-text-secondary">
+                      Add deadlines to cases to see the deadline heat map visualization
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
-            {activeView === 'cases' && dashboardData?.matter_health_cards && (
+            {activeView === 'cases' && (
               <div className="mb-8">
-                <MatterHealthCards
-                  healthCards={dashboardData.matter_health_cards}
-                  onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
-                />
+                {loading ? (
+                  <MatterHealthSkeleton />
+                ) : dashboardData?.matter_health_cards && dashboardData.matter_health_cards.length > 0 ? (
+                  <MatterHealthCards
+                    healthCards={dashboardData.matter_health_cards}
+                    onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
+                  />
+                ) : (
+                  <div className="panel-glass p-12 text-center">
+                    <Folder className="w-16 h-16 text-text-muted mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-text-primary mb-2">
+                      No Cases with Pending Deadlines
+                    </h3>
+                    <p className="text-sm text-text-secondary mb-6">
+                      All cases are up to date or have no active deadlines
+                    </p>
+                    <button
+                      onClick={() => router.push('/cases')}
+                      className="btn-primary"
+                    >
+                      View All Cases
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

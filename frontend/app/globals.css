@@ -278,6 +278,28 @@
     @apply p-4;
   }
 
+  /* Panel Inset - Depressed surface effect */
+  .panel-inset {
+    @apply bg-[#0D1117] border border-[#21262D] rounded-md shadow-inner;
+  }
+
+  /* ==========================================
+     ENTERPRISE CARDS - Bloomberg Terminal Style
+     ========================================== */
+
+  .enterprise-card {
+    @apply panel-glass overflow-hidden;
+  }
+
+  .enterprise-card-header {
+    @apply px-4 py-3 bg-terminal-elevated border-b border-border-subtle;
+    @apply text-sm font-semibold text-text-primary uppercase tracking-wide;
+  }
+
+  .enterprise-card-body {
+    @apply p-4;
+  }
+
   /* ==========================================
      SCROLLBARS - Dark Theme
      ========================================== */
