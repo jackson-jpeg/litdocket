@@ -616,10 +616,7 @@ AI QUERIES (STREAMING):
       {expanded && (
         <div className="terminal">
           {/* Terminal Header */}
-          <div
-            className="flex items-center justify-between px-4 py-2 border-b border-gray-700 cursor-pointer"
-            onClick={toggleExpanded}
-          >
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
             <div className="flex items-center gap-3">
               <span className="text-terminal-green font-mono text-sm">{'>'}_</span>
               <span className="text-terminal-text font-mono text-sm">
@@ -632,15 +629,19 @@ AI QUERIES (STREAMING):
               )}
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-terminal-text font-mono text-xs opacity-60">
-                [Click to collapse]
-              </span>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 ${isStreaming || isUploading ? 'bg-terminal-amber animate-pulse' : (caseId ? 'bg-terminal-green' : 'bg-terminal-amber')}`}></span>
                 <span className="text-terminal-text font-mono text-xs">
                   {isUploading ? 'UPLOADING' : isStreaming ? 'STREAMING' : isAwaitingApproval ? 'AWAITING APPROVAL' : (caseId ? 'READY' : 'NO CASE')}
                 </span>
               </div>
+              <button
+                onClick={toggleExpanded}
+                className="text-terminal-text hover:text-red-400 transition-colors p-1"
+                title="Minimize terminal"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 

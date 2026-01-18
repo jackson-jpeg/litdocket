@@ -229,37 +229,45 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         setReconnectAttempts(0);
       });
 
+      // Handle connection open
+      eventSource.onopen = () => {
+        console.log('[SSE] Connection opened successfully');
+        receivedDataRef.current = true;  // Connection is working
+      };
+
       // Handle connection errors (EventSource standard error event)
       eventSource.onerror = (e) => {
-        console.error('[SSE] EventSource error event. ReadyState:', eventSource.readyState);
-        console.error('[SSE] Received any data?', receivedDataRef.current);
+        console.log('[SSE] EventSource onerror fired. ReadyState:', eventSource.readyState);
+        console.log('[SSE] Received any data?', receivedDataRef.current);
 
-        // If we received data, the stream is working - this error is just the connection closing
-        // This is normal behavior when the stream completes
-        if (receivedDataRef.current) {
-          console.log('[SSE] Connection closed after receiving data - this is normal');
+        // ReadyState: 0 = CONNECTING, 1 = OPEN, 2 = CLOSED
+        // If CLOSED and we received data, this is normal completion
+        if (eventSource.readyState === 2 && receivedDataRef.current) {
+          console.log('[SSE] Stream completed normally');
           eventSource.close();
           eventSourceRef.current = null;
-          // Don't set error state - just go back to idle
           setStreamState({ type: 'idle' });
           setReconnectAttempts(0);
           return;
         }
 
-        // If we never received data, this is a real connection error
-        console.error('[SSE] Connection error before receiving any data');
+        // If CONNECTING or we never received data, this is a real error
+        if (!receivedDataRef.current) {
+          console.error('[SSE] Connection failed before receiving data');
 
-        // Only retry if we haven't exceeded max attempts
-        if (reconnectAttempts < maxReconnectAttempts) {
-          const delay = 2000 * (reconnectAttempts + 1); // Exponential backoff
-          console.log(`[SSE] Retrying in ${delay}ms... attempt ${reconnectAttempts + 1}`);
-          eventSource.close();
-          eventSourceRef.current = null;
-          setTimeout(() => {
-            setReconnectAttempts(prev => prev + 1);
-            sendMessage(message);
-          }, delay);
-        } else {
+          // Only retry if we haven't exceeded max attempts
+          if (reconnectAttempts < maxReconnectAttempts) {
+            const delay = 2000 * (reconnectAttempts + 1); // Exponential backoff
+            console.log(`[SSE] Retrying in ${delay}ms... attempt ${reconnectAttempts + 1}`);
+            eventSource.close();
+            eventSourceRef.current = null;
+            setTimeout(() => {
+              setReconnectAttempts(prev => prev + 1);
+              sendMessage(message);
+            }, delay);
+            return;
+          }
+
           // Max retries exceeded
           console.error('[SSE] Max retries exceeded');
           setStreamState({
