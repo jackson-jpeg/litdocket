@@ -5,6 +5,10 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
+// Import react-pdf CSS for proper rendering
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
 // ============================================================================
 // PDF.js Worker Configuration
 // CRITICAL FIX: Use CDN with version matching react-pdf's pdfjs-dist dependency
@@ -202,7 +206,7 @@ export default function DocumentViewer({
         </div>
 
         {/* PDF Viewer */}
-        <div className="flex-1 overflow-auto bg-slate-100 flex items-center justify-center p-4">
+        <div className="flex-1 overflow-auto bg-slate-200 flex items-center justify-center p-4">
           {loading && !error && (
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -231,23 +235,55 @@ export default function DocumentViewer({
           )}
 
           {!error && pdfBlob && (
-            <Document
-              file={pdfBlob}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={onDocumentLoadError}
-              loading=""
-              className="flex justify-center"
-            >
-              <Page
-                pageNumber={pageNumber}
-                scale={scale}
-                className="shadow-lg"
-                renderTextLayer={true}
-                renderAnnotationLayer={true}
-              />
-            </Document>
+            <div className="pdf-container">
+              <Document
+                file={pdfBlob}
+                onLoadSuccess={onDocumentLoadSuccess}
+                onLoadError={onDocumentLoadError}
+                loading=""
+              >
+                <Page
+                  pageNumber={pageNumber}
+                  scale={scale}
+                  renderTextLayer={true}
+                  renderAnnotationLayer={true}
+                />
+              </Document>
+            </div>
           )}
         </div>
+
+        <style jsx global>{`
+          .pdf-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+          }
+
+          .pdf-container .react-pdf__Document {
+            display: flex;
+            justify-content: center;
+          }
+
+          .pdf-container .react-pdf__Page {
+            max-width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            background: white;
+          }
+
+          .pdf-container .react-pdf__Page__canvas {
+            max-width: 100%;
+            height: auto !important;
+          }
+
+          .pdf-container .react-pdf__Page__textContent {
+            border: none;
+          }
+
+          .pdf-container .react-pdf__Page__annotations {
+            border: none;
+          }
+        `}</style>
 
         {/* Navigation Footer */}
         {numPages && numPages > 1 && (
