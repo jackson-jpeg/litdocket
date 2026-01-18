@@ -167,7 +167,7 @@ class CaseContextBuilder:
             "is_manually_overridden": deadline.is_manually_overridden,
             "trigger_event": deadline.trigger_event,
             "parent_deadline_id": deadline.parent_deadline_id,
-            "notes": deadline.notes,
+            "notes": getattr(deadline, 'notes', deadline.description),
         }
 
     def _build_document_intelligence(self, case_id: str) -> Dict[str, Any]:

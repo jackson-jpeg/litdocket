@@ -222,12 +222,25 @@ class StreamingChatService:
 
             while tool_call_count < MAX_TOOL_CALLS:
                 try:
+                    # Sanitize messages to prevent 400 errors from empty content
+                    sanitized_messages = [
+                        m for m in messages
+                        if m.get("content") and (
+                            isinstance(m["content"], list) or
+                            (isinstance(m["content"], str) and m["content"].strip())
+                        )
+                    ]
+
+                    # Ensure we have at least one message
+                    if not sanitized_messages:
+                        sanitized_messages.append({"role": "user", "content": "Hello"})
+
                     # Stream Claude response
                     with self.client.messages.stream(
                         model=self.model,
                         max_tokens=4096,
                         system=system_prompt,
-                        messages=messages,
+                        messages=sanitized_messages,
                         tools=CHAT_TOOLS
                     ) as stream:
                         # Collect response content for re-adding to conversation
