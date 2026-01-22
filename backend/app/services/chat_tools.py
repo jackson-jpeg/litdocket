@@ -57,7 +57,21 @@ CHAT_TOOLS = [
     },
     {
         "name": "create_trigger_deadline",
-        "description": "Create a trigger event that automatically generates dependent deadlines. Use this for trial dates, mediation dates, appeal filed dates, service dates, etc. This is MUCH better than creating individual deadlines.",
+        "description": """Create a trigger event that automatically generates dependent deadlines.
+
+IMPORTANT: This tool uses conversational intake. If the backend returns status='needs_clarification',
+you MUST ask the user the questions in 'missing_fields', then call this tool again with the answers in 'context'.
+
+Example flow:
+1. User: "Trial is May 15"
+2. You call: create_trigger_deadline(trigger_type="trial_date", trigger_date="2026-05-15")
+3. Backend returns: {status: "needs_clarification", missing_fields: [{field_name: "jury_status", question_text: "Is this a jury trial?"}]}
+4. You ask user: "Is this a jury trial?"
+5. User: "Yes"
+6. You call: create_trigger_deadline(trigger_type="trial_date", trigger_date="2026-05-15", context={"jury_status": true})
+7. Backend returns: {status: "success", ...}
+
+Use this for trial dates, mediation dates, appeal filed dates, service dates, etc.""",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -89,6 +103,10 @@ CHAT_TOOLS = [
                 "notes": {
                     "type": "string",
                     "description": "Optional notes about this trigger event"
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Additional context gathered from user. Use this to provide answers to required_fields questions. Example: {\"jury_status\": true, \"trial_duration_days\": 3, \"court_location\": \"Miami-Dade (11th)\"}"
                 }
             },
             "required": ["trigger_type", "trigger_date"]
@@ -777,6 +795,52 @@ class ChatToolExecutor:
                     "error": f"No templates found for {jurisdiction} {court_type} {trigger_type_str}"
                 }
 
+            # =============================================================
+            # CONVERSATIONAL INTAKE: Check for Required Fields
+            # =============================================================
+            template = templates[0]  # Use first template for required_fields check
+            context = input_data.get('context', {})
+
+            if template.required_fields:
+                missing_fields = []
+
+                for required_field in template.required_fields:
+                    field_value = context.get(required_field.field_name)
+
+                    # Check if field is missing (not provided or None)
+                    if field_value is None:
+                        # Use default if available
+                        if required_field.default_value is not None:
+                            context[required_field.field_name] = required_field.default_value
+                        else:
+                            # Field is truly missing - need to ask
+                            missing_fields.append({
+                                "field_name": required_field.field_name,
+                                "question_text": required_field.display_label,
+                                "field_type": required_field.field_type,
+                                "options": required_field.enum_options,
+                                "default_value": required_field.default_value,
+                                "affects_deadlines": required_field.affects_deadlines
+                            })
+
+                # If any fields are missing, return NEEDS_CLARIFICATION
+                if missing_fields:
+                    return {
+                        "status": "needs_clarification",
+                        "success": False,  # For backward compatibility
+                        "message": f"I detected a {trigger_type_str} event. I need a few more details to generate the right deadlines.",
+                        "missing_fields": missing_fields,
+                        "detected_trigger": trigger_type_str,
+                        "context_so_far": context
+                    }
+
+            # All required fields present - continue with execution
+            # Store context in trigger deadline metadata for audit trail
+            trigger_metadata = {
+                "context": context,
+                "required_fields_satisfied": True
+            }
+
             # Create trigger deadline (parent)
             trigger_deadline = Deadline(
                 case_id=self.case_id,
@@ -807,10 +871,12 @@ class ChatToolExecutor:
             # Generate dependent deadlines
             all_dependents = []
             for template in templates:
+                # CONVERSATIONAL INTAKE: Pass user context to filter conditional deadlines
                 dependents = rules_engine.calculate_dependent_deadlines(
                     trigger_date=trigger_date,
                     rule_template=template,
-                    service_method=service_method
+                    service_method=service_method,
+                    case_context=context  # Pass user-provided context for conditional filtering
                 )
 
                 for dep_data in dependents:
@@ -849,7 +915,8 @@ class ChatToolExecutor:
             self.db.commit()
 
             return {
-                "success": True,
+                "status": "success",  # NEW: Conversational intake status
+                "success": True,      # Keep for backward compatibility
                 "trigger_id": str(trigger_deadline.id),
                 "trigger_type": trigger_type_str,
                 "trigger_date": trigger_date.isoformat(),
@@ -862,12 +929,18 @@ class ChatToolExecutor:
                     }
                     for d in all_dependents
                 ],
+                "context_used": context,  # Show what context was used
                 "message": f"✓ Created trigger event '{trigger_type_str}' with {len(all_dependents)} dependent deadlines"
             }
 
         except Exception as e:
             self.db.rollback()
-            return {"success": False, "error": str(e)}
+            return {
+                "status": "error",
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to create trigger deadline: {str(e)}"
+            }
 
     def _update_deadline(self, input_data: Dict) -> Dict:
         """

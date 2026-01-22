@@ -3,7 +3,7 @@ Trigger API - Trigger-based deadline generation
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import date as date_type, datetime, timedelta
 from pydantic import BaseModel
 
@@ -179,6 +179,8 @@ class CreateTriggerRequest(BaseModel):
     # SmartEventEntry overrides - allows user to customize dates before saving
     overrides: Optional[dict[str, str]] = None  # { "deadline_title": "2025-01-15" }
     exclusions: Optional[List[str]] = None  # ["deadline_title_1", "deadline_title_2"]
+    # CONVERSATIONAL INTAKE: User-provided context for conditional deadline filtering
+    context: Optional[dict[str, Any]] = None  # { "jury_status": true, "trial_duration_days": 3 }
 
 
 class UpdateTriggerRequest(BaseModel):
@@ -731,6 +733,12 @@ async def create_trigger_event(
                     case_context['plaintiffs'].append(party_name)
                 elif 'defendant' in party_role:
                     case_context['defendants'].append(party_name)
+
+    # CONVERSATIONAL INTAKE: Merge user-provided context for conditional deadline filtering
+    # User context contains answers like {"jury_status": true, "trial_duration_days": 3}
+    if request.context:
+        case_context.update(request.context)
+        logger.info(f"Using conversational context: {request.context}")
 
     for template in templates:
         dependent_deadlines = rules_engine.calculate_dependent_deadlines(

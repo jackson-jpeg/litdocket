@@ -37,6 +37,38 @@ __all__ = ['TriggerType', 'DeadlinePriority', 'rules_engine', 'RulesEngine']
 
 
 @dataclass
+class RequiredField:
+    """
+    A field that must be gathered before executing a trigger.
+
+    The LLM will extract these from user input and pass them in the tool call.
+    If missing, the backend returns NEEDS_CLARIFICATION.
+    """
+    field_name: str  # "jury_status", "trial_duration_days", "court_location"
+    display_label: str  # "Is this a jury trial?"
+    field_type: str  # "boolean", "integer", "enum", "text", "date"
+    enum_options: Optional[List[str]] = None  # For "enum" type
+    default_value: Optional[Any] = None  # Fallback if user doesn't provide
+    validation_rules: Optional[Dict[str, Any]] = None  # {"min": 1, "max": 30}
+    affects_deadlines: Optional[List[str]] = None  # Which dependent deadlines need this
+
+
+@dataclass
+class ClarificationQuestion:
+    """
+    A conditional follow-up question to refine deadline generation.
+
+    Asked AFTER required_fields are gathered, to optimize the deadline set.
+    Example: "Do you need jury instruction deadlines?" (only if jury_status=True)
+    """
+    question_id: str
+    question_text: str
+    trigger_condition: Optional[str] = None  # "jury_status == True"
+    expected_answer_type: str  # "boolean", "integer", "enum", "text"
+    affects_deadlines: List[str]  # Which deadlines are affected by the answer
+
+
+@dataclass
 class RuleTemplate:
     """A rule template defining dependent deadlines from a trigger"""
     rule_id: str
@@ -47,6 +79,12 @@ class RuleTemplate:
     trigger_type: TriggerType
     dependent_deadlines: List['DependentDeadline']
     citation: str  # Rule citation (e.g., "FRCP 12(a)(1)")
+
+    # CONVERSATIONAL INTAKE: Fields required before execution
+    required_fields: Optional[List[RequiredField]] = None
+
+    # CONVERSATIONAL INTAKE: Optional follow-up questions for refinement
+    clarification_questions: Optional[List[ClarificationQuestion]] = None
 
 
 @dataclass
@@ -63,6 +101,10 @@ class DependentDeadline:
     rule_citation: str
     notes: Optional[str] = None
 
+    # CONDITIONAL DEADLINES: Only generate this deadline if context matches
+    condition_field: Optional[str] = None  # Key to check in context (e.g., "jury_status")
+    condition_value: Any = True  # Required value to create this deadline
+
 
 class RulesEngine:
     """
@@ -77,6 +119,44 @@ class RulesEngine:
         self._load_florida_pretrial_rules()
         self._load_federal_pretrial_rules()
         self._load_appellate_rules()
+
+    def _normalize_value(self, value: Any) -> Any:
+        """
+        Normalize values for soft matching in conditional deadline logic.
+
+        Handles type mismatches between LLM-provided strings and expected types:
+        - "true"/"yes"/"1" → True
+        - "false"/"no"/"0" → False
+        - "123" → 123
+        - Otherwise returns value as-is
+
+        This prevents strict inequality failures when LLM returns "true" (string)
+        but rule expects True (boolean).
+
+        Args:
+            value: Raw value from user context or condition
+
+        Returns:
+            Normalized value for comparison
+        """
+        if isinstance(value, str):
+            # Boolean string normalization
+            lower_val = value.lower().strip()
+            if lower_val in ("true", "yes", "1", "y"):
+                return True
+            elif lower_val in ("false", "no", "0", "n"):
+                return False
+
+            # Integer string normalization
+            try:
+                # Check if it's a valid integer
+                if lower_val.isdigit() or (lower_val.startswith('-') and lower_val[1:].isdigit()):
+                    return int(lower_val)
+            except (ValueError, AttributeError):
+                pass
+
+        # Return as-is for all other types (bool, int, float, None, etc.)
+        return value
 
     def _load_florida_civil_rules(self):
         """Load Florida Rules of Civil Procedure templates"""
@@ -356,6 +436,9 @@ class RulesEngine:
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="Fla. R. Civ. P. 1.470(b); Local Rules",
+                    # CONDITIONAL: Only for jury trials
+                    condition_field="jury_status",
+                    condition_value=True
                 ),
                 DependentDeadline(
                     name="Proposed Verdict Form Due",
@@ -367,6 +450,9 @@ class RulesEngine:
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="Fla. R. Civ. P. 1.480; Local Rules",
+                    # CONDITIONAL: Only for jury trials
+                    condition_field="jury_status",
+                    condition_value=True
                 ),
                 DependentDeadline(
                     name="Proposed Voir Dire Questions",
@@ -378,6 +464,9 @@ class RulesEngine:
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="Local Rules",
+                    # CONDITIONAL: Only for jury trials
+                    condition_field="jury_status",
+                    condition_value=True
                 ),
                 # ========== DEPOSITION DESIGNATIONS ==========
                 DependentDeadline(
@@ -464,6 +553,62 @@ class RulesEngine:
                     rule_citation="Fla. R. Civ. P. 1.200; Local Rules",
                     notes="Typically 5-14 days before trial"
                 ),
+            ],
+            # =============================================================
+            # CONVERSATIONAL INTAKE: Required Context for Trial Deadlines
+            # =============================================================
+            required_fields=[
+                RequiredField(
+                    field_name="jury_status",
+                    display_label="Is this a jury trial?",
+                    field_type="boolean",
+                    default_value=True,  # Assume jury trial if not specified
+                    affects_deadlines=[
+                        "Proposed Jury Instructions Due",
+                        "Proposed Verdict Form Due",
+                        "Proposed Voir Dire Questions"
+                    ]
+                ),
+                RequiredField(
+                    field_name="trial_duration_days",
+                    display_label="Expected trial duration (in days)",
+                    field_type="integer",
+                    validation_rules={"min": 1, "max": 30},
+                    default_value=None,  # No default - MUST ask
+                    affects_deadlines=["Trial Subpoena Deadline (Non-Party)", "Exchange Trial Exhibits"]
+                ),
+                RequiredField(
+                    field_name="court_location",
+                    display_label="Court location/circuit",
+                    field_type="enum",
+                    enum_options=["Miami-Dade (11th)", "Broward (17th)", "Palm Beach (15th)", "Other"],
+                    default_value="Miami-Dade (11th)",
+                    affects_deadlines=["Pretrial Stipulation Due", "Motions in Limine Due"]
+                )
+            ],
+            clarification_questions=[
+                ClarificationQuestion(
+                    question_id="confirm_expert_witnesses",
+                    question_text="Will either party be using expert witnesses?",
+                    trigger_condition="None",  # Always ask
+                    expected_answer_type="boolean",
+                    affects_deadlines=[
+                        "Plaintiff Expert Disclosure",
+                        "Defendant Expert Disclosure",
+                        "Expert Deposition Cutoff"
+                    ]
+                ),
+                ClarificationQuestion(
+                    question_id="confirm_summary_judgment",
+                    question_text="Do you plan to file a motion for summary judgment?",
+                    trigger_condition="None",
+                    expected_answer_type="boolean",
+                    affects_deadlines=[
+                        "Motion for Summary Judgment Deadline",
+                        "MSJ Response Deadline",
+                        "MSJ Reply Deadline"
+                    ]
+                )
             ]
         )
         self.rule_templates[trial_rule.rule_id] = trial_rule
@@ -1112,6 +1257,9 @@ class RulesEngine:
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="FRCP 51; Local Rules",
+                    # CONDITIONAL: Only for jury trials
+                    condition_field="jury_status",
+                    condition_value=True
                 ),
                 DependentDeadline(
                     name="Proposed Verdict Form Due",
@@ -1123,6 +1271,9 @@ class RulesEngine:
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="FRCP 49; Local Rules",
+                    # CONDITIONAL: Only for jury trials
+                    condition_field="jury_status",
+                    condition_value=True
                 ),
                 DependentDeadline(
                     name="Proposed Voir Dire Questions",
@@ -1134,6 +1285,9 @@ class RulesEngine:
                     calculation_method="calendar_days",
                     add_service_method_days=False,
                     rule_citation="Local Rules",
+                    # CONDITIONAL: Only for jury trials
+                    condition_field="jury_status",
+                    condition_value=True
                 ),
                 # ========== DEPOSITION DESIGNATIONS ==========
                 DependentDeadline(
@@ -1660,6 +1814,37 @@ class RulesEngine:
         trigger_code = trigger_codes.get(rule_template.trigger_type.value, '$TRIG')
 
         for dependent in rule_template.dependent_deadlines:
+            # =============================================================
+            # CONDITIONAL DEADLINES: Filter based on user-provided context
+            # =============================================================
+            if dependent.condition_field is not None:
+                # This deadline has a condition - check if context satisfies it
+                if case_context and dependent.condition_field in case_context:
+                    # Context has the field - check if value matches
+                    actual_value = case_context[dependent.condition_field]
+
+                    # SOFT MATCH: Normalize both sides before comparing
+                    # Handles "true" (string) vs True (boolean) mismatches from LLM
+                    norm_actual = self._normalize_value(actual_value)
+                    norm_expected = self._normalize_value(dependent.condition_value)
+
+                    if norm_actual != norm_expected:
+                        # Condition not met - skip this deadline
+                        logger.debug(
+                            f"Skipping deadline '{dependent.name}' - condition not met: "
+                            f"{dependent.condition_field}={norm_actual} (expected {norm_expected}) "
+                            f"[raw: {actual_value} vs {dependent.condition_value}]"
+                        )
+                        continue
+                else:
+                    # SAFETY FALLBACK: Field missing from context
+                    # Better to have an extra deadline than miss a fatal one
+                    logger.warning(
+                        f"Condition field '{dependent.condition_field}' not in context for deadline '{dependent.name}'. "
+                        f"Creating deadline as safety fallback."
+                    )
+                    # Continue to create the deadline
+
             # Determine if this is before or after the trigger
             base_days = abs(dependent.days_from_trigger)
             is_before_trigger = dependent.days_from_trigger < 0
