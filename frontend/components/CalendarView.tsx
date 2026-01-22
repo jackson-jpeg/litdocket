@@ -6,6 +6,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { parseLocalDate } from '@/lib/formatters';
 
 const locales = {
   'en-US': enUS,
@@ -65,8 +66,8 @@ export default function CalendarView({ deadlines, onDeadlineClick }: CalendarVie
       .map(deadline => ({
         id: deadline.id,
         title: deadline.title,
-        start: new Date(deadline.deadline_date),
-        end: new Date(deadline.deadline_date),
+        start: parseLocalDate(deadline.deadline_date),
+        end: parseLocalDate(deadline.deadline_date),
         resource: deadline,
       }));
   }, [deadlines, selectedPriority, selectedStatus]);

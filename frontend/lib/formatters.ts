@@ -3,12 +3,50 @@
  */
 
 /**
+ * CRITICAL FIX: Parse date string as local date, not UTC
+ *
+ * Problem: new Date("2026-01-12") interprets as UTC midnight (2026-01-12T00:00:00.000Z)
+ * In EST (UTC-5), this becomes 2026-01-11 19:00:00 (previous day!)
+ *
+ * Solution: Manually parse YYYY-MM-DD and create date at local noon
+ * to avoid timezone rollback issues.
+ *
+ * EXPORTED: Use this anywhere you need to parse deadline dates!
+ * Example: parseLocalDate(deadline.deadline_date)
+ */
+export function parseLocalDate(dateString: string | Date): Date {
+  if (!dateString) return new Date();
+
+  // If already a Date object, use it
+  if (dateString instanceof Date) return dateString;
+
+  // Handle ISO format with time (e.g., "2026-01-12T14:30:00")
+  if (typeof dateString === 'string' && dateString.includes('T')) {
+    return new Date(dateString);
+  }
+
+  // Parse YYYY-MM-DD as local date at noon to avoid timezone issues
+  const parts = String(dateString).split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+    const day = parseInt(parts[2], 10);
+
+    // Create date at 12:00 PM local time to avoid midnight rollback
+    return new Date(year, month, day, 12, 0, 0);
+  }
+
+  // Fallback to default parsing (should rarely happen)
+  return new Date(dateString);
+}
+
+/**
  * Format date for deadline display (MM/DD/YYYY)
  */
 export function formatDeadlineDate(dateString: string | undefined): string {
   if (!dateString) return 'TBD';
 
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   return date.toLocaleDateString('en-US', {
     month: '2-digit',
     day: '2-digit',
@@ -18,9 +56,10 @@ export function formatDeadlineDate(dateString: string | undefined): string {
 
 /**
  * Format date with time
+ * Note: If dateString has time component, it will be preserved
  */
 export function formatDateTime(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -34,7 +73,7 @@ export function formatDateTime(dateString: string): string {
  * Format time only
  */
 export function formatTime(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
@@ -43,9 +82,10 @@ export function formatTime(dateString: string): string {
 
 /**
  * Format date for display (short format)
+ * Example: "Jan 12, 2026"
  */
 export function formatDateShort(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -57,7 +97,7 @@ export function formatDateShort(dateString: string): string {
  * Format full datetime
  */
 export function formatFullDateTime(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseLocalDate(dateString);
   return date.toLocaleString();
 }
 

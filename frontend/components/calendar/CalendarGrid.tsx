@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
 import { CalendarDeadline } from '@/hooks/useCalendarDeadlines';
+import { parseLocalDate } from '@/lib/formatters';
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -94,8 +95,8 @@ export default function CalendarGrid({
       .map(deadline => ({
         id: deadline.id,
         title: deadline.title,
-        start: new Date(deadline.deadline_date!),
-        end: new Date(deadline.deadline_date!),
+        start: parseLocalDate(deadline.deadline_date!),
+        end: parseLocalDate(deadline.deadline_date!),
         allDay: true,
         resource: deadline,
       }));
@@ -108,7 +109,7 @@ export default function CalendarGrid({
     deadlines
       .filter(d => d.deadline_date)
       .forEach(deadline => {
-        const dateKey = format(new Date(deadline.deadline_date!), 'yyyy-MM-dd');
+        const dateKey = format(parseLocalDate(deadline.deadline_date!), 'yyyy-MM-dd');
         if (!grouped.has(dateKey)) {
           grouped.set(dateKey, []);
         }
