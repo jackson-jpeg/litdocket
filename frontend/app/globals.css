@@ -361,4 +361,78 @@
   .bg-accent-warning { background-color: #FFA502; }
   .bg-accent-success { background-color: #26DE81; }
   .bg-accent-info { background-color: #45AAF2; }
+
+  /* ==========================================
+     AI TERMINAL STYLES - Cockpit Interface
+     ========================================== */
+
+  /* Terminal text colors */
+  .text-terminal-text { color: #E6EDF3; }
+  .text-terminal-green { color: #26DE81; }
+  .text-terminal-amber { color: #FFA502; }
+
+  /* Main terminal container */
+  .cockpit-terminal {
+    @apply fixed bottom-0 left-0 right-0 z-50;
+    @apply border-t border-gray-700;
+  }
+
+  /* Collapsed terminal bar */
+  .terminal-collapsed {
+    @apply bg-terminal-bg;
+    @apply flex items-center justify-between px-4 py-2;
+    @apply cursor-pointer hover:bg-terminal-panel transition-colors;
+  }
+
+  /* Expanded terminal */
+  .terminal {
+    @apply bg-terminal-bg;
+    @apply flex flex-col;
+    height: 500px;
+    max-height: 60vh;
+  }
+
+  /* Messages area with scrolling */
+  .terminal-expanded {
+    @apply flex-1 overflow-y-auto px-4 py-2;
+    @apply bg-terminal-bg;
+    min-height: 0; /* Important for flex children to scroll */
+  }
+
+  /* Custom scrollbar for terminal */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #30363D #0A0E14;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #0A0E14;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #30363D;
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #444C56;
+  }
+
+  /* Terminal cursor animation */
+  .terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background-color: #26DE81;
+    animation: terminal-blink 1s infinite;
+  }
+
+  @keyframes terminal-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
 }

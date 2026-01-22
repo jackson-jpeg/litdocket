@@ -104,14 +104,8 @@ export function AITerminal() {
   } = useStreamingChat({
     caseId: caseId || '',
     onToken: (token: string) => {
-      // Update current AI message with new token
-      if (currentAIMessageId) {
-        setMessages(prev => prev.map(msg =>
-          msg.id === currentAIMessageId
-            ? { ...msg, content: msg.content + token }
-            : msg
-        ));
-      }
+      // Tokens are accumulated in currentMessage state by the hook
+      // No need to update messages array here
     },
     onStatus: (status: string, message: string) => {
       console.log(`[STREAMING] Status: ${status} - ${message}`);
@@ -137,9 +131,22 @@ export function AITerminal() {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMsg]);
+      setCurrentAIMessageId(null);
     },
     onDone: (data: { message_id: string; tokens_used: number }) => {
       console.log(`[STREAMING] Done. Tokens: ${data.tokens_used}`);
+
+      // Add complete AI message to messages array
+      if (currentMessage.trim()) {
+        const aiMsg: Message = {
+          id: `ai-${Date.now()}`,
+          type: 'ai',
+          content: currentMessage,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, aiMsg]);
+      }
+
       setCurrentAIMessageId(null);
     }
   });
@@ -202,12 +209,12 @@ export function AITerminal() {
     }
   };
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom - triggers on new messages AND streaming content updates
   useEffect(() => {
     if (expanded && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, expanded]);
+  }, [messages, expanded, currentMessage, isStreaming]);
 
   // Focus input when expanded
   useEffect(() => {
@@ -459,18 +466,7 @@ AI QUERIES (STREAMING):
       return;
     }
 
-    // Create placeholder AI message for streaming
-    const aiMessageId = `ai-${Date.now()}`;
-    const aiMsg: Message = {
-      id: aiMessageId,
-      type: 'ai',
-      content: '',
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, aiMsg]);
-    setCurrentAIMessageId(aiMessageId);
-
-    // Send to AI via streaming
+    // Send to AI via streaming (no placeholder message - will show currentMessage while streaming)
     try {
       await sendMessage(command);
     } catch (err: any) {
@@ -701,12 +697,35 @@ AI QUERIES (STREAMING):
               </div>
             ))}
 
-            {/* Streaming indicator */}
-            {isStreaming && !isAwaitingApproval && (
+            {/* Streaming indicator - only show if no content yet */}
+            {isStreaming && !isAwaitingApproval && !currentMessage && (
               <div className="text-terminal-green font-mono text-sm">
                 <span className="text-terminal-amber">[AI] </span>
-                <span className="animate-pulse">Streaming response...</span>
+                <span className="animate-pulse">Thinking...</span>
                 <span className="terminal-cursor ml-1" />
+              </div>
+            )}
+
+            {/* Show streaming content as it arrives */}
+            {isStreaming && currentMessage && !isAwaitingApproval && (
+              <div className="mb-2 font-mono text-sm text-terminal-green">
+                <span className="text-terminal-amber">[AI] </span>
+                <div className="inline prose prose-invert prose-sm max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <span>{children}</span>,
+                      code: ({ children }) => (
+                        <code className="bg-gray-800 px-1 text-terminal-green">{children}</code>
+                      ),
+                      ul: ({ children }) => <ul className="list-disc ml-4 my-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal ml-4 my-1">{children}</ol>,
+                      li: ({ children }) => <li className="my-0">{children}</li>,
+                    }}
+                  >
+                    {currentMessage}
+                  </ReactMarkdown>
+                </div>
+                <span className="terminal-cursor ml-1 animate-pulse" />
               </div>
             )}
 
