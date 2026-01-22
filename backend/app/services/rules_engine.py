@@ -9,13 +9,12 @@ Supports both:
 1. Hardcoded rule templates (legacy, always available)
 2. Database-loaded rule templates (from jurisdiction system)
 """
-# CRITICAL: 'Any' must be imported for type hints on line 2369+
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import Dict, List, Optional, Any, TYPE_CHECKING, Union
 from datetime import date, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 
-# Import centralized enums (SINGLE SOURCE OF TRUTH)
+# Import centralized enums
 from app.models.enums import TriggerType, DeadlinePriority
 
 # Import authoritative legal rules constants
@@ -31,79 +30,60 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Re-export enums for backwards compatibility
-# Other modules can still do: from app.services.rules_engine import TriggerType
 __all__ = ['TriggerType', 'DeadlinePriority', 'rules_engine', 'RulesEngine']
-
 
 @dataclass
 class RequiredField:
-    """
-    A field that must be gathered before executing a trigger.
-
-    The LLM will extract these from user input and pass them in the tool call.
-    If missing, the backend returns NEEDS_CLARIFICATION.
-    """
-    field_name: str  # "jury_status", "trial_duration_days", "court_location"
-    display_label: str  # "Is this a jury trial?"
-    field_type: str  # "boolean", "integer", "enum", "text", "date"
-    enum_options: Optional[List[str]] = None  # For "enum" type
-    default_value: Optional[Any] = None  # Fallback if user doesn't provide
-    validation_rules: Optional[Dict[str, Any]] = None  # {"min": 1, "max": 30}
-    affects_deadlines: Optional[List[str]] = None  # Which dependent deadlines need this
-
+    """A field that must be gathered before executing a trigger."""
+    field_name: str
+    display_label: str
+    field_type: str
+    enum_options: Optional[List[str]] = None
+    default_value: Optional[Any] = None
+    validation_rules: Optional[Dict[str, Any]] = None
+    affects_deadlines: Optional[List[str]] = None
 
 @dataclass
 class ClarificationQuestion:
-    """
-    A conditional follow-up question to refine deadline generation.
-
-    Asked AFTER required_fields are gathered, to optimize the deadline set.
-    Example: "Do you need jury instruction deadlines?" (only if jury_status=True)
-    """
+    """A follow-up question to refine deadline generation."""
     question_id: str
     question_text: str
-    trigger_condition: Optional[str] = None  # "jury_status == True"
-    expected_answer_type: str  # "boolean", "integer", "enum", "text"
-    affects_deadlines: List[str]  # Which deadlines are affected by the answer
-
-
-@dataclass
-class RuleTemplate:
-    """A rule template defining dependent deadlines from a trigger"""
-    rule_id: str
-    name: str
-    description: str
-    jurisdiction: str  # "federal", "florida_state", "florida_local"
-    court_type: str  # "civil", "criminal", "appellate"
-    trigger_type: TriggerType
-    dependent_deadlines: List['DependentDeadline']
-    citation: str  # Rule citation (e.g., "FRCP 12(a)(1)")
-
-    # CONVERSATIONAL INTAKE: Fields required before execution
-    required_fields: Optional[List[RequiredField]] = None
-
-    # CONVERSATIONAL INTAKE: Optional follow-up questions for refinement
-    clarification_questions: Optional[List[ClarificationQuestion]] = None
-
+    trigger_condition: Optional[str] = None
+    expected_answer_type: str = "text"
+    affects_deadlines: List[str] = field(default_factory=list)
 
 @dataclass
 class DependentDeadline:
-    """A deadline that depends on a trigger event"""
+    """A deadline that is calculated relative to a trigger event."""
     name: str
     description: str
-    days_from_trigger: int  # Can be negative (before) or positive (after)
+    days_from_trigger: int
     priority: DeadlinePriority
-    party_responsible: str  # "plaintiff", "defendant", "both", "court"
+    party_responsible: str
     action_required: str
-    calculation_method: str  # "calendar_days", "business_days", "court_days"
-    add_service_method_days: bool  # Add 5 days if served by mail
+    calculation_method: str
+    add_service_method_days: bool
     rule_citation: str
     notes: Optional[str] = None
+    # Conditional Logic Fields
+    condition_field: Optional[str] = None
+    condition_value: Any = True
 
-    # CONDITIONAL DEADLINES: Only generate this deadline if context matches
-    condition_field: Optional[str] = None  # Key to check in context (e.g., "jury_status")
-    condition_value: Any = True  # Required value to create this deadline
+@dataclass
+class RuleTemplate:
+    """Defines a set of deadlines triggered by a specific event."""
+    rule_id: str
+    name: str
+    description: str
+    jurisdiction: str
+    court_type: str
+    trigger_type: TriggerType
+    dependent_deadlines: List[DependentDeadline]
+    citation: str
+    # Conversational Fields
+    required_fields: List[RequiredField] = field(default_factory=list)
+    clarification_questions: List[ClarificationQuestion] = field(default_factory=list)
+    conditional_logic: Optional[Dict[str, Any]] = None
 
 
 class RulesEngine:
