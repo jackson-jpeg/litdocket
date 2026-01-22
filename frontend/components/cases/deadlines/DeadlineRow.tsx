@@ -34,6 +34,7 @@ interface DeadlineRowProps {
   onDelete?: (id: string) => void;
   onReschedule?: (id: string, newDate: Date) => void;
   onViewChain?: (triggerId: string) => void;
+  onClick?: (deadline: Deadline) => void;
 }
 
 const PRIORITY_COLORS: Record<string, { border: string; bg: string; text: string }> = {
@@ -58,6 +59,7 @@ export default function DeadlineRow({
   onDelete,
   onReschedule,
   onViewChain,
+  onClick,
 }: DeadlineRowProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -125,11 +127,25 @@ export default function DeadlineRow({
     });
   };
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't trigger row click if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('input') ||
+      target.closest('a')
+    ) {
+      return;
+    }
+    onClick?.(deadline);
+  };
+
   return (
     <div
+      onClick={handleRowClick}
       className={`group relative border-l-4 ${priorityStyle.border} rounded-r-lg bg-white hover:bg-slate-50 transition-all ${
         isCompleted ? 'opacity-60' : ''
-      } ${isOverdue ? 'ring-1 ring-red-200' : ''}`}
+      } ${isOverdue ? 'ring-1 ring-red-200' : ''} ${onClick ? 'cursor-pointer' : ''}`}
     >
       {/* Responsive padding: more on mobile for touch targets */}
       <div className="p-3 lg:p-3">

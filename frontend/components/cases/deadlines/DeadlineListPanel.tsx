@@ -21,6 +21,7 @@ import {
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
 import { useCaseDeadlineFilters, GroupBy, SortBy } from '@/hooks/useCaseDeadlineFilters';
 import DeadlineRow from './DeadlineRow';
+import SimpleDeadlineModal from './SimpleDeadlineModal';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
@@ -79,6 +80,7 @@ export default function DeadlineListPanel({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
+  const [showSimpleModal, setShowSimpleModal] = useState(false);
 
   // Selection handlers
   const toggleSelection = useCallback((id: string) => {
@@ -255,9 +257,16 @@ export default function DeadlineListPanel({
                     className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Add</span>
+                    <span className="hidden sm:inline">Add Trigger</span>
                   </button>
                 )}
+                <button
+                  onClick={() => setShowSimpleModal(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white text-blue-600 text-sm font-medium rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Simple Deadline</span>
+                </button>
                 {onExportCalendar && (
                   <button
                     onClick={onExportCalendar}
@@ -565,6 +574,14 @@ export default function DeadlineListPanel({
           </div>
         )}
       </div>
+
+      {/* Simple Deadline Modal */}
+      <SimpleDeadlineModal
+        caseId={caseId}
+        isOpen={showSimpleModal}
+        onClose={() => setShowSimpleModal(false)}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 }
