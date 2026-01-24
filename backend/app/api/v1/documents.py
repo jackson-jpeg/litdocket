@@ -11,6 +11,7 @@ import logging
 from app.database import get_db
 from app.services.document_service import DocumentService
 from app.services.case_summary_service import CaseSummaryService
+from app.services.rag_service import rag_service  # Phase 1: RAG integration
 from app.models.user import User
 from app.models.case import Case
 from app.models.deadline import Deadline
@@ -156,6 +157,20 @@ async def upload_document(
             file_size_bytes=analysis_result['file_size_bytes'],
             needs_ocr=analysis_result.get('needs_ocr', False)
         )
+
+        # PHASE 1: Generate embeddings for RAG semantic search
+        # This runs asynchronously - embeddings will be available for search within seconds
+        try:
+            if document.extracted_text:
+                chunks_created = await rag_service.embed_document(
+                    document=document,
+                    case_id=analysis_result['case_id'],
+                    db=db
+                )
+                logger.info(f"Generated {chunks_created} embeddings for document {document.id}")
+        except Exception as e:
+            # Don't fail the upload if embedding generation fails
+            logger.error(f"Embedding generation failed for document {document.id}: {e}")
 
         # Extract deadlines from document (TRIGGER-FIRST ARCHITECTURE)
         # Returns dict with: deadlines, extraction_method, trigger_info, message, count
