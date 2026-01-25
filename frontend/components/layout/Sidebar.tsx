@@ -50,10 +50,17 @@ const IconTools = () => (
   </svg>
 );
 
+const IconRules = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+    <path d="M5.5 0a.5.5 0 01.5.5V2h4V.5a.5.5 0 011 0V2h1.5A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9A1.5 1.5 0 013.5 2H5V.5a.5.5 0 01.5-.5zM3 5v7.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V5H3zm2.354 1.854a.5.5 0 00-.708.708l1.5 1.5a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L7 7.793 5.354 6.146z"/>
+  </svg>
+);
+
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
   { label: 'Cases', href: '/cases', icon: <IconFolder /> },
   { label: 'Calendar', href: '/calendar', icon: <IconCalendar /> },
+  { label: 'Rules Builder', href: '/rules', icon: <IconRules /> },
   { label: 'Tools', href: '/tools', icon: <IconTools /> },
   { label: 'Settings', href: '/settings', icon: <IconSettings /> },
 ];

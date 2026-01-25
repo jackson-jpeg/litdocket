@@ -53,3 +53,6 @@ class User(Base):
 
     # Case templates
     case_templates = relationship("CaseTemplate", back_populates="user", cascade="all, delete-orphan")
+
+    # Rules Engine - User-Created Rules
+    created_rules = relationship("RuleTemplate", back_populates="creator", foreign_keys="RuleTemplate.created_by", cascade="all, delete-orphan")
