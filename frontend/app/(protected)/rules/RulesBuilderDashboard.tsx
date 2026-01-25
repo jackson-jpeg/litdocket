@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import * as React from 'react';
 import { useRules } from '@/hooks/useRules';
 import TimelineRuleBuilder from '@/components/rules/TimelineRuleBuilder';
 import {
@@ -516,22 +517,169 @@ function CreateRuleTab() {
 // ============================================
 
 function ExecutionHistoryTab() {
+  const { executions, fetchExecutions, loading } = useRules();
+  const [selectedRuleFilter, setSelectedRuleFilter] = useState<string>('all');
+
+  // Load executions on mount
+  React.useEffect(() => {
+    fetchExecutions();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  const filteredExecutions = selectedRuleFilter === 'all'
+    ? executions
+    : executions.filter((e: any) => e.rule_template_id === selectedRuleFilter);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="p-6 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Execution History</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Complete audit trail of when rules were executed
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Execution History</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Complete audit trail of when rules were executed
+            </p>
+          </div>
+
+          {executions.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Filter:</span>
+              <select
+                value={selectedRuleFilter}
+                onChange={(e) => setSelectedRuleFilter(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Rules</option>
+                {/* Add unique rules as options */}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="text-center py-16">
-        <Clock className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500">No executions yet</p>
-        <p className="text-sm text-gray-400 mt-2">
-          Execute a rule to see history here
-        </p>
+      {executions.length === 0 ? (
+        <div className="text-center py-16">
+          <Clock className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">No executions yet</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Execute a rule to see history here
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-200">
+          {filteredExecutions.map((execution: any) => (
+            <ExecutionHistoryItem key={execution.id} execution={execution} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExecutionHistoryItem({ execution }: { execution: any }) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  const statusColors = {
+    success: 'bg-green-100 text-green-800',
+    error: 'bg-red-100 text-red-800',
+    partial: 'bg-yellow-100 text-yellow-800'
+  };
+
+  const statusColor = execution.status === 'success'
+    ? statusColors.success
+    : execution.error_message
+    ? statusColors.error
+    : statusColors.partial;
+
+  return (
+    <div className="p-6 hover:bg-gray-50 transition-colors">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="font-semibold text-gray-900">
+              {execution.rule_template_id}
+            </h3>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColor}`}>
+              {execution.status || 'success'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 text-sm text-gray-600 mb-2">
+            <div>
+              <span className="text-gray-500">Deadlines Created:</span>{' '}
+              <span className="font-medium text-gray-900">{execution.deadlines_created}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Execution Time:</span>{' '}
+              <span className="font-medium text-gray-900">{execution.execution_time_ms}ms</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Case:</span>{' '}
+              <span className="font-medium text-gray-900">{execution.case_id}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Date:</span>{' '}
+              <span className="font-medium text-gray-900">
+                {new Date(execution.executed_at).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+
+          {execution.error_message && (
+            <div className="mt-2 text-sm text-red-600 bg-red-50 rounded px-3 py-2">
+              <strong>Error:</strong> {execution.error_message}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="ml-4 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-medium"
+        >
+          {expanded ? 'Hide Details' : 'Show Details'}
+        </button>
       </div>
+
+      {expanded && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Trigger Data</h4>
+              <pre className="bg-gray-50 rounded p-3 text-xs overflow-x-auto">
+                {JSON.stringify(execution.trigger_data, null, 2)}
+              </pre>
+            </div>
+
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">
+                Generated Deadlines ({execution.deadline_ids?.length || 0})
+              </h4>
+              <div className="bg-gray-50 rounded p-3 max-h-40 overflow-y-auto">
+                {execution.deadline_ids && execution.deadline_ids.length > 0 ? (
+                  <ul className="text-xs space-y-1">
+                    {execution.deadline_ids.map((id: string, idx: number) => (
+                      <li key={idx} className="text-gray-600">
+                        • {id}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-gray-500">No deadlines recorded</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
