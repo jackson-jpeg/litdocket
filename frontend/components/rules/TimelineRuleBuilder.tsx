@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import {
-  PlusIcon,
-  TrashIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
-  ArrowRightIcon
-} from '@heroicons/react/24/outline';
+  Plus,
+  Trash2,
+  Clock,
+  AlertTriangle,
+  ArrowRight
+} from 'lucide-react';
 
 interface Deadline {
   id: string;
@@ -79,7 +79,7 @@ export default function TimelineRuleBuilder({
           onClick={() => setShowAddForm(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2"
         >
-          <PlusIcon className="h-5 w-5" />
+          <Plus className="h-5 w-5" />
           Add Deadline
         </button>
       </div>
@@ -127,7 +127,7 @@ export default function TimelineRuleBuilder({
       {/* Empty State */}
       {deadlines.length === 0 && (
         <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-lg">
-          <ClockIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <Clock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">No deadlines added yet</p>
           <button
             onClick={() => setShowAddForm(true)}
@@ -220,7 +220,7 @@ function TimelineDeadlineItem({
               onClick={onRemove}
               className="text-red-600 hover:text-red-700"
             >
-              <TrashIcon className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
 

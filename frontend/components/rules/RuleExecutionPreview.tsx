@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { useRules } from '@/hooks/useRules';
 import {
-  PlayIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
-  CalendarIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline';
+  Play,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
+  Clock
+} from 'lucide-react';
 
 interface RuleExecutionPreviewProps {
   ruleTemplateId: string;
@@ -112,7 +112,7 @@ export default function RuleExecutionPreview({
             </>
           ) : (
             <>
-              <PlayIcon className="h-5 w-5" />
+              <Play className="h-5 w-5" />
               Preview Deadlines
             </>
           )}
@@ -125,7 +125,7 @@ export default function RuleExecutionPreview({
           {/* Summary */}
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 mb-6 border border-green-200">
             <div className="flex items-start gap-3">
-              <CheckCircleIcon className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-semibold text-green-900">
                   Success - {result.deadlines_created} deadlines generated
@@ -141,7 +141,7 @@ export default function RuleExecutionPreview({
           {result.errors && result.errors.length > 0 && (
             <div className="bg-red-50 rounded-lg p-4 mb-6 border border-red-200">
               <div className="flex items-start gap-3">
-                <ExclamationCircleIcon className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-semibold text-red-900">Errors</h4>
                   <ul className="text-sm text-red-700 mt-2 space-y-1">
@@ -171,7 +171,7 @@ export default function RuleExecutionPreview({
                       <h5 className="font-semibold mb-1">{deadline.title}</h5>
                       <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-1">
-                          <CalendarIcon className="h-4 w-4" />
+                          <Calendar className="h-4 w-4" />
                           {deadline.deadline_date ? (
                             new Date(deadline.deadline_date).toLocaleDateString('en-US', {
                               weekday: 'short',
@@ -217,7 +217,7 @@ export default function RuleExecutionPreview({
       {/* Empty State */}
       {!result && !loading && (
         <div className="text-center py-8 text-gray-500 text-sm border-t border-gray-200 pt-6">
-          <ClockIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p>Enter trigger data and click Preview to see generated deadlines</p>
         </div>
       )}

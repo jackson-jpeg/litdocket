@@ -3,15 +3,15 @@
 import { useState } from 'react';
 import { useRules } from '@/hooks/useRules';
 import {
-  Cog6ToothIcon,
-  SparklesIcon,
-  ClockIcon,
-  ShoppingBagIcon,
-  PlusCircleIcon,
-  CheckCircleIcon,
-  PlayIcon,
-  DocumentTextIcon
-} from '@heroicons/react/24/outline';
+  Settings,
+  Sparkles,
+  Clock,
+  ShoppingBag,
+  PlusCircle,
+  CheckCircle,
+  Play,
+  FileText
+} from 'lucide-react';
 
 type TabType = 'my-rules' | 'marketplace' | 'create' | 'history';
 
@@ -22,10 +22,10 @@ export default function RulesBuilderDashboard() {
   });
 
   const tabs = [
-    { id: 'my-rules' as TabType, name: 'My Rules', icon: Cog6ToothIcon, count: rules.length },
-    { id: 'marketplace' as TabType, name: 'Marketplace', icon: ShoppingBagIcon },
-    { id: 'create' as TabType, name: 'Create New', icon: PlusCircleIcon },
-    { id: 'history' as TabType, name: 'Execution History', icon: ClockIcon }
+    { id: 'my-rules' as TabType, name: 'My Rules', icon: Settings, count: rules.length },
+    { id: 'marketplace' as TabType, name: 'Marketplace', icon: ShoppingBag },
+    { id: 'create' as TabType, name: 'Create New', icon: PlusCircle },
+    { id: 'history' as TabType, name: 'Execution History', icon: Clock }
   ];
 
   return (
@@ -35,7 +35,7 @@ export default function RulesBuilderDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <SparklesIcon className="h-8 w-8" />
+              <Sparkles className="h-8 w-8" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Rules Builder</h1>
@@ -113,7 +113,7 @@ function MyRulesTab({ rules, loading }: { rules: any[]; loading: boolean }) {
   if (rules.length === 0) {
     return (
       <div className="text-center py-16">
-        <Cog6ToothIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <Settings className="h-16 w-16 text-gray-300 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">No rules yet</h3>
         <p className="text-gray-500 mb-6">
           Create your first jurisdiction rule to automate deadline calculations
@@ -189,7 +189,7 @@ function RuleCard({ rule }: { rule: any }) {
           Edit
         </button>
         <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
-          <PlayIcon className="h-4 w-4" />
+          <Play className="h-4 w-4" />
         </button>
       </div>
     </div>
@@ -203,7 +203,7 @@ function RuleCard({ rule }: { rule: any }) {
 function MarketplaceTab() {
   return (
     <div className="text-center py-16">
-      <ShoppingBagIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+      <ShoppingBag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
       <h3 className="text-lg font-medium text-gray-900 mb-2">Rule Marketplace</h3>
       <p className="text-gray-500 mb-6">
         Browse and install jurisdiction rules shared by the LitDocket community
@@ -275,7 +275,7 @@ function CreateRuleTab() {
           {/* Visual Builder Placeholder */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 border-2 border-dashed border-blue-300">
             <div className="text-center">
-              <DocumentTextIcon className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+              <FileText className="h-12 w-12 text-blue-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Visual Rule Builder
               </h3>
@@ -318,7 +318,7 @@ function ExecutionHistoryTab() {
       </div>
 
       <div className="text-center py-16">
-        <ClockIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <Clock className="h-16 w-16 text-gray-300 mx-auto mb-4" />
         <p className="text-gray-500">No executions yet</p>
         <p className="text-sm text-gray-400 mt-2">
           Execute a rule to see history here
