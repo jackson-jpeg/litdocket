@@ -1,7 +1,7 @@
 # LitDocket Application Architecture Review
 
-**Last Updated:** 2026-01-23
-**Version:** 1.0
+**Last Updated:** 2026-01-24
+**Version:** 1.1
 **Purpose:** Comprehensive technical documentation of the LitDocket application architecture, data flows, and integration points.
 
 ---
@@ -947,7 +947,400 @@ for deadline in dependent_deadlines:
     deadline.deadline_date = new_date
 ```
 
-### 2. Document Upload & AI Analysis
+### 2. Dynamic Rules Engine (Database-Driven)
+
+**Status**: Phase 1.5 Implementation (January 2026)
+
+**Business Problem**: Hardcoded jurisdiction rules require code changes and deployment for each new jurisdiction. Users cannot customize rules or share community-created rules.
+
+**Solution**: Transform rules into JSON schemas stored in database, enabling unlimited user-created jurisdictions, versioning, marketplace sharing, and visual rule builder UI.
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   VISUAL RULE BUILDER (UI)                   │
+│  - Timeline visualization of deadlines                       │
+│  - Drag-and-drop deadline placement                          │
+│  - Condition builder (if-then logic)                         │
+│  - Test execution with preview                               │
+└─────────────────────────────────────────────────────────────┘
+                           ↓ Creates JSON Schema
+┌─────────────────────────────────────────────────────────────┐
+│                    RULE TEMPLATES (Database)                 │
+│  ┌─────────────┬──────────────┬───────────────┬──────────┐  │
+│  │ Template    │ Versions     │ Conditions    │ Test     │  │
+│  │ Metadata    │ (Immutable)  │ (If-Then)     │ Cases    │  │
+│  │             │              │               │          │  │
+│  │ - Name      │ - v1, v2..  │ - case_type   │ - Inputs │  │
+│  │ - Slug      │ - Schema    │ - service     │ - Expected│ │
+│  │ - Trigger   │ - Changelog │ - amount      │ - Results│  │
+│  │ - Status    │ - Rollback  │               │          │  │
+│  └─────────────┴──────────────┴───────────────┴──────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                           ↓ Executed by
+┌─────────────────────────────────────────────────────────────┐
+│              DYNAMIC RULES ENGINE (Runtime)                  │
+│  1. Load rule from database by jurisdiction + trigger        │
+│  2. Validate input data against required fields              │
+│  3. Evaluate conditions (if-then logic)                      │
+│  4. Generate deadline objects from schema                    │
+│  5. Validate dependencies                                    │
+│  6. Create audit trail (RuleExecution record)                │
+│  7. Return generated deadlines                               │
+└─────────────────────────────────────────────────────────────┘
+                           ↓ Creates
+┌─────────────────────────────────────────────────────────────┐
+│                  DEADLINES + AUDIT TRAIL                     │
+│  - 50+ deadlines per execution                               │
+│  - Complete calculation history                              │
+│  - Rule version used (for rollback)                          │
+│  - Input data (legal defensibility)                          │
+│  - Performance metrics                                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Database Schema
+
+**File**: `backend/app/models/rule_template.py`
+
+**Tables**:
+1. **rule_templates** - Master rule definitions
+2. **rule_versions** - Immutable version history (for rollback)
+3. **rule_conditions** - If-then conditional logic
+4. **rule_executions** - Complete audit trail (every execution logged)
+5. **rule_test_cases** - Validation test cases
+6. **rule_dependencies** - Deadline dependency relationships
+
+**Example RuleTemplate**:
+```python
+{
+    "id": "uuid-123",
+    "rule_name": "Florida Civil - Trial Date Chain",
+    "slug": "florida-civil-trial-date",
+    "jurisdiction": "florida_civil",
+    "trigger_type": "TRIAL_DATE",
+    "status": "active",
+    "is_public": True,  # Shareable in marketplace
+    "is_official": True,  # LitDocket-verified
+    "current_version_id": "version-uuid-456",
+    "version_count": 3,
+    "usage_count": 1247,  # Times executed
+    "user_count": 89  # Unique users
+}
+```
+
+**Example RuleVersion** (JSON Schema):
+```json
+{
+    "id": "version-uuid-456",
+    "version_number": 3,
+    "version_name": "2026 Reform Update",
+    "status": "active",
+    "rule_schema": {
+        "metadata": {
+            "name": "Florida Civil - Trial Date Chain",
+            "description": "Complete deadline chain for Florida civil trials",
+            "effective_date": "2026-01-01",
+            "citations": ["Fla. R. Civ. P. 1.440", "Fla. R. Civ. P. 1.200"]
+        },
+        "trigger": {
+            "type": "TRIAL_DATE",
+            "required_fields": [
+                {
+                    "name": "trial_date",
+                    "type": "date",
+                    "label": "Trial Date",
+                    "required": true
+                },
+                {
+                    "name": "trial_type",
+                    "type": "select",
+                    "label": "Trial Type",
+                    "options": ["jury", "bench", "summary_judgment"],
+                    "required": true
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "expert_disclosure",
+                "title": "Expert Witness Disclosure",
+                "offset_days": -90,
+                "offset_direction": "before",
+                "priority": "FATAL",
+                "description": "Disclose expert witnesses and reports",
+                "applicable_rule": "Fla. R. Civ. P. 1.280(b)(5)",
+                "add_service_days": false,
+                "conditions": [
+                    {
+                        "if": {"trial_type": "jury"},
+                        "then": {"offset_days": -90}
+                    },
+                    {
+                        "if": {"trial_type": "bench"},
+                        "then": {"offset_days": -60}
+                    }
+                ]
+            },
+            {
+                "id": "pretrial_motions",
+                "title": "Pretrial Motions Deadline",
+                "offset_days": -30,
+                "offset_direction": "before",
+                "priority": "CRITICAL",
+                "applicable_rule": "Fla. R. Civ. P. 1.200",
+                "add_service_days": true
+            }
+        ],
+        "dependencies": [
+            {
+                "deadline_id": "pretrial_motions",
+                "depends_on": "expert_disclosure",
+                "type": "must_come_after",
+                "min_gap_days": 14
+            }
+        ],
+        "validation": {
+            "min_deadlines": 10,
+            "max_deadlines": 60,
+            "require_citations": true
+        },
+        "settings": {
+            "auto_cascade_updates": true,
+            "allow_manual_override": true,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    },
+    "change_summary": "Updated expert disclosure timeline per 2026 reforms"
+}
+```
+
+#### Dynamic Execution Engine
+
+**File**: `backend/app/services/dynamic_rules_engine.py`
+
+**Class**: `DynamicRulesEngine`
+
+**Key Methods**:
+
+```python
+async def execute_rule(
+    self,
+    rule_template_id: str,
+    trigger_data: dict,
+    case_id: str,
+    user_id: str,
+    dry_run: bool = False
+) -> RuleExecutionResult:
+    """
+    Execute a rule to generate deadlines dynamically from JSON schema.
+
+    Args:
+        rule_template_id: UUID of the rule template
+        trigger_data: Input data (e.g., {"trial_date": "2026-06-01", "trial_type": "jury"})
+        case_id: Case to attach deadlines to
+        user_id: User executing the rule
+        dry_run: If True, preview without saving to database
+
+    Returns:
+        RuleExecutionResult with generated deadlines and metadata
+
+    Process:
+        1. Load rule template from database
+        2. Get current active version
+        3. Validate trigger_data against required_fields
+        4. For each deadline in schema:
+            a. Evaluate conditions (if-then logic)
+            b. Calculate deadline date with offset
+            c. Apply service method extensions
+            d. Create Deadline object
+        5. Validate dependencies (ensure order is correct)
+        6. If dry_run: return preview
+        7. Else: save to database + create audit trail
+    """
+```
+
+**Example Execution**:
+```python
+from app.services.dynamic_rules_engine import get_dynamic_rules_engine
+
+engine = get_dynamic_rules_engine(db)
+
+result = await engine.execute_rule(
+    rule_template_id="florida-civil-trial-date",
+    trigger_data={
+        "trial_date": "2026-06-01",
+        "trial_type": "jury",
+        "service_method": "mail"
+    },
+    case_id="case-123",
+    user_id="user-456",
+    dry_run=False
+)
+
+# Returns:
+{
+    "success": True,
+    "deadlines_created": 47,
+    "execution_time_ms": 234,
+    "rule_name": "Florida Civil - Trial Date Chain",
+    "rule_version": 3,
+    "deadlines": [
+        {
+            "id": "deadline-uuid-1",
+            "title": "Expert Witness Disclosure",
+            "deadline_date": "2026-03-03",
+            "priority": "FATAL",
+            "applicable_rule": "Fla. R. Civ. P. 1.280(b)(5)",
+            "calculation_basis": "90 days before trial (jury trial condition)"
+        },
+        # ... 46 more deadlines
+    ],
+    "errors": []
+}
+```
+
+#### API Endpoints
+
+**File**: `backend/app/api/v1/rules.py`
+
+**Endpoints**:
+
+```python
+# CRUD Operations
+POST   /api/v1/rules/templates           # Create new rule
+GET    /api/v1/rules/templates           # List available rules
+GET    /api/v1/rules/templates/{id}      # Get specific rule with schema
+PUT    /api/v1/rules/templates/{id}      # Update rule (creates new version)
+DELETE /api/v1/rules/templates/{id}      # Archive rule
+
+# Execution
+POST   /api/v1/rules/execute              # Execute rule (with dry_run option)
+GET    /api/v1/rules/executions           # Audit trail of executions
+
+# Lifecycle
+POST   /api/v1/rules/templates/{id}/activate    # Publish draft rule
+POST   /api/v1/rules/templates/{id}/deprecate   # Mark as deprecated
+
+# Marketplace
+GET    /api/v1/rules/marketplace          # Browse public rules
+POST   /api/v1/rules/templates/{id}/install     # Install community rule
+```
+
+**Example Request** (Create Rule):
+```bash
+POST /api/v1/rules/templates
+{
+    "rule_name": "Florida Civil - Trial Date Chain",
+    "slug": "florida-civil-trial-date",
+    "jurisdiction": "florida_civil",
+    "trigger_type": "TRIAL_DATE",
+    "description": "Complete deadline chain for Florida civil trials",
+    "tags": ["florida", "civil", "trial"],
+    "is_public": true,
+    "rule_schema": { ... }  # Full JSON schema from above
+}
+```
+
+#### Frontend Components
+
+**Directory**: `frontend/app/(protected)/rules/`
+
+**Components**:
+
+1. **RulesBuilderDashboard.tsx**
+   - Multi-tab interface:
+     - My Rules: User's created rules
+     - Marketplace: Browse public rules
+     - Create New: Visual rule builder
+     - Execution History: Audit trail
+   - Rule cards with stats and actions
+   - Status badges (draft/active/deprecated)
+
+2. **TimelineRuleBuilder.tsx** (`frontend/components/rules/`)
+   - Visual deadline timeline with trigger point
+   - Add/remove deadlines with modal forms
+   - Color-coded priorities (FATAL/CRITICAL/IMPORTANT)
+   - Before/After trigger positioning
+   - Service days configuration
+   - Real-time summary statistics
+
+3. **RuleExecutionPreview.tsx** (`frontend/components/rules/`)
+   - Dry-run testing before publishing
+   - Configurable trigger data inputs
+   - Real-time deadline generation preview
+   - Color-coded priority display
+   - Execution time tracking
+   - Save/discard preview results
+
+**Custom Hook**: `useRules.ts` (`frontend/hooks/`)
+```typescript
+const {
+    rules,              // List of rule templates
+    selectedRule,       // Currently selected rule
+    loading,
+    error,
+    createRule,         // Create new rule template
+    executeRule,        // Execute rule with dry-run option
+    activateRule,       // Publish draft rule
+    fetchExecutions,    // Get audit trail
+    fetchMarketplaceRules  // Browse public rules
+} = useRules({
+    jurisdiction: 'florida_civil',
+    trigger_type: 'TRIAL_DATE',
+    onSuccess: () => toast.success('Rule created!')
+});
+```
+
+#### Key Benefits
+
+**vs Hardcoded Rules**:
+
+| Feature | Hardcoded (Old) | Dynamic (New) |
+|---------|----------------|---------------|
+| Add jurisdiction | Code change + deploy | Create via UI |
+| Update rules | Edit Python + deploy | New version (instant) |
+| Test changes | Manual testing | Dry-run preview |
+| Rollback | Git revert + deploy | Change version in DB |
+| Share rules | N/A | Marketplace |
+| Audit trail | Limited | Complete (every execution) |
+| User customization | Impossible | Full control |
+| Versioning | Git only | Database + UI |
+
+**Legal Defensibility**:
+- Every rule execution logged with:
+  - Exact rule version used
+  - Input data provided
+  - Deadlines generated
+  - Timestamp and user
+  - Execution time (performance)
+- Can prove "we used rule v3.2 on January 15, 2026 at 2:34 PM"
+- Version history allows rollback if rule found to be incorrect
+
+**Future Enhancements**:
+- [ ] AI-assisted rule creation from statute text
+- [ ] Bulk import/export of jurisdiction rule sets
+- [ ] Advanced condition builder (complex if-then-else logic)
+- [ ] Rule testing framework with regression test suites
+- [ ] Community ratings and reviews in marketplace
+- [ ] Rule diff viewer (compare versions)
+- [ ] Drag-and-drop timeline reordering
+
+#### Migration Path
+
+**Phase 1**: Database schema + API endpoints (✅ Complete)
+**Phase 2**: Visual rule builder UI (✅ Complete)
+**Phase 3**: Convert existing hardcoded rules to JSON (In Progress)
+**Phase 4**: Deprecate old rules_engine.py
+**Phase 5**: Launch marketplace with official LitDocket rules
+**Phase 6**: Open community contributions
+
+**Database Migration**: `backend/supabase/migrations/009_dynamic_rules_engine.sql`
+
+---
+
+### 3. Document Upload & AI Analysis
 
 **Workflow**:
 
@@ -1048,7 +1441,7 @@ Be extremely precise with dates. If a date is ambiguous, mark confidence as "low
 Always cite the page number and exact text where you found each piece of information.
 ```
 
-### 3. Streaming Chat with Tool Calling
+### 4. Streaming Chat with Tool Calling
 
 **Architecture**: Server-Sent Events (SSE) for real-time token streaming + tool approval workflow
 
@@ -1191,7 +1584,7 @@ idle → connecting → streaming → awaiting_approval → executing_tool → s
                             error → idle (after 3 retry attempts)
 ```
 
-### 4. Dashboard Intelligence
+### 5. Dashboard Intelligence
 
 **Purpose**: War Room dashboard showing high-risk cases, workload saturation, and productivity metrics
 
@@ -1321,7 +1714,7 @@ Good morning! Here's your briefing for Thursday, January 23, 2026:
   3. Review Miller case status and update deadline tracking
 ```
 
-### 5. Deadline Priority System
+### 6. Deadline Priority System
 
 **5 Levels with Legal Context**:
 
