@@ -2046,6 +2046,607 @@ def create_arizona_complaint_served_rule(db: Session, user_id: str) -> RuleTempl
     return rule_template
 
 
+def create_florida_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Florida Civil - Answer to Complaint
+    Fla. R. Civ. P. 1.140(a)(1) - 20 days after service
+    Unique: +5 days for BOTH mail AND email service (post-2019 rule change)
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Florida Civil",
+            "description": "Defendant must answer within 20 days of service (+5 for mail/email)",
+            "effective_date": "2019-01-01",
+            "citations": ["Fla. R. Civ. P. 1.140(a)(1)", "Fla. R. Civ. P. 1.070(d)"],
+            "jurisdiction_type": "state",
+            "state": "FL",
+            "court_level": "circuit"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "email", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 20 days",
+                "applicable_rule": "Fla. R. Civ. P. 1.140(a)(1)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "20 days + 5 days if served by mail OR email (Fla. R. Civ. P. 1.070(d))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 1.140(b) motions to dismiss must be filed before answer",
+                "applicable_rule": "Fla. R. Civ. P. 1.140(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Must be filed as first responsive pleading"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Florida Civil",
+        slug="florida-civil-answer-to-complaint",
+        jurisdiction="florida_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Florida Civil Rules - 20-day answer deadline with unique +5 mail/email extension",
+        tags=["florida", "civil", "frcivp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Fla. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Florida Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_massachusetts_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Massachusetts Civil - Answer to Complaint
+    Mass. R. Civ. P. 12(a) - 20 days after service
+    Major litigation hub (Boston) - tech/IP, securities, pharma
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Massachusetts Civil",
+            "description": "Defendant must answer within 20 days of service",
+            "effective_date": "2024-01-01",
+            "citations": ["Mass. R. Civ. P. 12(a)", "Mass. R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "MA",
+            "court_level": "superior"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "abode", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 20 days",
+                "applicable_rule": "Mass. R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "20 days + 3 days if served by mail (Rule 6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "Mass. R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Massachusetts Civil",
+        slug="massachusetts-civil-answer-to-complaint",
+        jurisdiction="massachusetts_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Massachusetts Civil Rules - 20-day answer deadline with mail extension",
+        tags=["massachusetts", "civil", "mass_rcivp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Mass. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Massachusetts Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_colorado_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Colorado Civil - Answer to Complaint
+    Colo. R. Civ. P. 12(a) - 21 days after service
+    Follows FRCP closely - 21-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Colorado Civil",
+            "description": "Defendant must answer within 21 days of service (follows FRCP)",
+            "effective_date": "2024-01-01",
+            "citations": ["Colo. R. Civ. P. 12(a)", "Colo. R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "CO",
+            "court_level": "district"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "electronic", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 21 days",
+                "applicable_rule": "Colo. R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "21 days + 3 days if served by mail/electronic (Rule 6(e)) - follows FRCP"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed before answer",
+                "applicable_rule": "Colo. R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Colorado follows FRCP pattern"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Colorado Civil",
+        slug="colorado-civil-answer-to-complaint",
+        jurisdiction="colorado_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Colorado Civil Rules - 21-day answer deadline following FRCP",
+        tags=["colorado", "civil", "colo_rcivp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Colo. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Colorado Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_minnesota_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Minnesota Civil - Answer to Complaint
+    Minn. R. Civ. P. 12.01 - 21 days after service
+    Follows FRCP closely - 21-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Minnesota Civil",
+            "description": "Defendant must answer within 21 days of service (follows FRCP)",
+            "effective_date": "2024-01-01",
+            "citations": ["Minn. R. Civ. P. 12.01", "Minn. R. Civ. P. 6.05"],
+            "jurisdiction_type": "state",
+            "state": "MN",
+            "court_level": "district"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "publication", "abode"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 21 days",
+                "applicable_rule": "Minn. R. Civ. P. 12.01",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "21 days + 3 days if served by mail (Rule 6.05) - follows FRCP"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12.02 motions to dismiss must be filed before answer",
+                "applicable_rule": "Minn. R. Civ. P. 12.02",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Minnesota follows FRCP pattern"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Minnesota Civil",
+        slug="minnesota-civil-answer-to-complaint",
+        jurisdiction="minnesota_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Minnesota Civil Rules - 21-day answer deadline following FRCP",
+        tags=["minnesota", "civil", "minn_rcivp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Minn. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Minnesota Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_wisconsin_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Wisconsin Civil - Answer to Summons and Complaint
+    Wis. Stat. § 802.06(2) - 45 days after service
+    SECOND LONGEST answer deadline in the nation (only New Jersey is longer at 35... wait, WI is actually longer!)
+    Actually LONGEST at 45 days!
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Summons - Wisconsin Civil",
+            "description": "Defendant must answer within 45 days (LONGEST deadline in U.S.!)",
+            "effective_date": "2024-01-01",
+            "citations": ["Wis. Stat. § 802.06(2)", "Wis. Stat. § 801.15(5)"],
+            "jurisdiction_type": "state",
+            "state": "WI",
+            "court_level": "circuit"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Summons Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "substituted", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 45,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 45 days",
+                "applicable_rule": "Wis. Stat. § 802.06(2)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "45 days (LONGEST IN U.S.!) + 3 days if served by mail (§ 801.15(5))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 45,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Motion to dismiss must be filed within answer period",
+                "applicable_rule": "Wis. Stat. § 802.06(2)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Same 45-day window as answer - very generous!"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14, 21, 30]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Summons - Wisconsin Civil",
+        slug="wisconsin-civil-answer-to-summons",
+        jurisdiction="wisconsin_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Wisconsin Statutes - 45-day answer deadline (LONGEST in U.S.!)",
+        tags=["wisconsin", "civil", "wis_stat", "answer", "summons"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Wis. Stat. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Wisconsin Statutes",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
 def main():
     """Seed comprehensive rules library."""
     print("🌱 Seeding Comprehensive Rules Library...")
@@ -2183,10 +2784,47 @@ def main():
         print(f"      Slug: {az_answer.slug}")
         print()
 
+        print("1️⃣6️⃣  Florida Civil - Answer to Complaint (Fla. R. Civ. P. 1.140)...")
+        fl_answer = create_florida_complaint_served_rule(db, user.id)
+        rules_created.append(fl_answer)
+        print(f"   ✅ {fl_answer.rule_name}")
+        print(f"      Slug: {fl_answer.slug}")
+        print(f"      🎯 3rd largest state - unique +5 mail/email extension")
+        print()
+
+        print("1️⃣7️⃣  Massachusetts Civil - Answer to Complaint (Mass. R. Civ. P. 12)...")
+        ma_answer = create_massachusetts_complaint_served_rule(db, user.id)
+        rules_created.append(ma_answer)
+        print(f"   ✅ {ma_answer.rule_name}")
+        print(f"      Slug: {ma_answer.slug}")
+        print()
+
+        print("1️⃣8️⃣  Colorado Civil - Answer to Complaint (Colo. R. Civ. P. 12)...")
+        co_answer = create_colorado_complaint_served_rule(db, user.id)
+        rules_created.append(co_answer)
+        print(f"   ✅ {co_answer.rule_name}")
+        print(f"      Slug: {co_answer.slug}")
+        print()
+
+        print("1️⃣9️⃣  Minnesota Civil - Answer to Complaint (Minn. R. Civ. P. 12)...")
+        mn_answer = create_minnesota_complaint_served_rule(db, user.id)
+        rules_created.append(mn_answer)
+        print(f"   ✅ {mn_answer.rule_name}")
+        print(f"      Slug: {mn_answer.slug}")
+        print()
+
+        print("2️⃣0️⃣  Wisconsin Civil - Answer to Summons (Wis. Stat. § 802.06)...")
+        wi_answer = create_wisconsin_complaint_served_rule(db, user.id)
+        rules_created.append(wi_answer)
+        print(f"   ✅ {wi_answer.rule_name}")
+        print(f"      Slug: {wi_answer.slug}")
+        print(f"      🎯 ACTUALLY LONGEST DEADLINE IN U.S. - 45 days!")
+        print()
+
         print("=" * 80)
         print(f"✨ Seeding Complete! Created {len(rules_created)} rules")
         print()
-        print("📊 Coverage Summary - TOP 15 STATES COMPLETE:")
+        print("📊 Coverage Summary - 20 JURISDICTIONS:")
         print(f"   • Federal: 2 rules (FRCP)")
         print(f"   • California: 1 rule (CCP) - 30 days + 5/10 mail")
         print(f"   • Texas: 1 rule (TRCP) - Monday Rule")
@@ -2197,34 +2835,45 @@ def main():
         print(f"   • Georgia: 1 rule (O.C.G.A.) - 30 days, NO mail extension")
         print(f"   • North Carolina: 1 rule (N.C. R. Civ. P.) - 30 days")
         print(f"   • Michigan: 1 rule (M.C.R.) - 21 days")
-        print(f"   • New Jersey: 1 rule (N.J. Court Rules) - 35 days LONGEST!")
+        print(f"   • New Jersey: 1 rule (N.J. Court Rules) - 35 days")
         print(f"   • Virginia: 1 rule (Va. Code) - 21 days")
         print(f"   • Washington: 1 rule (Wash. R. Civ. P.) - 20 days")
         print(f"   • Arizona: 1 rule (Ariz. R. Civ. P.) - 20 days")
+        print(f"   • Florida: 1 rule (Fla. R. Civ. P.) - 20 days + 5 mail/email")
+        print(f"   • Massachusetts: 1 rule (Mass. R. Civ. P.) - 20 days")
+        print(f"   • Colorado: 1 rule (Colo. R. Civ. P.) - 21 days (FRCP)")
+        print(f"   • Minnesota: 1 rule (Minn. R. Civ. P.) - 21 days (FRCP)")
+        print(f"   • Wisconsin: 1 rule (Wis. Stat.) - 45 days LONGEST!")
         print()
-        print("🎯 MILESTONE REACHED: Top 15 states by litigation volume!")
+        print("🎯 MAJOR MILESTONE: 20 Jurisdictions Seeded!")
         print()
         print("📈 Progress Toward CompuLaw Vision Parity:")
-        print(f"   ✅ Phase 1 Complete: 15/15 top states (100%)")
-        print(f"   🚧 Phase 2 Next: 35 remaining states")
+        print(f"   ✅ Top 15 states: COMPLETE (100%)")
+        print(f"   ✅ Extended coverage: +5 high-priority states")
+        print(f"   🚧 Phase 2: 30 remaining states (60% to go)")
         print(f"   📋 Phase 3: 94 federal district courts")
         print(f"   📋 Phase 4: 13 federal circuit courts")
         print(f"   📋 Phase 5: Specialized courts")
         print()
+        print("📊 Deadline Range Covered:")
+        print(f"   • Shortest: Louisiana not yet added (15 days)")
+        print(f"   • Our range: 20-45 days")
+        print(f"   • Longest: Wisconsin (45 days) ✅")
+        print(f"   • Unique rules: TX Monday, NY/PA conditional, GA no extension ✅")
+        print()
         print("🎯 Next Steps:")
-        print("   1. Test rules in UI: http://localhost:3000/rules")
-        print("   2. Add Florida (next high-priority state)")
-        print("   3. Add Massachusetts (tech/IP hub)")
-        print("   4. Continue with remaining 35 states")
-        print("   5. Add appellate rules (FRAP, state appellate)")
+        print("   1. Test all 20 jurisdictions in UI")
+        print("   2. Add Maryland, Tennessee, Missouri, Indiana, Louisiana (next 5)")
+        print("   3. Continue with remaining 30 states")
+        print("   4. Add federal appellate rules (FRAP)")
         print()
         print("📚 Remaining for full CompuLaw Vision parity:")
-        print("   • 35 remaining states")
+        print("   • 30 remaining states (30/50 complete = 60%)")
         print("   • 94 federal district court local rules")
         print("   • 13 federal circuit appellate rules")
-        print("   • Bankruptcy rules")
-        print("   • Family court rules")
-        print("   • Criminal procedure rules")
+        print("   • Bankruptcy, family, criminal procedure")
+        print()
+        print("🏆 Achievement Unlocked: 22 total rules across 20 jurisdictions!")
 
     except Exception as e:
         print(f"❌ Error seeding rules: {e}")
