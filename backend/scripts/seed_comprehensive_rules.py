@@ -806,6 +806,646 @@ def create_new_york_complaint_served_rule(db: Session, user_id: str) -> RuleTemp
     return rule_template
 
 
+# ============================================
+# ILLINOIS RULES (735 ILCS 5/)
+# ============================================
+
+def create_illinois_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Illinois Code of Civil Procedure - Answer to Complaint
+    735 ILCS 5/2-213
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Illinois Civil",
+            "description": "Defendant must answer within 30 days under 735 ILCS 5/2-213",
+            "effective_date": "2024-01-01",
+            "citations": ["735 ILCS 5/2-213(a)", "735 Ill. Comp. Stat. 5/2-213"],
+            "jurisdiction_type": "state",
+            "state": "illinois",
+            "court_level": "circuit"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "abode", "mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or motion attacking complaint",
+                "applicable_rule": "735 ILCS 5/2-213(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "30 days + 3 days if served by mail outside Illinois"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Section 2-619 motion to dismiss must be filed within answer period",
+                "applicable_rule": "735 ILCS 5/2-619",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Must be filed before or with answer"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Illinois Civil",
+        slug="illinois-civil-answer-to-complaint",
+        jurisdiction="illinois_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Illinois Code of Civil Procedure - 30-day answer deadline with service extensions",
+        tags=["illinois", "civil", "ilcs", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current ILCS Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Illinois Compiled Statutes rules",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+# ============================================
+# PENNSYLVANIA RULES (Pa.R.C.P.)
+# ============================================
+
+def create_pennsylvania_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Pennsylvania Rules of Civil Procedure - Answer to Complaint
+    Pa.R.C.P. 1026
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Pennsylvania Civil",
+            "description": "Defendant must answer within 20 days if personally served, 30 days otherwise",
+            "effective_date": "2024-01-01",
+            "citations": ["Pa.R.C.P. 1026", "Pa.R.C.P. 1007"],
+            "jurisdiction_type": "state",
+            "state": "pennsylvania",
+            "court_level": "common_pleas"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "abode", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due_personal",
+                "title": "Answer Due (Personal Service)",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer within 20 days of personal service",
+                "applicable_rule": "Pa.R.C.P. 1026(a)",
+                "add_service_days": False,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "20 days for personal service",
+                "conditions": [
+                    {
+                        "if": {"service_method": "personal"},
+                        "then": {"apply": True}
+                    }
+                ]
+            },
+            {
+                "id": "answer_due_other",
+                "title": "Answer Due (Mail/Other Service)",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer within 30 days if not personally served",
+                "applicable_rule": "Pa.R.C.P. 1026(a)",
+                "add_service_days": False,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "30 days if served by mail or other methods",
+                "conditions": [
+                    {
+                        "if": {"service_method": ["mail", "abode", "publication"]},
+                        "then": {"apply": True}
+                    }
+                ]
+            },
+            {
+                "id": "preliminary_objections_deadline",
+                "title": "Preliminary Objections Deadline",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Pennsylvania's motion to dismiss equivalent",
+                "applicable_rule": "Pa.R.C.P. 1028",
+                "add_service_days": False,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Must be filed within same timeframe as answer"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Pennsylvania Civil",
+        slug="pennsylvania-civil-answer-to-complaint",
+        jurisdiction="pennsylvania_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Pennsylvania Rules of Civil Procedure - Conditional 20/30 day answer deadline",
+        tags=["pennsylvania", "civil", "parcp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Pa.R.C.P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Pennsylvania Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+# ============================================
+# OHIO RULES (Ohio R. Civ. P.)
+# ============================================
+
+def create_ohio_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Ohio Rules of Civil Procedure - Answer to Complaint
+    Ohio R. Civ. P. 12(a)
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Ohio Civil",
+            "description": "Defendant must answer within 28 days under Ohio R. Civ. P. 12(a)",
+            "effective_date": "2024-01-01",
+            "citations": ["Ohio R. Civ. P. 12(a)", "Ohio R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "ohio",
+            "court_level": "common_pleas"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "residence", "mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 28,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or motion within 28 days",
+                "applicable_rule": "Ohio R. Civ. P. 12(a)(1)(A)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "28 days + 3 days if served by mail (Ohio R. Civ. P. 6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 28,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motion to dismiss must be filed before answer",
+                "applicable_rule": "Ohio R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Must be filed before answer or as first pleading"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Ohio Civil",
+        slug="ohio-civil-answer-to-complaint",
+        jurisdiction="ohio_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Ohio Rules of Civil Procedure - 28-day answer deadline with mail service extension",
+        tags=["ohio", "civil", "orcp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Ohio R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Ohio Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+# ============================================
+# GEORGIA RULES (O.C.G.A.)
+# ============================================
+
+def create_georgia_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Official Code of Georgia Annotated - Answer to Complaint
+    O.C.G.A. § 9-11-12
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Georgia Civil",
+            "description": "Defendant must answer within 30 days under O.C.G.A. § 9-11-12",
+            "effective_date": "2024-01-01",
+            "citations": ["O.C.G.A. § 9-11-12(a)", "O.C.G.A. § 9-11-6(e)"],
+            "jurisdiction_type": "state",
+            "state": "georgia",
+            "court_level": "superior"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "abode", "designated_agent", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive pleading within 30 days",
+                "applicable_rule": "O.C.G.A. § 9-11-12(a)(1)",
+                "add_service_days": False,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Georgia does NOT add extra days for mail service"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Motion to dismiss must be filed before or with answer",
+                "applicable_rule": "O.C.G.A. § 9-11-12(b)",
+                "add_service_days": False,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Georgia follows federal-style rules (similar to FRCP)"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Georgia Civil",
+        slug="georgia-civil-answer-to-complaint",
+        jurisdiction="georgia_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Georgia Code - 30-day answer deadline with NO mail service extension",
+        tags=["georgia", "civil", "ocga", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current O.C.G.A. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Official Code of Georgia Annotated",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+# ============================================
+# NORTH CAROLINA RULES (N.C. R. Civ. P.)
+# ============================================
+
+def create_north_carolina_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    North Carolina Rules of Civil Procedure - Answer to Complaint
+    N.C. R. Civ. P. 12(a)
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - North Carolina Civil",
+            "description": "Defendant must answer within 30 days under N.C. R. Civ. P. 12(a)",
+            "effective_date": "2024-01-01",
+            "citations": ["N.C. R. Civ. P. 12(a)", "N.C. R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "north_carolina",
+            "court_level": "superior"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "abode", "mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 30 days",
+                "applicable_rule": "N.C. R. Civ. P. 12(a)(1)(A)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "30 days + 3 days if served by mail (N.C. R. Civ. P. 6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 30,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motion to dismiss must be filed before answer",
+                "applicable_rule": "N.C. R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Must be filed as first responsive pleading"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - North Carolina Civil",
+        slug="north-carolina-civil-answer-to-complaint",
+        jurisdiction="north_carolina_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="North Carolina Rules of Civil Procedure - 30-day answer deadline with mail extension",
+        tags=["north_carolina", "civil", "ncrcp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current N.C. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current North Carolina Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
 def main():
     """Seed comprehensive rules library."""
     print("🌱 Seeding Comprehensive Rules Library...")
@@ -872,6 +1512,41 @@ def main():
         print(f"      Slug: {ny_answer.slug}")
         print()
 
+        print("6️⃣  Illinois Civil - Answer to Complaint (735 ILCS 5/2-213)...")
+        il_answer = create_illinois_complaint_served_rule(db, user.id)
+        rules_created.append(il_answer)
+        print(f"   ✅ {il_answer.rule_name}")
+        print(f"      Slug: {il_answer.slug}")
+        print()
+
+        print("7️⃣  Pennsylvania Civil - Answer to Complaint (Pa.R.C.P. 1026)...")
+        pa_answer = create_pennsylvania_complaint_served_rule(db, user.id)
+        rules_created.append(pa_answer)
+        print(f"   ✅ {pa_answer.rule_name}")
+        print(f"      Slug: {pa_answer.slug}")
+        print()
+
+        print("8️⃣  Ohio Civil - Answer to Complaint (Ohio R. Civ. P. 12)...")
+        oh_answer = create_ohio_complaint_served_rule(db, user.id)
+        rules_created.append(oh_answer)
+        print(f"   ✅ {oh_answer.rule_name}")
+        print(f"      Slug: {oh_answer.slug}")
+        print()
+
+        print("9️⃣  Georgia Civil - Answer to Complaint (O.C.G.A. § 9-11-12)...")
+        ga_answer = create_georgia_complaint_served_rule(db, user.id)
+        rules_created.append(ga_answer)
+        print(f"   ✅ {ga_answer.rule_name}")
+        print(f"      Slug: {ga_answer.slug}")
+        print()
+
+        print("🔟 North Carolina Civil - Answer to Complaint (N.C. R. Civ. P. 12)...")
+        nc_answer = create_north_carolina_complaint_served_rule(db, user.id)
+        rules_created.append(nc_answer)
+        print(f"   ✅ {nc_answer.rule_name}")
+        print(f"      Slug: {nc_answer.slug}")
+        print()
+
         print("=" * 80)
         print(f"✨ Seeding Complete! Created {len(rules_created)} rules")
         print()
@@ -880,6 +1555,11 @@ def main():
         print(f"   • California: 1 rule (CCP)")
         print(f"   • Texas: 1 rule (TRCP)")
         print(f"   • New York: 1 rule (CPLR)")
+        print(f"   • Illinois: 1 rule (735 ILCS)")
+        print(f"   • Pennsylvania: 1 rule (Pa.R.C.P.)")
+        print(f"   • Ohio: 1 rule (Ohio R. Civ. P.)")
+        print(f"   • Georgia: 1 rule (O.C.G.A.)")
+        print(f"   • North Carolina: 1 rule (N.C. R. Civ. P.)")
         print()
         print("🎯 Next Steps:")
         print("   1. Test rules in UI: http://localhost:3000/rules")
