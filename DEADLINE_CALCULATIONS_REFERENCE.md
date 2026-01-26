@@ -63,8 +63,8 @@
 
 ### Key Outliers
 - **Shortest**: Louisiana (15 days)
-- **Longest**: New Jersey (35 days), Wisconsin (45 days)
-- **Unique Rules**: Texas (Monday Rule), New York (conditional), Nevada (different extensions)
+- **Longest**: Wisconsin (45 days), New Jersey (35 days - second longest)
+- **Unique Rules**: Texas (Monday Rule), New York (conditional), Nevada (different extensions), Florida (+5 mail/email)
 
 ---
 
