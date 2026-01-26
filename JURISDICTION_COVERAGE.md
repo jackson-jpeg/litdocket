@@ -2,60 +2,68 @@
 
 **Goal**: Match or exceed CompuLaw Vision's comprehensive jurisdiction coverage
 
-**Status**: Phase 1 - Foundation Built (5 jurisdictions seeded)
+**Status**: Phase 1 COMPLETE - Top 15 States ✅ (15 jurisdictions seeded)
 
 ---
 
-## Current Coverage (5 Jurisdictions) ✅
+## Current Coverage (15 Jurisdictions) ✅
 
 ### Federal Courts
 - ✅ **Federal Civil (FRCP)** - Complete
-  - Answer to Complaint (FRCP 12(a))
-  - Trial Date Chain (FRCP 16, 26)
+  - Answer to Complaint (FRCP 12(a)) - Conditional 21/60 days
+  - Trial Date Chain (FRCP 16, 26) - 10 pretrial deadlines
 
-### State Courts
-- ✅ **California Civil (CCP)** - Answer to Complaint
-- ✅ **Texas Civil (TRCP)** - Answer to Petition
-- ✅ **New York Civil (CPLR)** - Answer to Summons
+### Top 15 State Courts (BY LITIGATION VOLUME) ✅
+- ✅ **California Civil (CCP § 412.20)** - 30 days + 5/10 mail extension
+- ✅ **Texas Civil (TRCP 99)** - Monday Rule (20 days + next Monday)
+- ✅ **New York Civil (CPLR § 320)** - Conditional 20/30 days based on service
+- ✅ **Illinois Civil (735 ILCS 5/2-213)** - 30 days + mail extension
+- ✅ **Pennsylvania Civil (Pa.R.C.P. 1026)** - Conditional 20/30 days
+- ✅ **Ohio Civil (Ohio R. Civ. P. 12)** - 28 days + mail extension
+- ✅ **Georgia Civil (O.C.G.A. § 9-11-12)** - 30 days, NO mail extension (outlier!)
+- ✅ **North Carolina Civil (N.C. R. Civ. P. 12)** - 30 days + mail extension
+- ✅ **Michigan Civil (M.C.R. 2.108)** - 21 days + mail extension
+- ✅ **New Jersey Civil (N.J. Court Rules 4:6-1)** - 35 days, NO extension (LONGEST!)
+- ✅ **Virginia Civil (Va. Code Ann. § 8.01-273)** - 21 days + mail extension
+- ✅ **Washington Civil (Wash. R. Civ. P. 12)** - 20 days + mail extension
+- ✅ **Arizona Civil (Ariz. R. Civ. P. 12)** - 20 days + mail extension
 
 ---
 
-## Phase 2: Top 15 States (Remaining 12) 🚧
+## Phase 2: Remaining 35 States 🚧
 
-Target states by litigation volume:
+Next priority states:
 
 ### High Priority (Next 5)
 1. **Florida** - Fla. R. Civ. P.
    - 3rd largest state by population
    - High civil litigation volume
-   - Unique 20-day answer rule
+   - 20-day answer rule + 5-day mail/email extension
 
-2. **Illinois** - 735 ILCS 5/ (Code of Civil Procedure)
-   - Chicago - major litigation hub
-   - 30-day answer rule
+2. **Massachusetts** - Mass. R. Civ. P.
+   - Boston - major litigation hub (especially federal)
+   - Tech/IP litigation
+   - 20-day answer rule
 
-3. **Pennsylvania** - Pa.R.C.P.
-   - 20-day answer rule (30 days if not personally served)
-   - Unique Prothonotary system
-
-4. **Ohio** - Ohio R. Civ. P.
-   - 28-day answer rule
-   - Similar to FRCP but state-specific variations
-
-5. **Georgia** - O.C.G.A. (Official Code of Georgia Annotated)
-   - 30-day answer rule
+3. **Colorado** - Colo. R. Civ. P.
+   - Follows FRCP closely
    - Growing litigation market
+   - 21-day answer rule
+
+4. **Minnesota** - Minn. R. Civ. P.
+   - Follows FRCP
+   - 21-day answer rule
+
+5. **Wisconsin** - Wis. Stat.
+   - 45-day answer rule (SECOND LONGEST!)
+   - Unique procedural rules
 
 ### Medium Priority (Next 5)
-6. **North Carolina** - N.C. R. Civ. P.
-7. **Michigan** - M.C.R. (Michigan Court Rules)
-8. **New Jersey** - N.J. Court Rules
-9. **Virginia** - Va. Code Ann. §
-10. **Washington** - Wash. R. Civ. P.
-
-### Additional Top 15 (Next 2)
-11. **Arizona** - Ariz. R. Civ. P.
-12. **Massachusetts** - Mass. R. Civ. P.
+6. **Maryland** - Md. Rules
+7. **Tennessee** - Tenn. R. Civ. P.
+8. **Missouri** - Mo. R. Civ. P.
+9. **Indiana** - Ind. Trial Rule
+10. **Louisiana** - La. Code Civ. Proc. (Civil Law system!)
 
 ---
 
@@ -250,15 +258,14 @@ Target states by litigation volume:
 
 ## Implementation Priority Matrix 📊
 
-| Phase | Jurisdictions | Rules per Jurisdiction | Total Rules | Timeline |
-|-------|--------------|----------------------|------------|----------|
-| 1 (✅) | 5 | 2-3 | 12 | Complete |
-| 2 | 12 | 5-8 | 84 | Q1 2026 |
-| 3 | 35 | 5-8 | 245 | Q2 2026 |
-| 4 | 94 districts | 3-5 | 376 | Q3 2026 |
-| 5 | 13 circuits | 8-12 | 130 | Q4 2026 |
-| 6 | Specialized | 10-20 | 200+ | Q1 2027 |
-| **TOTAL** | **159** | **Avg 6** | **~1,047** | **12 months** |
+| Phase | Jurisdictions | Rules per Jurisdiction | Total Rules | Timeline | Status |
+|-------|--------------|----------------------|------------|----------|---------|
+| 1 (✅) | 15 | 1-2 | 17 | Complete | ✅ DONE |
+| 2 | 35 | 5-8 | 245 | Q1 2026 | 🚧 Next |
+| 3 | 94 districts | 3-5 | 376 | Q2 2026 | 📋 Planned |
+| 4 | 13 circuits | 8-12 | 130 | Q3 2026 | 📋 Planned |
+| 5 | Specialized | 10-20 | 200+ | Q4 2026 | 📋 Planned |
+| **TOTAL** | **157** | **Avg 6** | **~968** | **12 months** | 17/968 (2%) |
 
 ---
 
