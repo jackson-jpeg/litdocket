@@ -39,7 +39,7 @@
 | **Nebraska** | 30 | +3 mail | Calendar | - |
 | **Nevada** | 21 | +2 mail (in-state), +5 out-of-state | Calendar | Unique extension |
 | **New Hampshire** | 30 | +3 mail | Calendar | - |
-| **New Jersey** | 35 | None | Calendar | **Longest in nation!** |
+| **New Jersey** | 35 | None | Calendar | **Second longest!** |
 | **New Mexico** | 30 | +3 mail | Calendar | - |
 | **New York** | 20 personal, 30 mail | Built-in | Calendar | **Conditional deadline** |
 | **North Carolina** | 30 | +3 mail | Calendar | - |
@@ -58,7 +58,7 @@
 | **Virginia** | 21 | +3 mail | Calendar | - |
 | **Washington** | 20 | +3 mail | Calendar | - |
 | **West Virginia** | 20 | +3 mail | Calendar | - |
-| **Wisconsin** | 45 | +3 mail | Calendar | **Second longest!** |
+| **Wisconsin** | 45 | +3 mail | Calendar | **LONGEST in nation!** |
 | **Wyoming** | 21 | +3 mail | Calendar | Follows FRCP |
 
 ### Key Outliers
