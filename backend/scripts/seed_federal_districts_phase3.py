@@ -442,6 +442,257 @@ def create_sdny_discovery_deadlines_rule(db: Session, user_id: str) -> RuleTempl
 
 
 # ============================================================================
+# TIER 1: C.D. CALIFORNIA (CDCA) - 9th Circuit
+# ============================================================================
+
+def create_cdca_case_management_conference_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    C.D.Cal. Local Rule 16-4 - Initial Case Management Conference
+    Conference typically within 120 days of complaint filing
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Case Management Conference - C.D.Cal.",
+            "description": "Initial case management conference under C.D.Cal. Local Rule 16-4",
+            "effective_date": "2024-01-01",
+            "citations": ["C.D.Cal. Local R. 16-4", "Fed. R. Civ. P. 16"],
+            "jurisdiction_type": "federal_district",
+            "circuit": "9th",
+            "district": "CDCA",
+            "court_level": "district",
+            "case_type": "civil"
+        },
+        "trigger": {
+            "type": "COMPLAINT_FILED",
+            "required_fields": [
+                {
+                    "name": "filing_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Filed",
+                    "required": True
+                },
+                {
+                    "name": "case_type",
+                    "type": "select",
+                    "label": "Case Type",
+                    "options": ["civil", "entertainment", "patent", "copyright"],
+                    "required": True,
+                    "default": "civil"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "case_management_conference",
+                "title": "Initial Case Management Conference",
+                "offset_days": 120,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Initial case management conference under C.D.Cal. Local Rule 16-4",
+                "applicable_rule": "C.D.Cal. Local R. 16-4",
+                "add_service_days": False,
+                "party_responsible": "all",
+                "calculation_method": "calendar_days",
+                "notes": "Conference typically held within 120 days. Judge issues scheduling order.",
+                "conditions": []
+            },
+            {
+                "id": "joint_case_management_statement",
+                "title": "Joint Case Management Statement Due",
+                "offset_days": 14,
+                "offset_direction": "before",
+                "offset_from": "case_management_conference",
+                "priority": "CRITICAL",
+                "description": "Joint statement required under C.D.Cal. Local Rule 16-5",
+                "applicable_rule": "C.D.Cal. Local R. 16-5",
+                "add_service_days": False,
+                "party_responsible": "all",
+                "calculation_method": "calendar_days",
+                "notes": "Parties must file joint statement 14 days before conference",
+                "conditions": []
+            }
+        ],
+        "dependencies": [
+            {
+                "parent_id": "case_management_conference",
+                "child_id": "joint_case_management_statement",
+                "relationship": "triggers",
+                "auto_calculate": True
+            }
+        ],
+        "validation": {
+            "min_deadlines": 2,
+            "max_deadlines": 2,
+            "require_trigger_date": True,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_calculate_dependencies": True,
+            "allow_manual_override": True,
+            "weekend_handling": "next_business_day",
+            "holiday_calendar": "federal"
+        }
+    }
+
+    # Create RuleTemplate
+    rule_template = RuleTemplate(
+        id=str(uuid.uuid4()),
+        rule_name="Case Management Conference - C.D.Cal.",
+        slug="cdca-civil-case-management-conference",
+        jurisdiction="cdca_civil",
+        trigger_type="COMPLAINT_FILED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        status='active',
+        description="Initial case management conference under C.D.Cal. Local Rule 16-4",
+        tags=["federal", "cdca", "9th_circuit", "case_management", "conference", "civil"]
+    )
+
+    # Create RuleVersion
+    rule_version = RuleVersion(
+        id=str(uuid.uuid4()),
+        rule_template_id=rule_template.id,
+        version_number=1,
+        version_name="Initial Version",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        is_validated=True,
+        status='active',
+        change_summary="Initial implementation of C.D.Cal. case management conference rule"
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.flush()
+
+    # Link current version
+    rule_template.current_version_id = rule_version.id
+    db.flush()
+
+    return rule_template
+
+
+def create_cdca_discovery_plan_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    C.D.Cal. Discovery Planning - Rule 26(f) Conference and Discovery Plan
+    Parties must meet and confer, then file discovery plan
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Discovery Plan Filing - C.D.Cal.",
+            "description": "Discovery plan following Rule 26(f) conference",
+            "effective_date": "2024-01-01",
+            "citations": ["Fed. R. Civ. P. 26(f)", "C.D.Cal. Local R. 26-6"],
+            "jurisdiction_type": "federal_district",
+            "circuit": "9th",
+            "district": "CDCA",
+            "court_level": "district",
+            "case_type": "civil"
+        },
+        "trigger": {
+            "type": "SCHEDULING_ORDER_ENTERED",
+            "required_fields": [
+                {
+                    "name": "scheduling_order_date",
+                    "type": "date",
+                    "label": "Scheduling Order Entry Date",
+                    "required": True
+                },
+                {
+                    "name": "discovery_deadline",
+                    "type": "date",
+                    "label": "Discovery Cutoff Date (from Order)",
+                    "required": True
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "initial_disclosures",
+                "title": "Initial Disclosures Due",
+                "offset_days": 14,
+                "offset_direction": "after",
+                "priority": "IMPORTANT",
+                "description": "Initial disclosures under Rule 26(a)(1)",
+                "applicable_rule": "Fed. R. Civ. P. 26(a)(1)",
+                "add_service_days": False,
+                "party_responsible": "all",
+                "calculation_method": "calendar_days",
+                "notes": "Must disclose witnesses, documents, damages, insurance",
+                "conditions": []
+            },
+            {
+                "id": "discovery_cutoff",
+                "title": "Discovery Cutoff Date",
+                "offset_days": 0,
+                "offset_direction": "use_trigger_date",
+                "use_field": "discovery_deadline",
+                "priority": "FATAL",
+                "description": "All discovery must be completed by this date",
+                "applicable_rule": "C.D.Cal. Scheduling Order",
+                "add_service_days": False,
+                "party_responsible": "all",
+                "calculation_method": "calendar_days",
+                "notes": "No discovery requests or depositions after this date",
+                "conditions": []
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 2,
+            "max_deadlines": 2,
+            "require_trigger_date": True,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_calculate_dependencies": True,
+            "allow_manual_override": True,
+            "weekend_handling": "next_business_day",
+            "holiday_calendar": "federal"
+        }
+    }
+
+    # Create RuleTemplate
+    rule_template = RuleTemplate(
+        id=str(uuid.uuid4()),
+        rule_name="Discovery Plan Filing - C.D.Cal.",
+        slug="cdca-civil-discovery-plan",
+        jurisdiction="cdca_civil",
+        trigger_type="SCHEDULING_ORDER_ENTERED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        status='active',
+        description="Discovery plan and deadlines under C.D.Cal. rules",
+        tags=["federal", "cdca", "9th_circuit", "discovery", "plan", "civil"]
+    )
+
+    # Create RuleVersion
+    rule_version = RuleVersion(
+        id=str(uuid.uuid4()),
+        rule_template_id=rule_template.id,
+        version_number=1,
+        version_name="Initial Version",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        is_validated=True,
+        status='active',
+        change_summary="Initial implementation of C.D.Cal. discovery plan rule"
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.flush()
+
+    # Link current version
+    rule_template.current_version_id = rule_version.id
+    db.flush()
+
+    return rule_template
+
+
+# ============================================================================
 # Main Seeding Function
 # ============================================================================
 
@@ -475,6 +726,17 @@ def main():
 
         sdny_discovery = create_sdny_discovery_deadlines_rule(db, user_id)
         print(f"   ✅ {sdny_discovery.rule_name}")
+        print()
+
+        # Tier 1: C.D. California (CDCA) - 2 rules
+        print("🏛️  C.D. CALIFORNIA (CDCA) - 9th Circuit")
+        print("   Implementing 2 rules...")
+
+        cdca_case_mgmt = create_cdca_case_management_conference_rule(db, user_id)
+        print(f"   ✅ {cdca_case_mgmt.rule_name}")
+
+        cdca_discovery = create_cdca_discovery_plan_rule(db, user_id)
+        print(f"   ✅ {cdca_discovery.rule_name}")
 
         db.commit()
 
@@ -484,7 +746,7 @@ def main():
         print("=" * 80)
         print()
         print("✅ S.D. New York (SDNY): 3 rules")
-        print("⏳ C.D. California (CDCA): 0 rules (pending)")
+        print("✅ C.D. California (CDCA): 2 rules")
         print("⏳ N.D. Illinois (NDIL): 0 rules (pending)")
         print("⏳ D. Delaware (D.Del.): 0 rules (pending)")
         print("⏳ N.D. California (NDCA): 0 rules (pending)")
@@ -494,8 +756,8 @@ def main():
         print("⏳ S.D. Florida (SDFL): 0 rules (pending)")
         print("⏳ N.D. Texas (NDTX): 0 rules (pending)")
         print()
-        print("📊 Tier 1 Progress: 1/10 districts (10%)")
-        print("📊 Total Rules: 3 federal district rules")
+        print("📊 Tier 1 Progress: 2/10 districts (20%)")
+        print("📊 Total Rules: 5 federal district rules")
         print()
 
     except Exception as e:
