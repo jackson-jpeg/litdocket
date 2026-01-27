@@ -1,0 +1,56 @@
+🌱 SIMPLE INSTRUCTIONS TO SEED YOUR DATABASE
+
+Copy and paste these commands ONE AT A TIME:
+
+────────────────────────────────────────────────────────
+
+Step 1: Open Railway Shell (opens interactive terminal on server)
+
+    railway shell
+
+Wait for prompt to change (you'll see something like "bash-4.4$" or similar)
+
+────────────────────────────────────────────────────────
+
+Step 2: Run the seed command
+
+    python -m app.seed.rule_sets
+
+Wait ~30 seconds. You should see:
+  - "Seeding jurisdictions..."
+  - "Seeding rule sets..."
+  - "Seed complete!"
+
+────────────────────────────────────────────────────────
+
+Step 3: Exit the Railway shell
+
+    exit
+
+────────────────────────────────────────────────────────
+
+DONE!
+
+Now test it:
+1. Go to https://frontend-five-azure-58.vercel.app
+2. Login
+3. Open a case
+4. Click "Add Trigger"
+5. Select Florida → Complaint Served → Pick a date
+6. Click "Generate Deadlines"
+
+You should see 3 deadlines appear! 🎉
+
+────────────────────────────────────────────────────────
+
+TROUBLESHOOTING:
+
+If "railway shell" doesn't work:
+  - Try: railway login (might need to re-login)
+  - Or use Railway web dashboard → Shell tab
+
+If you see "Database already seeded":
+  - That's GOOD! It means it already worked
+  - Skip to testing in frontend
+
+────────────────────────────────────────────────────────
