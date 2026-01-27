@@ -212,7 +212,7 @@ Relevant Document Excerpts:
 
 Please answer the question based on the excerpts above. Always cite your sources."""
 
-        response = ai_service.client.messages.create(
+        response = ai_service.anthropic.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1500,
             system=system_prompt,

@@ -330,7 +330,7 @@ Return JSON with:
 """
 
             # Call Claude for suggestions
-            response = ai_service.client.messages.create(
+            response = ai_service.anthropic.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1000,
                 system="You are a workload optimization specialist. Return JSON only.",

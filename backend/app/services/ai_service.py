@@ -282,3 +282,7 @@ Be conversational but professional."""
         )
 
         return response.content[0].text
+
+
+# Singleton instance
+ai_service = AIService()
