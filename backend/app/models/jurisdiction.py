@@ -242,16 +242,12 @@ class RuleTemplate(Base):
 
     is_active = Column(Boolean, default=True)
 
-    # Ownership (nullable for system-created rules)
-    created_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     rule_set = relationship("RuleSet", back_populates="rule_templates")
     deadlines = relationship("RuleTemplateDeadline", back_populates="rule_template", cascade="all, delete-orphan")
-    creator = relationship("User", back_populates="created_rules", foreign_keys=[created_by])
 
     __table_args__ = (
         UniqueConstraint('rule_set_id', 'rule_code', name='uq_rule_template_code'),

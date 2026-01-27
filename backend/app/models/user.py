@@ -54,5 +54,6 @@ class User(Base):
     # Case templates
     case_templates = relationship("CaseTemplate", back_populates="user", cascade="all, delete-orphan")
 
-    # Rules Engine - User-Created Rules
-    created_rules = relationship("RuleTemplate", back_populates="creator", foreign_keys="RuleTemplate.created_by", cascade="all, delete-orphan")
+    # NOTE: created_rules relationship removed - migration 009 (dynamic_rules_engine)
+    # was never fully integrated. Current RuleTemplate model (migration 001) doesn't
+    # have created_by column. User-created rules feature is not currently active.
