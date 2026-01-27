@@ -107,7 +107,16 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       }
 
       // Build SSE URL with full backend URL
-      const url = `${API_URL}/api/v1/chat/stream?case_id=${encodeURIComponent(caseId)}&session_id=${sessionId}&message=${encodeURIComponent(message)}&token=${encodeURIComponent(token)}`;
+      // case_id is now optional - only include if provided
+      const params = new URLSearchParams({
+        session_id: sessionId,
+        message: message,
+        token: token
+      });
+      if (caseId) {
+        params.set('case_id', caseId);
+      }
+      const url = `${API_URL}/api/v1/chat/stream?${params.toString()}`;
 
       // Create EventSource
       const eventSource = new EventSource(url);

@@ -29,8 +29,8 @@ export function CockpitLayout({ children }: CockpitLayoutProps) {
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-auto p-6 scrollbar-dark">
+          {/* Scrollable Content - pb-48 reserves space for AITerminal when expanded */}
+          <div className="flex-1 overflow-auto p-6 pb-48 scrollbar-dark">
             {children}
           </div>
 

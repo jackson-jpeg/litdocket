@@ -470,6 +470,7 @@ function CreateRuleTab() {
       {/* Timeline Builder */}
       <TimelineRuleBuilder
         triggerType={formData.trigger_type}
+        deadlines={deadlines}
         onChange={setDeadlines}
       />
 

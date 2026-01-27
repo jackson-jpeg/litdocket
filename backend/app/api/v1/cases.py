@@ -18,6 +18,45 @@ router = APIRouter()
 
 
 # ===================
+# HELPER FUNCTIONS
+# ===================
+
+def get_case_by_id_or_number(
+    db: Session,
+    case_identifier: str,
+    user_id: str
+) -> Optional[Case]:
+    """
+    Look up a case by UUID or case_number.
+
+    This supports human-readable URLs like /cases/1:25-cv-01001-SAB
+    in addition to UUID-based URLs.
+
+    Args:
+        db: Database session
+        case_identifier: Either a UUID or a case_number
+        user_id: The user's ID for ownership verification
+
+    Returns:
+        Case if found and owned by user, None otherwise
+    """
+    # Try UUID lookup first (fast path for programmatic access)
+    case = db.query(Case).filter(
+        Case.id == case_identifier,
+        Case.user_id == user_id
+    ).first()
+
+    # Fall back to case_number lookup (human-readable URLs)
+    if not case:
+        case = db.query(Case).filter(
+            Case.case_number == case_identifier,
+            Case.user_id == user_id
+        ).first()
+
+    return case
+
+
+# ===================
 # PYDANTIC MODELS
 # ===================
 
@@ -111,11 +150,8 @@ def get_case(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get case details by ID"""
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    """Get case details by ID or case_number"""
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -146,14 +182,13 @@ def get_case_documents(
     db: Session = Depends(get_db)
 ):
     """Get all documents for a case"""
-    # Verify case belongs to user
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    # Use the actual case.id for document lookup (in case case_number was used)
+    case_id = str(case.id)
 
     documents = db.query(Document).filter(
         Document.case_id == case_id
@@ -207,14 +242,13 @@ async def get_case_summary(
     db: Session = Depends(get_db)
 ):
     """Get auto-updating case summary"""
-    # Verify case belongs to user
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    # Use the actual case.id for lookups
+    case_id = str(case.id)
 
     # Check if summary exists in metadata
     if case.case_metadata and 'auto_summary' in case.case_metadata:
@@ -243,14 +277,12 @@ def update_case_status(
     db: Session = Depends(get_db)
 ):
     """Update case status"""
-    # Verify case belongs to user
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    case_id = str(case.id)  # Use actual UUID for response
 
     # Valid statuses
     valid_statuses = ['active', 'pending', 'closed', 'archived']
@@ -283,14 +315,12 @@ async def update_case(
     This endpoint allows full editing of case metadata.
     Ownership is verified - users can only update their own cases.
     """
-    # Get case with ownership check
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    case_id = str(case.id)  # Use actual UUID
 
     # Track what changed for audit
     changes = []
@@ -376,11 +406,7 @@ def add_case_note(
     db: Session = Depends(get_db)
 ):
     """Add a note to a case"""
-    # Verify case belongs to user
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -416,14 +442,12 @@ def get_case_timeline(
     db: Session = Depends(get_db)
 ):
     """Get case timeline with all events"""
-    # Verify case belongs to user
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    case_id = str(case.id)  # Use actual UUID for lookups
 
     # Fetch all related data
     documents = db.query(Document).filter(
@@ -501,10 +525,7 @@ def archive_case(
     db: Session = Depends(get_db)
 ):
     """Archive a case (hides from main list)"""
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -526,10 +547,7 @@ def unarchive_case(
     db: Session = Depends(get_db)
 ):
     """Restore an archived case"""
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -551,10 +569,7 @@ def delete_case(
     db: Session = Depends(get_db)
 ):
     """Permanently delete a case and all related data"""
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -709,10 +724,7 @@ def save_case_as_template(
     db: Session = Depends(get_db)
 ):
     """Save an existing case as a template"""
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
 
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")

@@ -22,33 +22,46 @@ interface Deadline {
 
 interface TimelineRuleBuilderProps {
   triggerType: string;
+  deadlines?: Deadline[];  // Receive deadlines from parent (controlled mode)
   onChange?: (deadlines: Deadline[]) => void;
 }
 
 export default function TimelineRuleBuilder({
   triggerType,
+  deadlines: controlledDeadlines,
   onChange
 }: TimelineRuleBuilderProps) {
-  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  // Use controlled state from parent if provided, otherwise use local state
+  // This fixes the state synchronization bug where parent's deadlines.length stayed 0
+  const [localDeadlines, setLocalDeadlines] = useState<Deadline[]>([]);
+  const deadlines = controlledDeadlines ?? localDeadlines;
   const [showAddForm, setShowAddForm] = useState(false);
 
   const addDeadline = (deadline: Deadline) => {
     const updated = [...deadlines, deadline];
-    setDeadlines(updated);
+    // Always call onChange first to update parent state
     onChange?.(updated);
+    // Only update local state if not controlled
+    if (controlledDeadlines === undefined) {
+      setLocalDeadlines(updated);
+    }
     setShowAddForm(false);
   };
 
   const removeDeadline = (id: string) => {
     const updated = deadlines.filter(d => d.id !== id);
-    setDeadlines(updated);
     onChange?.(updated);
+    if (controlledDeadlines === undefined) {
+      setLocalDeadlines(updated);
+    }
   };
 
   const updateDeadline = (id: string, updates: Partial<Deadline>) => {
     const updated = deadlines.map(d => d.id === id ? { ...d, ...updates } : d);
-    setDeadlines(updated);
     onChange?.(updated);
+    if (controlledDeadlines === undefined) {
+      setLocalDeadlines(updated);
+    }
   };
 
   // Sort deadlines by absolute position on timeline

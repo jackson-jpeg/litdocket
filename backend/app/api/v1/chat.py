@@ -50,7 +50,7 @@ async def chat_health_check():
 
 class ChatMessageRequest(BaseModel):
     message: str
-    case_id: str
+    case_id: Optional[str] = None  # Optional for general queries
 
 
 class ChatMessageResponse(BaseModel):
@@ -70,6 +70,9 @@ async def send_message(
     """
     Send a message to the AI chatbot
 
+    Case context is OPTIONAL - allows general queries like "What cases do I have?"
+    when case_id is not provided.
+
     The chatbot can:
     - Answer questions about cases, deadlines, and rules
     - Create/update/delete deadlines via natural language
@@ -77,17 +80,19 @@ async def send_message(
     - Explain deadline calculations
     - Provide procedural guidance
     """
-    logger.info(f"Chat request from user {current_user.id} for case {request.case_id}")
+    logger.info(f"Chat request from user {current_user.id} for case {request.case_id or 'GLOBAL'}")
 
-    # Verify case belongs to user
-    case = db.query(Case).filter(
-        Case.id == request.case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    # Verify case belongs to user only if case_id provided
+    case = None
+    if request.case_id:
+        case = db.query(Case).filter(
+            Case.id == request.case_id,
+            Case.user_id == str(current_user.id)
+        ).first()
 
-    if not case:
-        logger.warning(f"Case {request.case_id} not found for user {current_user.id}")
-        raise HTTPException(status_code=404, detail="Case not found")
+        if not case:
+            logger.warning(f"Case {request.case_id} not found for user {current_user.id}")
+            raise HTTPException(status_code=404, detail="Case not found")
 
     try:
         # Process message with enhanced RAG-powered chat service
