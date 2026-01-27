@@ -31,7 +31,7 @@ from app.models.deadline import Deadline
 from app.models.user_rule import (
     UserRuleTemplate,
     UserRuleTemplateVersion,
-    RuleExecution
+    UserRuleExecution
 )
 from app.schemas.user_rules import (
     CreateRuleRequest,
@@ -161,23 +161,17 @@ async def create_rule_template(
     """
     logger.info(f"Creating rule '{request.rule_name}' for user {current_user.id}")
 
-    # Check for duplicate slug (slug is globally unique in the DB)
+    # Check for duplicate slug for this user (slug is unique per user)
     existing = db.query(UserRuleTemplate).filter(
+        UserRuleTemplate.user_id == str(current_user.id),
         UserRuleTemplate.slug == request.slug
     ).first()
 
     if existing:
-        # If exists but belongs to another user, make slug unique by appending user suffix
-        unique_slug = f"{request.slug}-{str(current_user.id)[:8]}"
-        existing_with_unique = db.query(UserRuleTemplate).filter(
-            UserRuleTemplate.slug == unique_slug
-        ).first()
-        if existing_with_unique:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Rule with slug '{request.slug}' already exists"
-            )
-        request.slug = unique_slug
+        raise HTTPException(
+            status_code=400,
+            detail=f"You already have a rule with slug '{request.slug}'"
+        )
 
     # Create the rule template
     rule = UserRuleTemplate(
@@ -207,7 +201,7 @@ async def create_rule_template(
         version_name="Initial version",
         rule_schema=request.rule_schema,
         status='active',
-        change_notes="Initial creation"
+        change_summary="Initial creation"
     )
 
     db.add(version)
@@ -272,7 +266,7 @@ async def update_rule_template(
             version_name=f"Version {new_version_number}",
             rule_schema=request.rule_schema,
             status='active',
-            change_notes="Updated rule schema"
+            change_summary="Updated rule schema"
         )
         db.add(version)
         rule.version_count = new_version_number
@@ -463,7 +457,7 @@ async def execute_rule(
     execution_time_ms = int((time.time() - start_time) * 1000)
 
     # Record execution (even for dry runs)
-    execution = RuleExecution(
+    execution = UserRuleExecution(
         id=str(uuid.uuid4()),
         rule_template_id=rule.id,
         rule_version_id=version.id,
@@ -515,16 +509,16 @@ async def get_execution_history(
     """
     Get rule execution history for the current user.
     """
-    query = db.query(RuleExecution).filter(
-        RuleExecution.user_id == str(current_user.id)
+    query = db.query(UserRuleExecution).filter(
+        UserRuleExecution.user_id == str(current_user.id)
     )
 
     if case_id:
-        query = query.filter(RuleExecution.case_id == case_id)
+        query = query.filter(UserRuleExecution.case_id == case_id)
     if rule_template_id:
-        query = query.filter(RuleExecution.rule_template_id == rule_template_id)
+        query = query.filter(UserRuleExecution.rule_template_id == rule_template_id)
 
-    executions = query.order_by(RuleExecution.executed_at.desc()).limit(limit).all()
+    executions = query.order_by(UserRuleExecution.executed_at.desc()).limit(limit).all()
 
     execution_records = [
         RuleExecutionRecord(

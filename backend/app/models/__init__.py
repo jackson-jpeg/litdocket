@@ -32,7 +32,7 @@ from app.models.case_template import CaseTemplate
 from app.models.user_rule import (
     UserRuleTemplate,
     UserRuleTemplateVersion,
-    RuleExecution,
+    UserRuleExecution,
     UserRuleStatus
 )
 
@@ -82,7 +82,7 @@ __all__ = [
     # User-Created Rules System
     "UserRuleTemplate",
     "UserRuleTemplateVersion",
-    "RuleExecution",
+    "UserRuleExecution",
     "UserRuleStatus",
     # CompuLaw-style Jurisdiction System
     "Jurisdiction",

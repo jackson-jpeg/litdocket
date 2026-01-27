@@ -8,12 +8,12 @@ These models support user-created deadline calculation rules that can be:
 - Versioned for history tracking
 - Executed to generate deadlines
 
-NOTE: These models map to tables created in migration 009_dynamic_rules_engine.sql:
-- rule_templates
-- rule_versions
-- rule_executions
+Tables (created in migration 010_user_rules_additions.sql):
+- user_rule_templates
+- user_rule_template_versions
+- user_rule_executions
 
-The table names differ from the class names for compatibility with existing schema.
+These are separate from the CompuLaw-style RuleTemplate in jurisdiction.py.
 """
 from sqlalchemy import (
     Column, String, Text, DateTime, ForeignKey, Boolean, Integer,
@@ -41,15 +41,16 @@ class UserRuleTemplate(Base):
     Users can create custom rules for their specific jurisdictions/needs,
     optionally share them publicly, and execute them to generate deadlines.
 
-    Maps to 'rule_templates' table from migration 009.
+    Uses a separate table 'user_rule_templates' to avoid conflict with the
+    CompuLaw-style RuleTemplate in jurisdiction.py which uses 'rule_templates'.
     """
-    __tablename__ = "rule_templates"
+    __tablename__ = "user_rule_templates"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Basic info
     rule_name = Column(String(255), nullable=False)
-    slug = Column(String(255), unique=True, nullable=False, index=True)
+    slug = Column(String(255), nullable=False, index=True)  # Unique per user via index
     description = Column(Text)
 
     # Classification
@@ -57,8 +58,8 @@ class UserRuleTemplate(Base):
     trigger_type = Column(String(100), nullable=False, index=True)
     tags = Column(ARRAY(Text))  # PostgreSQL array type
 
-    # Ownership - maps to 'created_by' in the database
-    user_id = Column('created_by', String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Ownership
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Sharing
     is_public = Column(Boolean, default=False)
@@ -90,7 +91,7 @@ class UserRuleTemplate(Base):
         order_by="desc(UserRuleTemplateVersion.version_number)"
     )
     executions = relationship(
-        "RuleExecution",
+        "UserRuleExecution",
         back_populates="rule_template",
         cascade="all, delete-orphan"
     )
@@ -112,16 +113,14 @@ class UserRuleTemplateVersion(Base):
     - Roll back to previous versions
     - Compare changes between versions
     - Maintain audit trail
-
-    Maps to 'rule_versions' table from migration 009.
     """
-    __tablename__ = "rule_versions"
+    __tablename__ = "user_rule_template_versions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     rule_template_id = Column(
         String(36),
-        ForeignKey("rule_templates.id", ondelete="CASCADE"),
+        ForeignKey("user_rule_templates.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -136,7 +135,7 @@ class UserRuleTemplateVersion(Base):
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
 
     # Change tracking
-    change_notes = Column('change_summary', Text)
+    change_summary = Column(Text)
 
     # Validation
     is_validated = Column(Boolean, default=False)
@@ -158,30 +157,27 @@ class UserRuleTemplateVersion(Base):
     rule_template = relationship("UserRuleTemplate", back_populates="versions")
 
 
-class RuleExecution(Base):
+class UserRuleExecution(Base):
     """
-    Audit trail of rule executions
+    Audit trail of user rule executions
 
-    Records every time a rule is executed to generate deadlines,
+    Records every time a user rule is executed to generate deadlines,
     including the trigger data used and results produced.
-
-    Maps to 'rule_executions' table from migration 009.
     """
-    __tablename__ = "rule_executions"
-    __table_args__ = {'extend_existing': True}  # Allow extending if table already mapped
+    __tablename__ = "user_rule_executions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # What was executed
     rule_template_id = Column(
         String(36),
-        ForeignKey("rule_templates.id", ondelete="SET NULL"),
+        ForeignKey("user_rule_templates.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     rule_version_id = Column(
         String(36),
-        ForeignKey("rule_versions.id", ondelete="SET NULL"),
+        ForeignKey("user_rule_template_versions.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
@@ -189,7 +185,6 @@ class RuleExecution(Base):
     # Who executed and where
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     case_id = Column(String(36), ForeignKey("cases.id", ondelete="SET NULL"), nullable=True, index=True)
-    trigger_deadline_id = Column(String(36), ForeignKey("deadlines.id", ondelete="SET NULL"), nullable=True)
 
     # Input data
     trigger_data = Column(JSON)
