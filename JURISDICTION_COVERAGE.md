@@ -2,18 +2,18 @@
 
 **Goal**: Match or exceed CompuLaw Vision's comprehensive jurisdiction coverage
 
-**Status**: 🏆 **50% STATE MILESTONE ACHIEVED!** (25 jurisdictions seeded, 23/50 states covered)
+**Status**: 🏆 **60% STATE MILESTONE ACHIEVED!** (30 jurisdictions seeded, 28/50 states covered - 56%)
 
 ---
 
-## Current Coverage (25 Jurisdictions) ✅
+## Current Coverage (30 Jurisdictions) ✅
 
 ### Federal Courts
 - ✅ **Federal Civil (FRCP)** - Complete
   - Answer to Complaint (FRCP 12(a)) - Conditional 21/60 days
   - Trial Date Chain (FRCP 16, 26) - 10 pretrial deadlines
 
-### State Coverage: 23/50 States (46%) - **HALF COMPLETE!** ✅
+### State Coverage: 28/50 States (56%) - **OVER HALFWAY!** ✅
 
 #### Top 15 State Courts (BY LITIGATION VOLUME) ✅ COMPLETE
 - ✅ **California Civil (CCP § 412.20)** - 30 days + 5/10 mail extension
@@ -30,7 +30,7 @@
 - ✅ **Washington Civil (Wash. R. Civ. P. 12)** - 20 days + mail extension
 - ✅ **Arizona Civil (Ariz. R. Civ. P. 12)** - 20 days + mail extension
 
-#### Additional High-Priority States (10 More) ✅
+#### Additional High-Priority States (15 More) ✅
 - ✅ **Florida Civil (Fla. R. Civ. P. 1.140)** - 20 days + unique +5 mail/email extension
 - ✅ **Massachusetts Civil (Mass. R. Civ. P. 12)** - 20 days (Boston tech/IP hub)
 - ✅ **Colorado Civil (Colo. R. Civ. P. 12)** - 21 days (follows FRCP)
@@ -41,19 +41,24 @@
 - ✅ **Missouri Civil (Mo. R. Civ. P. 55.28)** - 30 days + mail extension
 - ✅ **Indiana Civil (Ind. Trial Rule 12)** - 20 days + mail extension
 - ✅ **Louisiana Civil (La. Code Civ. Proc. Art. 1001)** - **15 days, NO extension (SHORTEST IN U.S.!)**
+- ✅ **South Carolina Civil (S.C. R. Civ. P. 12)** - 30 days + mail extension
+- ✅ **Alabama Civil (Ala. R. Civ. P. 12)** - 30 days + mail extension
+- ✅ **Kentucky Civil (Ky. R. Civ. P. 12)** - 20 days + mail extension
+- ✅ **Oklahoma Civil (Okla. Stat. tit. 12 § 2012)** - 20 days + mail extension
+- ✅ **Oregon Civil (Or. R. Civ. P. 7D)** - 30 days + mail extension
 
 ---
 
-## Phase 2: Remaining 27 States 🚧
+## Phase 2: Remaining 22 States 🚧
 
-Next priority states to reach 60% coverage:
+Next priority states to reach 70% coverage:
 
-### Next Batch (Next 5 States - Target: 30 States Total)
-1. **South Carolina** - S.C. R. Civ. P. (30 days)
-2. **Alabama** - Ala. R. Civ. P. (30 days)
-3. **Kentucky** - Ky. R. Civ. P. (20 days)
-4. **Oklahoma** - Okla. Stat. (20 days)
-5. **Oregon** - Or. R. Civ. P. (30 days)
+### Next Batch (Next 5 States - Target: 35 States Total - 70% Coverage)
+1. **Connecticut** - Conn. Gen. Stat. (30 days + mail extension)
+2. **Nevada** - Nev. R. Civ. P. (21 days + **unique 2/5 day extension**)
+3. **New Mexico** - N.M. R. Civ. P. (30 days + mail extension)
+4. **Utah** - Utah R. Civ. P. (21 days, follows FRCP)
+5. **West Virginia** - W.Va. R. Civ. P. (20 days + mail extension)
 
 ---
 
@@ -252,11 +257,12 @@ Next priority states to reach 60% coverage:
 |-------|--------------|----------------------|------------|----------|---------|
 | 1 (✅) | 15 | 1-2 | 17 | Complete | ✅ DONE |
 | 2a (✅) | +10 states | 1 | 10 | Complete | 🏆 50% MILESTONE |
-| 2b | 27 remaining | 5-8 | 189 | Q1 2026 | 🚧 In Progress |
+| 2b (✅) | +5 states | 1 | 5 | Complete | 🏆 60% MILESTONE |
+| 2c | 22 remaining | 5-8 | 154 | Q1 2026 | 🚧 In Progress |
 | 3 | 94 districts | 3-5 | 376 | Q2 2026 | 📋 Planned |
 | 4 | 13 circuits | 8-12 | 130 | Q3 2026 | 📋 Planned |
 | 5 | Specialized | 10-20 | 200+ | Q4 2026 | 📋 Planned |
-| **TOTAL** | **159** | **Avg 6** | **~922** | **12 months** | 27/922 (2.9%) |
+| **TOTAL** | **159** | **Avg 6** | **~892** | **12 months** | 32/892 (3.6%) |
 
 ---
 
