@@ -1,10 +1,11 @@
-# Force rebuild: 2026-01-09 23:25 - STRIPPED DeadlineChain to bare minimum (id, case_id, parent_deadline_id)
-print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.9 (BARE MINIMUM SCHEMA) ---")
+# Force rebuild: 2026-01-27 - CORS preflight fix
+print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V3.0 (CORS PREFLIGHT FIX) ---")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import logging
@@ -28,6 +29,80 @@ from app.middleware.security import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# CORS PREFLIGHT MIDDLEWARE (CRITICAL - Must run FIRST before all other middleware)
+# =============================================================================
+class CORSPreflightMiddleware(BaseHTTPMiddleware):
+    """
+    Handle CORS preflight (OPTIONS) requests immediately.
+
+    This middleware MUST run before rate limiting, security headers, etc.
+    to prevent 502 errors on preflight requests.
+
+    Why this is needed:
+    - Browser sends OPTIONS request before actual request (preflight)
+    - If preflight hits rate limiting or fails, browser blocks actual request
+    - FastAPI's CORSMiddleware should handle this, but middleware order can cause issues
+    - This explicit handler ensures OPTIONS always succeeds with proper headers
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        # Only intercept OPTIONS requests (preflight)
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin", "")
+
+            # Check if origin is allowed (support wildcards for Vercel preview URLs)
+            allowed = self._is_origin_allowed(origin)
+
+            if allowed:
+                # Return immediate success with CORS headers
+                response = Response(
+                    status_code=200,
+                    content="",
+                    headers={
+                        "Access-Control-Allow-Origin": origin,
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                        "Access-Control-Allow-Headers": "*",
+                        "Access-Control-Allow-Credentials": "true",
+                        "Access-Control-Max-Age": "600",  # Cache preflight for 10 minutes
+                    }
+                )
+                logger.debug(f"CORS preflight handled for origin: {origin}")
+                return response
+            else:
+                # Origin not allowed - return 403
+                logger.warning(f"CORS preflight rejected for origin: {origin}")
+                return Response(
+                    status_code=403,
+                    content="Origin not allowed",
+                    headers={"Content-Type": "text/plain"}
+                )
+
+        # Not an OPTIONS request - continue to next middleware
+        return await call_next(request)
+
+    def _is_origin_allowed(self, origin: str) -> bool:
+        """Check if origin is in allowed list or matches Vercel preview pattern"""
+        if not origin:
+            return False
+
+        # Check exact match in allowed origins
+        allowed_origins = settings.ALLOWED_ORIGINS
+        if origin in allowed_origins:
+            return True
+
+        # Check Vercel preview URL pattern (litdocket-*.vercel.app)
+        if origin.startswith("https://litdocket-") and origin.endswith(".vercel.app"):
+            return True
+
+        # Check Railway preview URL pattern (*.up.railway.app)
+        if origin.endswith(".up.railway.app"):
+            return True
+
+        return False
+
+
 # Create FastAPI app
 app = FastAPI(
     title="LitDocket API",
@@ -40,22 +115,32 @@ app = FastAPI(
 # =============================================================================
 # SECURITY MIDDLEWARE (ORDER MATTERS!)
 # =============================================================================
+# Starlette executes middleware in REVERSE order of addition:
+# - First added = runs LAST
+# - Last added = runs FIRST
+#
+# Desired execution order (first to last):
+# 1. CORSPreflightMiddleware - Handle OPTIONS immediately (no rate limiting!)
+# 2. CORSMiddleware - Add CORS headers to responses
+# 3. TrustedHostMiddleware - Validate host header (production only)
+# 4. SecurityHeadersMiddleware - Add security headers
+# 5. Rate Limiter - Applied per-route via decorators
+# =============================================================================
 
-# 1. Rate Limiter - Register with app state
+# 5. Rate Limiter - Register with app state (applied per-route, not as middleware)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
-# 2. Security Headers Middleware
+# 4. Security Headers Middleware (runs AFTER CORS)
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 3. Trusted Host Middleware (only in production)
+# 3. Trusted Host Middleware (only in production, runs AFTER CORS)
 if not settings.DEBUG:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
 
-# CORS middleware - Strict Production Configuration
-# Use CORS origins from config - allows for environment-specific configuration
-# including Vercel preview URLs
+# 2. CORS middleware - Standard CORS handling for non-preflight requests
 CORS_ORIGINS = settings.ALLOWED_ORIGINS
+logger.info(f"Configuring CORS for origins: {CORS_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,6 +150,26 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*", "Content-Type", "Cache-Control", "X-Accel-Buffering"],
 )
+
+# 1. CORS Preflight Middleware - MUST BE LAST (runs FIRST!)
+# This handles OPTIONS requests before any other middleware can interfere
+app.add_middleware(CORSPreflightMiddleware)
+
+
+# Helper function to check if origin is allowed (supports preview URLs)
+def is_origin_allowed(origin: str) -> bool:
+    """Check if origin is allowed including Vercel/Railway preview URLs"""
+    if not origin:
+        return False
+    if origin in CORS_ORIGINS:
+        return True
+    # Support Vercel preview URLs (litdocket-*.vercel.app)
+    if origin.startswith("https://litdocket-") and origin.endswith(".vercel.app"):
+        return True
+    # Support Railway preview URLs (*.up.railway.app)
+    if origin.endswith(".up.railway.app"):
+        return True
+    return False
 
 
 # Global exception handler to ensure errors return proper CORS headers
@@ -92,8 +197,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-    # Add CORS headers manually for error responses
-    if origin in CORS_ORIGINS:
+    # Add CORS headers manually for error responses (supports preview URLs)
+    if is_origin_allowed(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
 
