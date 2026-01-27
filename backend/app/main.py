@@ -148,6 +148,64 @@ async def health_check():
         "service": "LitDocket API"
     }
 
+# Admin: Seed database endpoint (temporary - remove after use)
+@app.post("/admin/seed-database")
+async def seed_database_endpoint():
+    """
+    Temporary endpoint to seed the production database.
+    Run once, then remove this endpoint.
+    """
+    try:
+        from app.database import SessionLocal
+        from app.seed.rule_sets import run_seed
+        from app.models.jurisdiction import Jurisdiction, RuleSet, RuleTemplate
+
+        db = SessionLocal()
+        try:
+            # Check if already seeded
+            existing_jurisdictions = db.query(Jurisdiction).count()
+            if existing_jurisdictions > 0:
+                return {
+                    "status": "already_seeded",
+                    "message": "Database already contains jurisdictions",
+                    "jurisdictions_count": existing_jurisdictions
+                }
+
+            # Run the seed
+            logger.info("Starting database seeding...")
+            run_seed(db)
+
+            # Get counts
+            juris_count = db.query(Jurisdiction).count()
+            ruleset_count = db.query(RuleSet).count()
+            template_count = db.query(RuleTemplate).count()
+
+            logger.info("Database seeding completed successfully")
+
+            return {
+                "status": "success",
+                "message": "Database seeded successfully",
+                "summary": {
+                    "jurisdictions": juris_count,
+                    "rule_sets": ruleset_count,
+                    "rule_templates": template_count
+                }
+            }
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Seeding failed: {e}")
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": str(e),
+                "traceback": traceback.format_exc() if settings.DEBUG else None
+            }
+        )
+
 # Root endpoint
 @app.get("/")
 async def root():
