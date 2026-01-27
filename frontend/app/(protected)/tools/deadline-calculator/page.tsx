@@ -52,7 +52,13 @@ export default function DeadlineCalculatorPage() {
 
   // Calculate deadline
   const handleCalculate = () => {
-    const trigger = new Date(triggerDate);
+    // Parse ISO date string (YYYY-MM-DD) as local midnight
+    // CRITICAL: new Date("2026-01-27") creates UTC midnight, which displays
+    // as the previous day in local timezones west of UTC. This is a FATAL bug
+    // for legal deadline software. We must parse manually to get local midnight.
+    const [year, month, day] = triggerDate.split('-').map(Number);
+    const trigger = new Date(year, month - 1, day);  // month is 0-indexed
+
     const result = calculateFederalDeadline(
       trigger,
       days,

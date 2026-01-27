@@ -392,7 +392,7 @@ export default function CasesListPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <Folder className="w-12 h-12 text-blue-500 animate-pulse mx-auto mb-4" />
           <p className="text-slate-600">Loading cases...</p>
@@ -402,7 +402,7 @@ export default function CasesListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="bg-slate-50">
       {/* Global Search Modal */}
       <GlobalSearch isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
 
