@@ -1,20 +1,49 @@
-# Force rebuild: 2026-01-09 23:25 - STRIPPED DeadlineChain to bare minimum (id, case_id, parent_deadline_id)
-print("--- SYSTEM REBOOT: LOADING COMPULAW ENGINE V2.9 (BARE MINIMUM SCHEMA) ---")
+# Force rebuild: 2026-01-27 - FIX STALE FILES CAUSING 502
+print("=" * 80)
+print("LITDOCKET BACKEND STARTING...")
+print("=" * 80)
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from starlette.middleware.trustedhost import TrustedHostMiddleware
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
+import sys
 import logging
-import time
-import traceback
 
-from app.config import settings
-from app.database import engine
-from app.models import Base
-from app.api.v1.router import api_router
+# Configure logging FIRST before any imports
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+try:
+    logger.info("Starting imports...")
+    from fastapi import FastAPI, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    import time
+    import traceback
+
+    logger.info("Core imports complete")
+
+    from app.config import settings
+    logger.info("Config loaded")
+
+    from app.database import engine
+    logger.info("Database engine loaded")
+
+    from app.models import Base
+    logger.info("Models loaded")
+
+    from app.api.v1.router import api_router
+    logger.info("API router loaded - ALL IMPORTS SUCCESSFUL")
+
+except Exception as e:
+    logger.error(f"FATAL: Import failed during startup")
+    logger.error(f"Error: {e}")
+    logger.error(traceback.format_exc())
+    sys.exit(1)
 from app.middleware.security import (
     limiter,
     SecurityHeadersMiddleware,

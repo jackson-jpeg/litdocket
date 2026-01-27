@@ -41,9 +41,9 @@ class FirebaseService:
                 if 'private_key' in cred_dict:
                     raw_key = cred_dict['private_key']
 
-                    # CRITICAL FIX: Handle double-escapes (\\n) BEFORE single escapes (\n)
-                    # This prevents the first replace from corrupting the second.
-                    key = raw_key.replace('\\\\n', '\n').replace('\\n', '\n')
+                    # CRITICAL FIX: Handle triple-escapes (\\\\n) -> double (\\n) -> single (\n)
+                    # Railway RTF export may add extra escaping
+                    key = raw_key.replace('\\\\\\\\n', '\n').replace('\\\\n', '\n').replace('\\n', '\n')
 
                     # Step 2: Fix PEM headers if they were merged into one line
                     if '-----BEGIN PRIVATE KEY----- ' in key:
@@ -52,7 +52,7 @@ class FirebaseService:
                          key = key.replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
 
                     cred_dict['private_key'] = key
-                    logger.info(f"Firebase: Key sanitized. Final Length: {len(key)}")
+                    logger.info(f"Firebase: Key sanitized. Final Length: {len(key)}, starts with: {key[:50]}")
 
                 cred = credentials.Certificate(cred_dict)
                 logger.info("Firebase initialized from environment variable")
