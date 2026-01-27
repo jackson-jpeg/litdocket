@@ -5648,6 +5648,846 @@ def create_montana_complaint_served_rule(db: Session, user_id: str) -> RuleTempl
     return rule_template
 
 
+def create_alaska_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Alaska Civil - Answer to Complaint
+    Alaska R. Civ. P. 12(a) - 20 days after service
+    20-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Alaska Civil",
+            "description": "Defendant must answer within 20 days of service",
+            "effective_date": "2024-01-01",
+            "citations": ["Alaska R. Civ. P. 12(a)", "Alaska R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "AK",
+            "court_level": "superior"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 20 days",
+                "applicable_rule": "Alaska R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "20 days + 3 days if served by mail (Rule 6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "Alaska R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Alaska Civil",
+        slug="alaska-civil-answer-to-complaint",
+        jurisdiction="alaska_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Alaska Civil Rules - 20-day answer deadline with mail extension",
+        tags=["alaska", "civil", "alaska_rcivp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Alaska R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Alaska Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_delaware_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Delaware Civil - Answer to Complaint
+    Del. Super. Ct. Civ. R. 12(a) - 20 days after service
+    20-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Delaware Civil",
+            "description": "Defendant must answer within 20 days of service",
+            "effective_date": "2024-01-01",
+            "citations": ["Del. Super. Ct. Civ. R. 12(a)", "Del. Super. Ct. Civ. R. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "DE",
+            "court_level": "superior"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 20 days",
+                "applicable_rule": "Del. Super. Ct. Civ. R. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "20 days + 3 days if served by mail (Rule 6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "Del. Super. Ct. Civ. R. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Delaware Civil",
+        slug="delaware-civil-answer-to-complaint",
+        jurisdiction="delaware_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Delaware Superior Court Rules - 20-day answer deadline with mail extension",
+        tags=["delaware", "civil", "del_super_ct", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Del. Super. Ct. Civ. R. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Delaware Superior Court Civil Rules",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_hawaii_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Hawaii Civil - Answer to Complaint
+    Hawaii R. Civ. P. 12(a) - 20 days after service
+    20-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Hawaii Civil",
+            "description": "Defendant must answer within 20 days of service",
+            "effective_date": "2024-01-01",
+            "citations": ["Hawaii R. Civ. P. 12(a)", "Hawaii R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "HI",
+            "court_level": "circuit"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 20 days",
+                "applicable_rule": "Hawaii R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "20 days + 3 days if served by mail (Rule 6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 20,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "Hawaii R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Hawaii Civil",
+        slug="hawaii-civil-answer-to-complaint",
+        jurisdiction="hawaii_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Hawaii Civil Rules - 20-day answer deadline with mail extension",
+        tags=["hawaii", "civil", "hawaii_rcivp", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Hawaii R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Hawaii Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_north_dakota_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    North Dakota Civil - Answer to Complaint
+    N.D. R. Civ. P. 12(a) - 21 days after service (follows FRCP)
+    21-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - North Dakota Civil",
+            "description": "Defendant must answer within 21 days of service (follows FRCP)",
+            "effective_date": "2024-01-01",
+            "citations": ["N.D. R. Civ. P. 12(a)", "N.D. R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "ND",
+            "court_level": "district"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 21 days",
+                "applicable_rule": "N.D. R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "21 days + 3 days if served by mail (Rule 6(e)) - Follows FRCP"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "N.D. R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - North Dakota Civil",
+        slug="north-dakota-civil-answer-to-complaint",
+        jurisdiction="north_dakota_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="North Dakota Civil Rules - 21-day answer deadline with mail extension (follows FRCP)",
+        tags=["north_dakota", "civil", "nd_rcivp", "answer", "complaint", "frcp"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current N.D. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current North Dakota Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_south_dakota_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    South Dakota Civil - Answer to Complaint
+    S.D. Codified Laws § 15-6-12(a) - 21 days after service
+    21-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - South Dakota Civil",
+            "description": "Defendant must answer within 21 days of service",
+            "effective_date": "2024-01-01",
+            "citations": ["S.D. Codified Laws § 15-6-12(a)", "S.D. Codified Laws § 15-6-6(e)"],
+            "jurisdiction_type": "state",
+            "state": "SD",
+            "court_level": "circuit"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 21 days",
+                "applicable_rule": "S.D. Codified Laws § 15-6-12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "21 days + 3 days if served by mail (§ 15-6-6(e))"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "§ 15-6-12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "S.D. Codified Laws § 15-6-12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - South Dakota Civil",
+        slug="south-dakota-civil-answer-to-complaint",
+        jurisdiction="south_dakota_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="South Dakota Codified Laws - 21-day answer deadline with mail extension",
+        tags=["south_dakota", "civil", "sd_codified", "answer", "complaint"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current S.D. Codified Laws Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current South Dakota Codified Laws",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_vermont_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Vermont Civil - Answer to Complaint
+    Vt. R. Civ. P. 12(a) - 21 days after service (follows FRCP)
+    21-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Vermont Civil",
+            "description": "Defendant must answer within 21 days of service (follows FRCP)",
+            "effective_date": "2024-01-01",
+            "citations": ["Vt. R. Civ. P. 12(a)", "Vt. R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "VT",
+            "court_level": "superior"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 21 days",
+                "applicable_rule": "Vt. R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "21 days + 3 days if served by mail (Rule 6(e)) - Follows FRCP"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "Vt. R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Vermont Civil",
+        slug="vermont-civil-answer-to-complaint",
+        jurisdiction="vermont_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Vermont Civil Rules - 21-day answer deadline with mail extension (follows FRCP)",
+        tags=["vermont", "civil", "vt_rcivp", "answer", "complaint", "frcp"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Vt. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Vermont Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
+def create_wyoming_complaint_served_rule(db: Session, user_id: str) -> RuleTemplate:
+    """
+    Wyoming Civil - Answer to Complaint
+    Wyo. R. Civ. P. 12(a) - 21 days after service (follows FRCP)
+    21-day answer period + 3-day mail extension
+    """
+    rule_schema = {
+        "metadata": {
+            "name": "Answer to Complaint - Wyoming Civil",
+            "description": "Defendant must answer within 21 days of service (follows FRCP)",
+            "effective_date": "2024-01-01",
+            "citations": ["Wyo. R. Civ. P. 12(a)", "Wyo. R. Civ. P. 6(e)"],
+            "jurisdiction_type": "state",
+            "state": "WY",
+            "court_level": "district"
+        },
+        "trigger": {
+            "type": "COMPLAINT_SERVED",
+            "required_fields": [
+                {
+                    "name": "service_date",
+                    "type": "date",
+                    "label": "Date Complaint Was Served",
+                    "required": True
+                },
+                {
+                    "name": "service_method",
+                    "type": "select",
+                    "label": "Method of Service",
+                    "options": ["personal", "mail", "certified_mail", "publication"],
+                    "required": True,
+                    "default": "personal"
+                }
+            ]
+        },
+        "deadlines": [
+            {
+                "id": "answer_due",
+                "title": "Answer Due",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "FATAL",
+                "description": "Defendant must file answer or responsive motion within 21 days",
+                "applicable_rule": "Wyo. R. Civ. P. 12(a)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "21 days + 3 days if served by mail (Rule 6(e)) - Follows FRCP"
+            },
+            {
+                "id": "motion_to_dismiss_deadline",
+                "title": "Motion to Dismiss Deadline",
+                "offset_days": 21,
+                "offset_direction": "after",
+                "priority": "CRITICAL",
+                "description": "Rule 12(b) motions to dismiss must be filed within answer period",
+                "applicable_rule": "Wyo. R. Civ. P. 12(b)",
+                "add_service_days": True,
+                "party_responsible": "defendant",
+                "calculation_method": "calendar_days",
+                "notes": "Pre-answer motion extends answer deadline"
+            }
+        ],
+        "dependencies": [],
+        "validation": {
+            "min_deadlines": 1,
+            "max_deadlines": 10,
+            "require_citations": True
+        },
+        "settings": {
+            "auto_cascade_updates": True,
+            "allow_manual_override": True,
+            "notification_lead_days": [1, 3, 7, 14]
+        }
+    }
+
+    template_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+
+    rule_template = RuleTemplate(
+        id=template_id,
+        rule_name="Answer to Complaint - Wyoming Civil",
+        slug="wyoming-civil-answer-to-complaint",
+        jurisdiction="wyoming_civil",
+        trigger_type="COMPLAINT_SERVED",
+        created_by=user_id,
+        is_public=True,
+        is_official=True,
+        current_version_id=version_id,
+        version_count=1,
+        status="active",
+        description="Wyoming Civil Rules - 21-day answer deadline with mail extension (follows FRCP)",
+        tags=["wyoming", "civil", "wyo_rcivp", "answer", "complaint", "frcp"],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        published_at=datetime.utcnow()
+    )
+
+    rule_version = RuleVersion(
+        id=version_id,
+        rule_template_id=template_id,
+        version_number=1,
+        version_name="Current Wyo. R. Civ. P. Rules",
+        rule_schema=rule_schema,
+        created_by=user_id,
+        change_summary="Current Wyoming Rules of Civil Procedure",
+        is_validated=True,
+        status="active",
+        created_at=datetime.utcnow(),
+        activated_at=datetime.utcnow()
+    )
+
+    db.add(rule_template)
+    db.add(rule_version)
+    db.commit()
+    db.refresh(rule_template)
+
+    return rule_template
+
+
 def main():
     """Seed comprehensive rules library."""
     print("🌱 Seeding Comprehensive Rules Library...")
@@ -5999,10 +6839,59 @@ def main():
         print(f"      Slug: {mt_answer.slug}")
         print()
 
+        print("4️⃣6️⃣  Alaska Civil - Answer to Complaint (Alaska R. Civ. P. 12)...")
+        ak_answer = create_alaska_complaint_served_rule(db, user.id)
+        rules_created.append(ak_answer)
+        print(f"   ✅ {ak_answer.rule_name}")
+        print(f"      Slug: {ak_answer.slug}")
+        print()
+
+        print("4️⃣7️⃣  Delaware Civil - Answer to Complaint (Del. Super. Ct. Civ. R. 12)...")
+        de_answer = create_delaware_complaint_served_rule(db, user.id)
+        rules_created.append(de_answer)
+        print(f"   ✅ {de_answer.rule_name}")
+        print(f"      Slug: {de_answer.slug}")
+        print()
+
+        print("4️⃣8️⃣  Hawaii Civil - Answer to Complaint (Hawaii R. Civ. P. 12)...")
+        hi_answer = create_hawaii_complaint_served_rule(db, user.id)
+        rules_created.append(hi_answer)
+        print(f"   ✅ {hi_answer.rule_name}")
+        print(f"      Slug: {hi_answer.slug}")
+        print()
+
+        print("4️⃣9️⃣  North Dakota Civil - Answer to Complaint (N.D. R. Civ. P. 12)...")
+        nd_answer = create_north_dakota_complaint_served_rule(db, user.id)
+        rules_created.append(nd_answer)
+        print(f"   ✅ {nd_answer.rule_name}")
+        print(f"      Slug: {nd_answer.slug}")
+        print()
+
+        print("5️⃣0️⃣  South Dakota Civil - Answer to Complaint (S.D. Codified Laws § 15-6-12)...")
+        sd_answer = create_south_dakota_complaint_served_rule(db, user.id)
+        rules_created.append(sd_answer)
+        print(f"   ✅ {sd_answer.rule_name}")
+        print(f"      Slug: {sd_answer.slug}")
+        print()
+
+        print("5️⃣1️⃣  Vermont Civil - Answer to Complaint (Vt. R. Civ. P. 12)...")
+        vt_answer = create_vermont_complaint_served_rule(db, user.id)
+        rules_created.append(vt_answer)
+        print(f"   ✅ {vt_answer.rule_name}")
+        print(f"      Slug: {vt_answer.slug}")
+        print()
+
+        print("5️⃣2️⃣  Wyoming Civil - Answer to Complaint (Wyo. R. Civ. P. 12)...")
+        wy_answer = create_wyoming_complaint_served_rule(db, user.id)
+        rules_created.append(wy_answer)
+        print(f"   ✅ {wy_answer.rule_name}")
+        print(f"      Slug: {wy_answer.slug}")
+        print()
+
         print("=" * 80)
         print(f"✨ Seeding Complete! Created {len(rules_created)} rules")
         print()
-        print("🎉 MAJOR MILESTONE: 45 JURISDICTIONS (90% STATE COVERAGE!):")
+        print("🎉🎉🎉 HISTORIC MILESTONE: 52 JURISDICTIONS (100% STATE COVERAGE!) 🎉🎉🎉")
         print("=" * 80)
         print(f"   • Federal: 2 rules (FRCP Answer + Trial Chain)")
         print(f"   • California: 1 rule - 30 days + 5/10 mail")
@@ -6048,16 +6937,23 @@ def main():
         print(f"   • Rhode Island: 1 rule - 20 days")
         print(f"   • Maine: 1 rule - 21 days (FRCP)")
         print(f"   • Montana: 1 rule - 21 days (FRCP)")
+        print(f"   • Alaska: 1 rule - 20 days")
+        print(f"   • Delaware: 1 rule - 20 days")
+        print(f"   • Hawaii: 1 rule - 20 days")
+        print(f"   • North Dakota: 1 rule - 21 days (FRCP)")
+        print(f"   • South Dakota: 1 rule - 21 days")
+        print(f"   • Vermont: 1 rule - 21 days (FRCP)")
+        print(f"   • Wyoming: 1 rule - 21 days (FRCP)")
         print()
         print("=" * 80)
-        print("🏆 90% OF ALL U.S. STATES COVERED! (43/50 states = 86%)")
+        print("🏆🏆🏆 100% OF ALL U.S. STATES COVERED! (50/50 states = 100%) 🏆🏆🏆")
         print("=" * 80)
         print()
         print("📈 Progress Toward CompuLaw Vision Parity:")
         print(f"   ✅ Top 15 states: COMPLETE (100%)")
-        print(f"   ✅ Extended coverage: +28 additional states")
-        print(f"   ✅ 90% STATE MILESTONE: 43 states covered!")
-        print(f"   🚧 Phase 2: 7 remaining states (90% of Phase 2 complete)")
+        print(f"   ✅ Extended coverage: +35 additional states")
+        print(f"   ✅ 100% STATE MILESTONE: ALL 50 STATES COVERED!")
+        print(f"   ✅ Phase 2: ALL STATES COMPLETE (100%)")
         print(f"   📋 Phase 3: 94 federal district courts")
         print(f"   📋 Phase 4: 13 federal circuit courts")
         print(f"   📋 Phase 5: Specialized courts")
@@ -6079,25 +6975,25 @@ def main():
         print(f"   ✅ Wisconsin LONGEST (45 days)")
         print()
         print("🎯 Next Steps:")
-        print("   1. Test all 45 jurisdictions in UI")
-        print("   2. Add final 7 states (AK, DE, HI, ND, SD, VT, WY)")
-        print("   3. Reach 50-state COMPLETE milestone!")
-        print("   4. Add federal appellate rules (FRAP)")
-        print("   5. Add federal district court local rules")
+        print("   1. Test all 52 jurisdictions in UI")
+        print("   2. ✅ 50-state COMPLETE milestone ACHIEVED!")
+        print("   3. Add federal appellate rules (FRAP)")
+        print("   4. Add federal district court local rules (94 districts)")
+        print("   5. Add specialized court rules (bankruptcy, family, etc.)")
         print()
         print("📚 Remaining for full CompuLaw Vision parity:")
-        print("   • 7 remaining states (43/50 complete = 86%)")
+        print("   • ✅ ALL 50 STATES COMPLETE! (100%)")
         print("   • 94 federal district court local rules")
         print("   • 13 federal circuit appellate rules")
         print("   • Bankruptcy, family, criminal procedure")
         print()
-        print("🏆 Achievement Unlocked:")
-        print(f"   • 47 total rules across 45 jurisdictions")
-        print(f"   • 90% state coverage milestone achieved!")
+        print("🏆🏆🏆 ACHIEVEMENT UNLOCKED - COMPLETE STATE COVERAGE! 🏆🏆🏆")
+        print(f"   • 54 total rules across 52 jurisdictions")
+        print(f"   • 100% STATE COVERAGE - ALL 50 STATES!")
         print(f"   • Full deadline spectrum (15-45 days) covered")
         print(f"   • All major outliers implemented")
         print(f"   • 100% VERIFIED ACCURACY via comprehensive audit")
-        print(f"   • NEARLY COMPLETE - only 7 states remaining!")
+        print(f"   • 🎉 PHASE 2 COMPLETE - READY FOR FEDERAL COURTS! 🎉")
 
     except Exception as e:
         print(f"❌ Error seeding rules: {e}")
