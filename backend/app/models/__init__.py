@@ -28,6 +28,14 @@ from app.models.document_tag import Tag, DocumentTag
 # Case Templates
 from app.models.case_template import CaseTemplate
 
+# User-Created Rules System
+from app.models.user_rule import (
+    UserRuleTemplate,
+    UserRuleTemplateVersion,
+    RuleExecution,
+    UserRuleStatus
+)
+
 # CompuLaw-style Jurisdiction and Rule System
 from app.models.jurisdiction import (
     Jurisdiction,
@@ -71,6 +79,11 @@ __all__ = [
     "DocumentTag",
     # Case Templates
     "CaseTemplate",
+    # User-Created Rules System
+    "UserRuleTemplate",
+    "UserRuleTemplateVersion",
+    "RuleExecution",
+    "UserRuleStatus",
     # CompuLaw-style Jurisdiction System
     "Jurisdiction",
     "RuleSet",
