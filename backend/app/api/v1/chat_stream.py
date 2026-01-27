@@ -61,19 +61,22 @@ class ApprovalRequest(BaseModel):
 @router.get("/stream")
 async def stream_chat(
     request: Request,
-    case_id: str = Query(..., description="Case UUID"),
     session_id: str = Query(..., description="Unique session ID"),
     message: str = Query(..., description="User message"),
+    case_id: Optional[str] = Query(None, description="Case UUID (optional for general queries)"),
     current_user: User = Depends(get_current_user_from_query),
     db: Session = Depends(get_db)
 ):
     """
     Stream AI chat responses via Server-Sent Events (SSE).
 
+    Case context is OPTIONAL - allows general queries like "What cases do I have?"
+    when case_id is not provided.
+
     Client connection:
     ```javascript
     const eventSource = new EventSource(
-        `/api/v1/chat/stream?case_id=${caseId}&session_id=${sessionId}&message=${encodeURIComponent(msg)}`
+        `/api/v1/chat/stream?session_id=${sessionId}&message=${encodeURIComponent(msg)}&case_id=${caseId}`
     );
 
     eventSource.addEventListener('token', (e) => {
@@ -104,18 +107,20 @@ async def stream_chat(
     """
     logger.info(
         f"[SSE] Stream request from user {current_user.id} "
-        f"for case {case_id}, session {session_id}, message: {message[:50]}..."
+        f"for case {case_id or 'GLOBAL'}, session {session_id}, message: {message[:50]}..."
     )
 
-    # Verify case ownership
-    case = db.query(Case).filter(
-        Case.id == case_id,
-        Case.user_id == str(current_user.id)
-    ).first()
+    # Verify case ownership only if case_id provided
+    case = None
+    if case_id:
+        case = db.query(Case).filter(
+            Case.id == case_id,
+            Case.user_id == str(current_user.id)
+        ).first()
 
-    if not case:
-        logger.warning(f"Case {case_id} not found for user {current_user.id}")
-        raise HTTPException(status_code=404, detail="Case not found")
+        if not case:
+            logger.warning(f"Case {case_id} not found for user {current_user.id}")
+            raise HTTPException(status_code=404, detail="Case not found")
 
     # Event generator wrapper
     async def event_generator():

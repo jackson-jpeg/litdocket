@@ -454,17 +454,8 @@ AI QUERIES (STREAMING):
       return;
     }
 
-    // Check if we have case context
-    if (!caseId) {
-      const errorMsg: Message = {
-        id: `error-${Date.now()}`,
-        type: 'error',
-        content: 'NO CASE CONTEXT. Navigate to a case first or specify case ID.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMsg]);
-      return;
-    }
+    // Case context is now OPTIONAL - allows general queries like "What cases do I have?"
+    // The backend handles queries appropriately with or without case context
 
     // Send to AI via streaming (no placeholder message - will show currentMessage while streaming)
     try {
