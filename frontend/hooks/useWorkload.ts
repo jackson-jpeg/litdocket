@@ -89,7 +89,7 @@ export function useWorkload({
     setError(null);
 
     try {
-      const response = await apiClient.get('/workload/analysis', {
+      const response = await apiClient.get('/api/v1/workload/analysis', {
         params: { days_ahead: daysAhead }
       });
 
@@ -116,7 +116,7 @@ export function useWorkload({
    */
   const fetchHeatmap = useCallback(async () => {
     try {
-      const response = await apiClient.get('/workload/heatmap', {
+      const response = await apiClient.get('/api/v1/workload/heatmap', {
         params: { days_ahead: daysAhead }
       });
 
@@ -135,7 +135,7 @@ export function useWorkload({
    */
   const fetchSuggestions = useCallback(async () => {
     try {
-      const response = await apiClient.get('/workload/suggestions', {
+      const response = await apiClient.get('/api/v1/workload/suggestions', {
         params: { days_ahead: daysAhead }
       });
 
