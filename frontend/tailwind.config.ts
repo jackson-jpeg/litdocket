@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import colors from "tailwindcss/colors";
 
 /**
  * PAPER & STEEL DESIGN SYSTEM
@@ -66,7 +67,7 @@ const config: Config = {
         // Legacy compatibility (for gradual migration)
         navy: '#3b82f6',
         alert: '#dc2626',
-        amber: '#f59e0b',
+        amber: colors.amber,  // Full palette for bg-amber-100, text-amber-700, etc.
         success: '#16a34a',
       },
 
