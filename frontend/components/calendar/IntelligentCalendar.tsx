@@ -75,7 +75,7 @@ export default function IntelligentCalendar({ userId, showAISuggestions = true }
       const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-      const deadlinesResponse = await apiClient.get('/deadlines', {
+      const deadlinesResponse = await apiClient.get('/api/v1/deadlines', {
         params: {
           start_date: startOfMonth.toISOString().split('T')[0],
           end_date: endOfMonth.toISOString().split('T')[0],
@@ -84,7 +84,7 @@ export default function IntelligentCalendar({ userId, showAISuggestions = true }
       });
 
       // Fetch workload analysis
-      const workloadResponse = await apiClient.get('/workload/analysis', {
+      const workloadResponse = await apiClient.get('/api/v1/workload/analysis', {
         params: { days_ahead: 60 }
       });
 

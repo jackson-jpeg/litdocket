@@ -53,7 +53,7 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
     setResult(null);
 
     try {
-      const response = await apiClient.post('/rag/ask', {
+      const response = await apiClient.post('/api/v1/rag/ask', {
         question: question.trim(),
         case_id: caseId,
         include_sources: includeSources
@@ -90,7 +90,7 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
     setError(null);
 
     try {
-      const response = await apiClient.post('/rag/semantic', {
+      const response = await apiClient.post('/api/v1/rag/semantic', {
         query: query.trim(),
         case_id: caseId,
         top_k: topK
@@ -116,7 +116,7 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
    */
   const getStats = useCallback(async () => {
     try {
-      const response = await apiClient.get(`/rag/stats/${caseId}`);
+      const response = await apiClient.get(`/api/v1/rag/stats/${caseId}`);
       if (response.data.success) {
         const statsData = response.data.data as RAGStats;
         setStats(statsData);
@@ -134,7 +134,7 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
    */
   const generateEmbeddings = useCallback(async (documentId: string) => {
     try {
-      const response = await apiClient.post(`/rag/embed/${documentId}`);
+      const response = await apiClient.post(`/api/v1/rag/embed/${documentId}`);
       return response.data.success;
     } catch (err: any) {
       console.error('Failed to generate embeddings:', err);

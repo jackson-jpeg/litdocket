@@ -21,9 +21,23 @@ type TabType = 'my-rules' | 'marketplace' | 'create' | 'history';
 
 export default function RulesBuilderDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('my-rules');
-  const { rules, loading, error, fetchMarketplaceRules } = useRules({
+  // Lift the hook to parent so all tabs share the same state
+  const {
+    rules,
+    loading,
+    error,
+    createRule,
+    fetchRules,
+    fetchMarketplaceRules
+  } = useRules({
     include_public: false
   });
+
+  // Callback for when a rule is created successfully
+  const handleRuleCreated = async () => {
+    await fetchRules(); // Refresh the rules list
+    setActiveTab('my-rules'); // Navigate to My Rules tab
+  };
 
   const tabs = [
     { id: 'my-rules' as TabType, name: 'My Rules', icon: Settings, count: rules.length },
@@ -94,7 +108,13 @@ export default function RulesBuilderDashboard() {
 
         {activeTab === 'my-rules' && <MyRulesTab rules={rules} loading={loading} />}
         {activeTab === 'marketplace' && <MarketplaceTab />}
-        {activeTab === 'create' && <CreateRuleTab />}
+        {activeTab === 'create' && (
+          <CreateRuleTab
+            createRule={createRule}
+            loading={loading}
+            onRuleCreated={handleRuleCreated}
+          />
+        )}
         {activeTab === 'history' && <ExecutionHistoryTab />}
       </div>
     </div>
@@ -221,8 +241,13 @@ function MarketplaceTab() {
 // CREATE RULE TAB
 // ============================================
 
-function CreateRuleTab() {
-  const { createRule, loading } = useRules();
+interface CreateRuleTabProps {
+  createRule: (request: any) => Promise<any>;
+  loading: boolean;
+  onRuleCreated: () => Promise<void>;
+}
+
+function CreateRuleTab({ createRule, loading, onRuleCreated }: CreateRuleTabProps) {
   const [formData, setFormData] = useState({
     rule_name: '',
     slug: '',
@@ -320,7 +345,8 @@ function CreateRuleTab() {
 
     if (result) {
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      // Notify parent to refresh rules and switch to My Rules tab
+      await onRuleCreated();
     } else {
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);

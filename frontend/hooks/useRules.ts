@@ -101,7 +101,7 @@ export function useRules({
     setError(null);
 
     try {
-      const response = await apiClient.get('/rules/templates', {
+      const response = await apiClient.get('/api/v1/rules/templates', {
         params: {
           jurisdiction,
           trigger_type,
@@ -134,7 +134,7 @@ export function useRules({
     setError(null);
 
     try {
-      const response = await apiClient.get(`/rules/templates/${ruleId}`, {
+      const response = await apiClient.get(`/api/v1/rules/templates/${ruleId}`, {
         params: versionNumber ? { version_number: versionNumber } : {}
       });
 
@@ -163,7 +163,7 @@ export function useRules({
     setError(null);
 
     try {
-      const response = await apiClient.post('/rules/templates', request);
+      const response = await apiClient.post('/api/v1/rules/templates', request);
 
       if (response.data.success) {
         onSuccess?.();
@@ -192,7 +192,7 @@ export function useRules({
     setError(null);
 
     try {
-      const response = await apiClient.post('/rules/execute', request);
+      const response = await apiClient.post('/api/v1/rules/execute', request);
 
       if (response.data.success) {
         return response.data.data;
@@ -217,7 +217,7 @@ export function useRules({
     setError(null);
 
     try {
-      const response = await apiClient.post(`/rules/templates/${ruleId}/activate`);
+      const response = await apiClient.post(`/api/v1/rules/templates/${ruleId}/activate`);
 
       if (response.data.success) {
         onSuccess?.();
@@ -241,7 +241,7 @@ export function useRules({
    */
   const fetchExecutions = useCallback(async (caseId?: string, ruleTemplateId?: string) => {
     try {
-      const response = await apiClient.get('/rules/executions', {
+      const response = await apiClient.get('/api/v1/rules/executions', {
         params: {
           case_id: caseId,
           rule_template_id: ruleTemplateId
@@ -270,7 +270,7 @@ export function useRules({
     setError(null);
 
     try {
-      const response = await apiClient.get('/rules/marketplace', {
+      const response = await apiClient.get('/api/v1/rules/marketplace', {
         params: {
           jurisdiction: marketplaceJurisdiction,
           trigger_type: marketplaceTriggerType
@@ -293,6 +293,7 @@ export function useRules({
   // Auto-fetch on mount and when filters change
   useEffect(() => {
     fetchRules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jurisdiction, trigger_type, status, include_public]);
 
   return {
