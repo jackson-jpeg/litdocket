@@ -2,6 +2,77 @@
 
 ## Active Scripts
 
+### ✅ run_migration.py
+
+**Purpose:** Applies SQL migration files to the production database.
+
+**Status:** WORKING
+
+**What it does:**
+- Reads SQL migration files from `supabase/migrations/`
+- Executes them directly on the production database
+- Verifies tables were created successfully
+- Specifically designed to apply migration 010 (user_rule_templates)
+
+**How to run:**
+
+```bash
+# Option 1: Railway Shell (Recommended)
+railway shell
+python scripts/run_migration.py
+
+# Option 2: Specific migration file
+railway shell
+python scripts/run_migration.py 010_user_rules_additions.sql
+
+# Option 3: Railway Web Terminal
+1. Go to https://railway.app/
+2. Select backend service (litdocket-production)
+3. Open Shell tab
+4. Run: python scripts/run_migration.py
+```
+
+**Expected output:**
+```
+================================================================================
+LitDocket Database Migration Runner
+================================================================================
+
+📁 Migration directory: /app/backend/supabase/migrations
+📄 Target migration: 010_user_rules_additions.sql
+
+⚠️  This will execute SQL directly on the production database.
+Continue? (y/N): y
+
+📄 Reading migration: 010_user_rules_additions.sql
+   File size: 5430 bytes
+
+🔌 Connecting to database...
+✅ Connected!
+
+⚙️  Executing migration...
+✅ Migration executed successfully!
+
+✅ Tables created:
+   • user_rule_executions
+     (0 rows)
+   • user_rule_template_versions
+     (0 rows)
+   • user_rule_templates
+     (0 rows)
+
+================================================================================
+✅ Migration Complete!
+================================================================================
+
+🎉 The user_rule_templates tables are now available!
+   You can now use the /api/v1/rules/templates endpoint.
+```
+
+**Safe to run multiple times:** Yes - uses `CREATE TABLE IF NOT EXISTS` to avoid errors.
+
+---
+
 ### ✅ seed_production.py
 
 **Purpose:** Seeds the production database with jurisdictions, rule sets, and rule templates.
