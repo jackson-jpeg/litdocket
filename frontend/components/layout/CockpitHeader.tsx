@@ -3,7 +3,8 @@
 /**
  * Cockpit Header - Top Navigation Bar
  *
- * Navy background, white text
+ * Paper & Steel Design System
+ * Slate background with clean typography
  * Logo + user menu
  */
 
@@ -21,13 +22,13 @@ export function CockpitHeader() {
   };
 
   return (
-    <header className="h-12 bg-terminal-surface border-b border-border-subtle flex items-center justify-between px-4 flex-shrink-0">
+    <header className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
       {/* Logo & Brand */}
       <div className="flex items-center gap-4">
-        <div className="font-tight font-bold text-base tracking-tight text-accent-info">
+        <div className="font-bold text-base tracking-tight text-blue-600">
           LITDOCKET
         </div>
-        <div className="text-xs text-text-muted font-mono">
+        <div className="text-xs text-slate-500 font-mono">
           {new Date().toLocaleTimeString('en-US', { hour12: false })} EST
         </div>
       </div>
@@ -36,13 +37,13 @@ export function CockpitHeader() {
       <div className="flex items-center gap-4">
         {user && (
           <>
-            <span className="text-xs text-text-secondary font-mono">
+            <span className="text-xs text-slate-600 font-mono">
               {user.email}
             </span>
-            <div className="w-px h-4 bg-border-subtle" />
+            <div className="w-px h-4 bg-slate-300" />
             <button
               onClick={handleLogout}
-              className="text-xs text-text-secondary hover:text-text-primary transition-colors px-2 py-1 rounded hover:bg-terminal-elevated"
+              className="text-xs text-slate-600 hover:text-slate-900 transition-colors px-2 py-1 rounded hover:bg-slate-100"
             >
               Logout
             </button>

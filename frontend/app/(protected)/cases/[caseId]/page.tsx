@@ -1,19 +1,18 @@
 'use client';
 
 /**
- * Case Room - Sovereign Design System
+ * Case Detail - Paper & Steel Design
  *
- * 3-Pane Cockpit Layout:
- * - Left Pane (20%): Case Metadata
- * - Center Pane (60%): Master Data Grid (DeadlineTable)
- * - Right Pane (20%): Documents
- *
- * "Density is Reliability"
+ * Single Column Layout:
+ * - Top: Case Header (Title, Number, Court)
+ * - Middle: Stats Row (Simple numbers)
+ * - Main: Deadlines List (grouped by timeframe)
+ * - Documents: Integrated inline section
  */
 
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { FileText, Upload, Eye, Trash2 } from 'lucide-react';
+import { FileText, Upload, Eye, Trash2, Calendar, Clock, AlertTriangle, Building, User, Scale, ChevronRight } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -53,14 +52,10 @@ export default function CaseRoomPage() {
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [viewingDeadline, setViewingDeadline] = useState<Deadline | null>(null);
   const [viewingChainTrigger, setViewingChainTrigger] = useState<Trigger | null>(null);
-  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
 
   // Document upload state
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  // Legacy filter support - Terminal commands (kept for backwards compatibility)
-  // The DeadlineListPanel now has its own comprehensive filtering
 
   // Handlers
   const handleTriggerSuccess = () => {
@@ -71,59 +66,27 @@ export default function CaseRoomPage() {
   };
 
   const handleDocumentClick = (doc: Document) => {
-    console.log('[CaseRoom] Document clicked:', {
-      id: doc.id,
-      file_name: doc.file_name,
-      storage_url: doc.storage_url,
-      document_type: doc.document_type
-    });
-
     if (!doc.storage_url) {
-      console.error('[CaseRoom] Document has no storage_url:', doc);
       showError('This document cannot be opened. The file may not be available on the server.');
       return;
     }
-
-    // Set the viewing document - this will open the viewer
     setViewingDocument(doc);
   };
 
   const handleDocumentDelete = async (doc: Document, e: React.MouseEvent) => {
-    // Prevent triggering parent onClick (document view)
     e.stopPropagation();
-
-    // Confirm deletion
     if (!confirm(`Delete "${doc.file_name}"?\n\nThis action cannot be undone.`)) {
       return;
     }
 
-    console.log('[CaseRoom] Deleting document:', {
-      id: doc.id,
-      file_name: doc.file_name,
-      storage_url: doc.storage_url
-    });
-
     try {
-      // Optimistic update - remove from UI immediately
       optimistic.removeDocument(doc.id);
-
-      // Call API
       await apiClient.delete(`/api/v1/documents/${doc.id}`);
-
-      console.log('[CaseRoom] Document deleted successfully:', doc.id);
       showSuccess('Document deleted');
-
-      // Refresh documents list (in case optimistic update missed something)
       refetch.documents();
     } catch (err: any) {
-      console.error('[CaseRoom] Failed to delete document:', err);
-
-      // Revert optimistic update by refetching
       refetch.documents();
-
-      // User-friendly error messages
       if (err.response?.status === 404) {
-        // Ghost document - already deleted or never existed
         showError('Document not found. It may have already been deleted.');
       } else if (err.response?.status === 403) {
         showError('You do not have permission to delete this document.');
@@ -138,15 +101,12 @@ export default function CaseRoomPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('case_id', caseId); // CRITICAL: Override smart routing - attach to THIS case
+      formData.append('case_id', caseId);
 
       const response = await apiClient.post('/api/v1/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      console.log('[CaseRoom] Document uploaded:', response.data);
-
-      // Refresh document list and deadlines (new document might have extracted deadlines)
       await Promise.all([
         refetch.documents(),
         refetch.deadlines(),
@@ -156,7 +116,6 @@ export default function CaseRoomPage() {
       setShowUploadDialog(false);
       showSuccess(`Document uploaded. ${response.data.deadlines_extracted || 0} deadline(s) extracted.`);
     } catch (err: any) {
-      console.error('[CaseRoom] Upload failed:', err);
       showError(err.response?.data?.detail || 'Failed to upload document');
     } finally {
       setUploading(false);
@@ -188,23 +147,6 @@ export default function CaseRoomPage() {
     }
   };
 
-  const handleReschedule = async (id: string, newDate: Date) => {
-    try {
-      const dateStr = newDate.toISOString().split('T')[0];
-      optimistic.updateDeadlineDate(id, dateStr);
-      // Use correct reschedule endpoint with proper schema
-      await apiClient.patch(`/api/v1/deadlines/${id}/reschedule`, {
-        new_date: dateStr,
-        reason: 'Rescheduled via calendar'
-      });
-      deadlineEvents.updated({ id, deadline_date: dateStr });
-      showSuccess('Deadline rescheduled');
-    } catch (err) {
-      refetch.deadlines();
-      showError('Failed to reschedule deadline');
-    }
-  };
-
   const exportToCalendar = async () => {
     try {
       const response = await apiClient.get(`/api/v1/deadlines/case/${caseId}/export/ical`, {
@@ -223,14 +165,13 @@ export default function CaseRoomPage() {
     }
   };
 
-
   // Loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-navy border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-ink-secondary font-mono text-sm">LOADING CASE DATA...</p>
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent animate-spin mx-auto mb-4 rounded-full" />
+          <p className="text-slate-600 text-sm">Loading case data...</p>
         </div>
       </div>
     );
@@ -240,11 +181,11 @@ export default function CaseRoomPage() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="panel panel-raised p-8 max-w-md text-center">
-          <div className="text-alert text-4xl mb-4">!</div>
-          <h2 className="font-serif text-xl mb-2">Error Loading Case</h2>
-          <p className="text-ink-secondary mb-4">{error}</p>
-          <button onClick={() => window.location.reload()} className="btn btn-primary btn-raised">
+        <div className="card max-w-md text-center py-12">
+          <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Case</h2>
+          <p className="text-slate-600 mb-6">{error}</p>
+          <button onClick={() => window.location.reload()} className="btn-primary">
             Retry
           </button>
         </div>
@@ -263,8 +204,36 @@ export default function CaseRoomPage() {
 
   const pendingCount = deadlines.filter(d => d.status !== 'completed' && d.status !== 'cancelled').length;
 
+  // Group deadlines by timeframe
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekFromNow = new Date(today);
+  weekFromNow.setDate(weekFromNow.getDate() + 7);
+  const monthFromNow = new Date(today);
+  monthFromNow.setDate(monthFromNow.getDate() + 30);
+
+  const activeDeadlines = deadlines.filter(d => d.status !== 'completed' && d.status !== 'cancelled');
+
+  const thisWeekDeadlines = activeDeadlines.filter(d => {
+    if (!d.deadline_date) return false;
+    const deadlineDate = new Date(d.deadline_date);
+    return deadlineDate >= today && deadlineDate < weekFromNow;
+  });
+
+  const next30DaysDeadlines = activeDeadlines.filter(d => {
+    if (!d.deadline_date) return false;
+    const deadlineDate = new Date(d.deadline_date);
+    return deadlineDate >= weekFromNow && deadlineDate < monthFromNow;
+  });
+
+  const laterDeadlines = activeDeadlines.filter(d => {
+    if (!d.deadline_date) return false;
+    const deadlineDate = new Date(d.deadline_date);
+    return deadlineDate >= monthFromNow;
+  });
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full overflow-auto">
       {/* Trigger Alert Bar */}
       <TriggerAlertBar
         triggers={triggers}
@@ -273,243 +242,329 @@ export default function CaseRoomPage() {
         onEditTrigger={(trigger) => setEditingTrigger(trigger)}
       />
 
-      {/* 3-Pane Layout - Bloomberg Terminal */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANE: Case Metadata */}
-        <div className="w-64 flex-shrink-0 border-r border-border-subtle bg-terminal-panel overflow-y-auto scrollbar-dark">
-          <div className="p-4">
-            {/* Case Number Header */}
-            <div className="panel mb-4">
-              <div className="panel-header">
-                <span className="font-mono text-sm text-accent-info">{caseData.case_number}</span>
-              </div>
-              <div className="panel-body space-y-3">
+      <div className="max-w-5xl mx-auto p-8 space-y-6">
+        {/* Case Header Card */}
+        <div className="card">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <p className="text-sm font-mono text-blue-600 mb-2">{caseData.case_number}</p>
+              <h1 className="text-2xl font-bold text-slate-900 mb-3">{caseData.title}</h1>
+              <div className="flex flex-wrap gap-4 text-sm text-slate-600">
                 {caseData.court && (
-                  <div>
-                    <label className="text-xxs text-text-muted uppercase tracking-wide">Court</label>
-                    <p className="text-sm text-text-primary font-mono mt-0.5">{caseData.court}</p>
+                  <div className="flex items-center gap-2">
+                    <Building className="w-4 h-4 text-slate-400" />
+                    <span>{caseData.court}</span>
                   </div>
                 )}
                 {caseData.judge && (
-                  <div>
-                    <label className="text-xxs text-text-muted uppercase tracking-wide">Judge</label>
-                    <p className="text-sm text-text-primary mt-0.5">{caseData.judge}</p>
-                  </div>
-                )}
-                {caseData.case_type && (
-                  <div>
-                    <label className="text-xxs text-text-muted uppercase tracking-wide">Type</label>
-                    <p className="text-sm text-text-primary capitalize mt-0.5">{caseData.case_type}</p>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-slate-400" />
+                    <span>Judge {caseData.judge}</span>
                   </div>
                 )}
                 {caseData.jurisdiction && (
-                  <div>
-                    <label className="text-xxs text-text-muted uppercase tracking-wide">Jurisdiction</label>
-                    <p className="text-sm text-text-primary capitalize mt-0.5">{caseData.jurisdiction}</p>
-                  </div>
+                  <span className="badge badge-standard capitalize">{caseData.jurisdiction}</span>
+                )}
+                {caseData.case_type && (
+                  <span className="badge badge-info capitalize">{caseData.case_type}</span>
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Stats - Bloomberg Style */}
-            <div className="panel mb-4">
-              <div className="panel-header text-sm">Statistics</div>
-              <div className="panel-body">
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  {/* Overdue - Red accent */}
-                  <div className={`p-2 bg-terminal-elevated border ${overdueCount > 0 ? 'border-l-4 border-l-accent-critical' : 'border-border-subtle'}`}>
-                    <div className={`text-lg font-mono font-bold ${overdueCount > 0 ? 'text-accent-critical' : 'text-text-primary'}`}>
-                      {overdueCount}
-                    </div>
-                    <div className="text-xxs text-text-muted uppercase">Overdue</div>
+          {/* Parties */}
+          {caseData.parties && caseData.parties.length > 0 && (
+            <div className="pt-4 border-t border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Parties</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {caseData.parties.map((party, idx) => (
+                  <div key={idx} className="text-sm">
+                    <div className="text-xs text-slate-500 uppercase">{party.role}</div>
+                    <div className="text-slate-900">{party.name}</div>
                   </div>
-                  {/* Pending - Warning accent */}
-                  <div className="p-2 bg-terminal-elevated border border-border-subtle border-l-4 border-l-accent-warning">
-                    <div className="text-lg font-mono font-bold text-text-primary">{pendingCount}</div>
-                    <div className="text-xxs text-text-muted uppercase">Pending</div>
-                  </div>
-                  {/* Triggers - Info accent */}
-                  <div className="p-2 bg-terminal-elevated border border-border-subtle border-l-4 border-l-accent-info">
-                    <div className="text-lg font-mono font-bold text-text-primary">{triggers.length}</div>
-                    <div className="text-xxs text-text-muted uppercase">Triggers</div>
-                  </div>
-                  {/* Documents - Purple accent */}
-                  <div className="p-2 bg-terminal-elevated border border-border-subtle border-l-4 border-l-accent-purple">
-                    <div className="text-lg font-mono font-bold text-text-primary">{documents.length}</div>
-                    <div className="text-xxs text-text-muted uppercase">Documents</div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Triggers List */}
-            <div className="panel">
-              <div className="panel-header text-sm flex items-center justify-between">
-                <span>Triggers</span>
-                <button
-                  onClick={() => setAddTriggerModalOpen(true)}
-                  className="text-xs text-navy hover:underline"
-                >
-                  + Add
-                </button>
-              </div>
-              <div className="divide-y divide-border-subtle">
-                {triggers.length === 0 ? (
-                  <div className="p-3 text-center text-text-muted text-xs">No triggers</div>
-                ) : (
-                  triggers.map(trigger => (
-                    <button
-                      key={trigger.id}
-                      onClick={() => setEditingTrigger(trigger)}
-                      className="w-full p-2 text-left hover:bg-terminal-elevated transition-colors"
-                    >
-                      <div className="text-sm font-medium truncate text-text-primary">{trigger.title}</div>
-                      <div className="text-xs text-text-muted font-mono">
-                        {trigger.trigger_date ? formatDeadlineDate(trigger.trigger_date) : 'No date'}
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center">
+            <div className={`text-3xl font-bold mb-1 ${overdueCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {overdueCount}
             </div>
-
-            {/* Parties */}
-            {caseData.parties && caseData.parties.length > 0 && (
-              <div className="panel mt-4">
-                <div className="panel-header text-sm">Parties</div>
-                <div className="divide-y divide-border-subtle">
-                  {caseData.parties.map((party, idx) => (
-                    <div key={idx} className="p-2">
-                      <div className="text-xxs text-text-muted uppercase">{party.role}</div>
-                      <div className="text-sm truncate text-text-primary">{party.name}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="text-sm text-slate-600">Overdue</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-amber-600 mb-1">{pendingCount}</div>
+            <div className="text-sm text-slate-600">Pending</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-blue-600 mb-1">{triggers.length}</div>
+            <div className="text-sm text-slate-600">Triggers</div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-purple-600 mb-1">{documents.length}</div>
+            <div className="text-sm text-slate-600">Documents</div>
           </div>
         </div>
 
-        {/* CENTER PANE: Deadline List Panel */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-terminal-bg p-4">
-          <DeadlineListPanel
-            deadlines={deadlines}
-            triggers={triggers}
-            caseId={caseId}
-            onAddDeadline={() => setTriggerModalOpen(true)}
-            onExportCalendar={exportToCalendar}
-            onRefresh={() => refetch.deadlines()}
-            onOptimisticUpdate={{
-              updateDeadlineStatus: optimistic.updateDeadlineStatus,
-              removeDeadline: optimistic.removeDeadline,
-              updateDeadlineDate: optimistic.updateDeadlineDate,
-            }}
-          />
+        {/* Actions Row */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAddTriggerModalOpen(true)}
+            className="btn-primary"
+          >
+            Add Trigger
+          </button>
+          <button
+            onClick={() => setShowUploadDialog(true)}
+            className="btn-secondary"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </button>
+          <button
+            onClick={exportToCalendar}
+            className="btn-ghost"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            Export Calendar
+          </button>
         </div>
 
-        {/* RIGHT PANE: Documents - Bloomberg Terminal */}
-        <div className={`${rightPaneCollapsed ? 'w-8' : 'w-72'} flex-shrink-0 border-l border-border-subtle bg-terminal-panel overflow-hidden transition-all`}>
-          {rightPaneCollapsed ? (
+        {/* Deadlines Section - Grouped */}
+        <div className="space-y-6">
+          {/* This Week */}
+          {thisWeekDeadlines.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-slate-900">This Week</h2>
+                <span className="badge badge-important">{thisWeekDeadlines.length}</span>
+              </div>
+              <div className="space-y-3">
+                {thisWeekDeadlines.map((deadline) => (
+                  <div
+                    key={deadline.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => setViewingDeadline(deadline)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-900">{deadline.title}</p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {formatDeadlineDate(deadline.deadline_date)}
+                        </p>
+                        {deadline.action_required && (
+                          <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
+                        )}
+                      </div>
+                      <span className={`badge ${
+                        deadline.priority === 'fatal' ? 'badge-fatal' :
+                        deadline.priority === 'critical' ? 'badge-critical' :
+                        deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
+                      }`}>
+                        {deadline.priority?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Next 30 Days */}
+          {next30DaysDeadlines.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-slate-900">Next 30 Days</h2>
+                <span className="badge badge-standard">{next30DaysDeadlines.length}</span>
+              </div>
+              <div className="space-y-3">
+                {next30DaysDeadlines.map((deadline) => (
+                  <div
+                    key={deadline.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => setViewingDeadline(deadline)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-900">{deadline.title}</p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {formatDeadlineDate(deadline.deadline_date)}
+                        </p>
+                      </div>
+                      <span className={`badge ${
+                        deadline.priority === 'fatal' ? 'badge-fatal' :
+                        deadline.priority === 'critical' ? 'badge-critical' :
+                        deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
+                      }`}>
+                        {deadline.priority?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Later */}
+          {laterDeadlines.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-slate-900">Later</h2>
+                <span className="badge badge-info">{laterDeadlines.length}</span>
+              </div>
+              <div className="space-y-3">
+                {laterDeadlines.map((deadline) => (
+                  <div
+                    key={deadline.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => setViewingDeadline(deadline)}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-900">{deadline.title}</p>
+                        <p className="text-sm text-slate-600 mt-1">
+                          {formatDeadlineDate(deadline.deadline_date)}
+                        </p>
+                      </div>
+                      <span className={`badge ${
+                        deadline.priority === 'fatal' ? 'badge-fatal' :
+                        deadline.priority === 'critical' ? 'badge-critical' :
+                        deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
+                      }`}>
+                        {deadline.priority?.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No Deadlines State */}
+          {activeDeadlines.length === 0 && (
+            <div className="card text-center py-16">
+              <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-lg font-medium text-slate-900 mb-2">No Active Deadlines</p>
+              <p className="text-sm text-slate-600 mb-6">Add a trigger to generate deadlines automatically</p>
+              <button
+                onClick={() => setAddTriggerModalOpen(true)}
+                className="btn-primary"
+              >
+                Add Trigger
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Documents Section */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-600" />
+              Documents
+            </h2>
             <button
-              onClick={() => setRightPaneCollapsed(false)}
-              className="w-full h-full flex items-center justify-center text-text-muted hover:bg-terminal-elevated"
-              title="Expand Documents"
+              onClick={() => setShowUploadDialog(true)}
+              className="btn-secondary btn-sm"
             >
-              <FileText className="w-4 h-4" />
+              <Upload className="w-4 h-4 mr-2" />
+              Upload
             </button>
+          </div>
+
+          {documents.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-600 mb-4">No documents uploaded yet</p>
+              <button
+                onClick={() => setShowUploadDialog(true)}
+                className="btn-secondary"
+              >
+                Upload your first document
+              </button>
+            </div>
           ) : (
-            <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-terminal-surface">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-accent-purple" />
-                  <span className="font-semibold text-sm text-text-primary">Documents</span>
-                  <span className="badge badge-neutral text-xs">{documents.length}</span>
-                </div>
-                <button
-                  onClick={() => setRightPaneCollapsed(true)}
-                  className="text-text-muted hover:text-text-primary text-xs"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {documents.map(doc => (
+                <div
+                  key={doc.id}
+                  className={`group relative border border-slate-200 rounded-lg p-4 transition-all ${
+                    doc.storage_url
+                      ? 'hover:border-blue-300 hover:shadow-md cursor-pointer'
+                      : 'bg-slate-50'
+                  }`}
+                  onClick={() => doc.storage_url && handleDocumentClick(doc)}
                 >
-                  ✕
-                </button>
-              </div>
-
-              {/* Upload Button */}
-              <div className="px-3 py-2 border-b border-border-subtle">
-                <button
-                  onClick={() => setShowUploadDialog(true)}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Add Document</span>
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto scrollbar-dark">
-                {documents.length === 0 ? (
-                  <div className="p-4 text-center">
-                    <Upload className="w-8 h-8 text-text-muted mx-auto mb-2" />
-                    <p className="text-xs text-text-muted">No documents uploaded yet</p>
+                  <div className="flex items-start gap-3">
+                    <FileText className={`w-5 h-5 flex-shrink-0 ${doc.storage_url ? 'text-purple-600' : 'text-slate-400'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{doc.file_name}</p>
+                      {doc.document_type && (
+                        <span className="inline-block mt-1 text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                          {doc.document_type}
+                        </span>
+                      )}
+                      {!doc.storage_url && (
+                        <p className="text-xs text-red-600 mt-1">⚠ File unavailable</p>
+                      )}
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formatDateTime(doc.created_at)}
+                      </p>
+                    </div>
                     <button
-                      onClick={() => setShowUploadDialog(true)}
-                      className="mt-2 text-xs text-accent-info hover:text-accent-info/80"
+                      onClick={(e) => handleDocumentDelete(doc, e)}
+                      className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                      title="Delete document"
                     >
-                      Upload your first document
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                ) : (
-                  <div className="divide-y divide-border-subtle">
-                    {documents.map(doc => (
-                      <div
-                        key={doc.id}
-                        className={`group relative transition-colors ${
-                          doc.storage_url
-                            ? 'hover:bg-terminal-elevated'
-                            : 'bg-terminal-elevated/50'
-                        }`}
-                      >
-                        <button
-                          onClick={() => handleDocumentClick(doc)}
-                          className="w-full p-3 text-left flex items-start gap-2"
-                          disabled={!doc.storage_url}
-                          title={!doc.storage_url ? 'This document is not available for viewing' : 'Click to view document'}
-                        >
-                          <FileText className={`w-4 h-4 flex-shrink-0 mt-0.5 ${doc.storage_url ? 'text-accent-purple' : 'text-text-muted'}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate text-text-primary">{doc.file_name}</p>
-                            <div className="flex gap-1 mt-1 flex-wrap">
-                              {doc.document_type && (
-                                <span className="badge-info text-xxs">{doc.document_type}</span>
-                              )}
-                            </div>
-                            {!doc.storage_url && (
-                              <p className="text-xxs text-accent-critical mt-1">⚠ File unavailable</p>
-                            )}
-                            <p className="text-xxs text-text-muted mt-1 font-mono">
-                              {formatDateTime(doc.created_at)}
-                            </p>
-                          </div>
-                          {doc.storage_url && (
-                            <Eye className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-                          )}
-                        </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-                        {/* Delete Button - Always visible for ghost documents */}
-                        <button
-                          onClick={(e) => handleDocumentDelete(doc, e)}
-                          className={`absolute right-2 top-3 p-1.5 rounded transition-all ${
-                            doc.storage_url
-                              ? 'opacity-0 group-hover:opacity-100 hover:bg-accent-critical/10 text-text-muted hover:text-accent-critical'
-                              : 'opacity-100 hover:bg-accent-critical/10 text-accent-critical'
-                          }`}
-                          title="Delete document"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+        {/* Triggers Section */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-slate-900">Triggers</h2>
+            <button
+              onClick={() => setAddTriggerModalOpen(true)}
+              className="btn-secondary btn-sm"
+            >
+              Add Trigger
+            </button>
+          </div>
+
+          {triggers.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-600">No triggers set</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {triggers.map(trigger => (
+                <button
+                  key={trigger.id}
+                  onClick={() => setEditingTrigger(trigger)}
+                  className="w-full border border-slate-200 rounded-lg p-4 text-left hover:border-blue-300 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-900">{trigger.title}</p>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {trigger.trigger_date ? formatDeadlineDate(trigger.trigger_date) : 'No date'}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-slate-400" />
                   </div>
-                )}
-              </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -590,21 +645,21 @@ export default function CaseRoomPage() {
         />
       )}
 
-      {/* Upload Dialog - Bloomberg Terminal */}
+      {/* Upload Dialog */}
       {showUploadDialog && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="panel-glass w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-4 border-b border-border-subtle">
-              <h3 className="text-lg font-semibold text-text-primary">Upload Document</h3>
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 className="text-lg font-semibold text-slate-900">Upload Document</h3>
               <button
                 onClick={() => setShowUploadDialog(false)}
-                className="text-text-muted hover:text-text-primary"
+                className="text-slate-400 hover:text-slate-600"
                 disabled={uploading}
               >
                 ✕
               </button>
             </div>
-            <div className="p-6">
+            <div className="modal-body">
               <input
                 type="file"
                 accept=".pdf"
@@ -615,21 +670,21 @@ export default function CaseRoomPage() {
                   }
                 }}
                 disabled={uploading}
-                className="block w-full text-sm text-text-secondary
+                className="block w-full text-sm text-slate-600
                   file:mr-4 file:py-2 file:px-4
-                  file:rounded-md file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-accent-info file:text-terminal-bg
-                  hover:file:bg-accent-info/90
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-medium
+                  file:bg-blue-600 file:text-white
+                  hover:file:bg-blue-700
                   file:cursor-pointer
                   cursor-pointer"
               />
-              <p className="mt-3 text-xs text-text-muted">
+              <p className="mt-3 text-sm text-slate-600">
                 Upload a PDF document to attach to this case. The document will be analyzed for deadlines and case information.
               </p>
               {uploading && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-accent-info">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent-info"></div>
+                <div className="mt-4 flex items-center justify-center gap-2 text-blue-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   <span className="text-sm">Uploading and analyzing...</span>
                 </div>
               )}

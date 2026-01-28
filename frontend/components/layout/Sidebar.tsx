@@ -1,10 +1,11 @@
 'use client';
 
 /**
- * Sidebar - File Explorer Style Navigation
+ * Sidebar - Paper & Steel Navigation
  *
- * Inverted selection (navy background, white text when active)
- * Classic Windows Explorer aesthetic
+ * Dark slate background (slate-900) with professional navigation
+ * Active state: slate-800 + blue left border + white text
+ * Inactive state: slate-400 text with hover to slate-200
  */
 
 import React from 'react';
@@ -76,12 +77,11 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-terminal-panel border-r border-border-subtle flex-shrink-0 flex flex-col scrollbar-dark overflow-y-auto">
-      {/* System Title */}
-      <div className="px-3 py-3 border-b border-border-subtle">
-        <div className="text-xxs uppercase tracking-widest text-text-muted">
-          Navigation
-        </div>
+    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col overflow-y-auto scrollbar-light">
+      {/* Logo/Branding */}
+      <div className="px-4 py-6 border-b border-slate-800">
+        <h1 className="text-xl font-bold text-white">LitDocket</h1>
+        <p className="text-xs text-slate-400 mt-1">Legal Docketing</p>
       </div>
 
       {/* Navigation Items */}
@@ -93,10 +93,10 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={`
-                flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all
+                flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
                 ${active
-                  ? 'bg-accent-info text-terminal-bg shadow-glow-info'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-terminal-elevated'
+                  ? 'bg-slate-800 text-white border-l-4 border-blue-500 pl-2.5'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 }
               `}
             >
@@ -108,8 +108,8 @@ export function Sidebar() {
       </nav>
 
       {/* System Info Footer */}
-      <div className="p-4 border-t border-border-subtle">
-        <div className="text-xs text-text-muted font-mono">v3.0.0-alpha</div>
+      <div className="p-4 border-t border-slate-800">
+        <div className="text-xs text-slate-500 font-mono">v3.0.0-alpha</div>
       </div>
     </aside>
   );

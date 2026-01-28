@@ -26,16 +26,16 @@ export default function ProtectedLayout({
     }
   }, [user, loading, router]);
 
-  // Show loading state in Bloomberg Terminal style
+  // Show loading state in Paper & Steel style
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-terminal-bg">
-        <div className="panel-glass p-8 text-center">
-          <div className="font-mono text-sm text-text-secondary mb-4 uppercase tracking-wide">
-            AUTHENTICATING
+      <div className="h-screen w-screen flex items-center justify-center bg-app-bg">
+        <div className="card p-8 text-center">
+          <div className="text-sm text-text-secondary mb-4 font-medium">
+            Authenticating...
           </div>
-          <div className="w-48 h-1 bg-terminal-elevated rounded-full overflow-hidden">
-            <div className="h-full bg-accent-info animate-pulse" style={{ width: '60%' }} />
+          <div className="w-48 h-1 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 animate-pulse" style={{ width: '60%' }} />
           </div>
         </div>
       </div>

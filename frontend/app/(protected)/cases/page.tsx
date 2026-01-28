@@ -280,17 +280,17 @@ export default function CasesListPage() {
     setFilteredCases(filtered);
   };
 
-  // Health Bar color logic
-  const getHealthBarColor = (caseItem: Case) => {
+  // Priority dot color logic
+  const getPriorityDotColor = (caseItem: Case) => {
     const days = caseItem._stats?.days_until_next_deadline;
     const priority = caseItem._stats?.next_deadline_priority;
 
-    if (days === null || days === undefined) return 'border-green-500';
-    if (days < 0) return 'border-red-500'; // Overdue
-    if (priority === 'fatal' || priority === 'critical') return 'border-red-500';
-    if (days <= 3) return 'border-orange-400'; // < 3 days
-    if (days <= 7) return 'border-yellow-400'; // < 7 days
-    return 'border-green-500'; // Safe
+    if (days === null || days === undefined) return 'bg-green-600';
+    if (days < 0) return 'bg-red-600'; // Overdue
+    if (priority === 'fatal' || priority === 'critical') return 'bg-red-600';
+    if (days <= 3) return 'bg-orange-600'; // < 3 days
+    if (days <= 7) return 'bg-amber-500'; // < 7 days
+    return 'bg-green-600'; // Safe
   };
 
   const getUrgencyBadge = (daysUntil: number | null | undefined) => {
@@ -392,9 +392,9 @@ export default function CasesListPage() {
 
   if (loading) {
     return (
-      <div className="h-full bg-slate-50 flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <div className="text-center">
-          <Folder className="w-12 h-12 text-blue-500 animate-pulse mx-auto mb-4" />
+          <Folder className="w-12 h-12 text-blue-600 animate-pulse mx-auto mb-4" />
           <p className="text-slate-600">Loading cases...</p>
         </div>
       </div>
@@ -402,7 +402,7 @@ export default function CasesListPage() {
   }
 
   return (
-    <div className="bg-slate-50">
+    <div className="h-full">
       {/* Global Search Modal */}
       <GlobalSearch isOpen={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
 
@@ -414,48 +414,31 @@ export default function CasesListPage() {
       />
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push('/')}>
-              <Scale className="w-7 h-7 text-blue-600" />
-              <h1 className="text-xl font-bold text-slate-800">All Cases</h1>
-              <span className="text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                {cases.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setGlobalSearchOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors font-medium"
-                title="Global Search (Cmd/Ctrl+K)"
-              >
-                <Search className="w-4 h-4" />
-                <span className="hidden md:inline">Search</span>
-                <kbd className="hidden md:inline-block ml-2 px-2 py-0.5 text-xs bg-slate-200 rounded border border-slate-300">
-                  ⌘K
-                </kbd>
-              </button>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors font-medium"
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => router.push('/')}
-                className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
-              >
-                Upload Document
-              </button>
-            </div>
-          </div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">All Cases</h1>
+          <p className="text-sm text-slate-500">
+            Showing {cases.length} case{cases.length !== 1 ? 's' : ''}
+          </p>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="btn-ghost"
+          >
+            Dashboard
+          </button>
+          <button
+            onClick={() => router.push('/')}
+            className="btn-primary"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </button>
+        </div>
+      </div>
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+        <div className="card mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
@@ -568,9 +551,9 @@ export default function CasesListPage() {
 
         {/* Cases Display */}
         {filteredCases.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+          <div className="card text-center py-16">
             <Folder className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">No cases found</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">No cases found</h3>
             <p className="text-slate-600 mb-6">
               {searchQuery || filterJurisdiction !== 'all' || filterCaseType !== 'all'
                 ? 'Try adjusting your filters'
@@ -578,15 +561,15 @@ export default function CasesListPage() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
+              className="btn-primary"
             >
               Upload Document
             </button>
           </div>
         ) : viewMode === 'list' ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="card overflow-hidden">
             {/* Table Header */}
-            <div className="bg-slate-100 border-b border-slate-200 px-6 py-3">
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-3">
               <div className="flex items-center gap-4">
                 {selectionMode && (
                   <button
@@ -625,12 +608,14 @@ export default function CasesListPage() {
                   onClick={(e) => handleRowClick(caseItem, e)}
                   onContextMenu={(e) => handleContextMenu(e, caseItem)}
                   className={`
-                    group px-6 py-4 cursor-pointer transition-colors
-                    border-l-4 ${getHealthBarColor(caseItem)}
+                    group px-6 py-5 cursor-pointer transition-all
                     ${focusedIndex === index ? 'bg-blue-50 ring-2 ring-blue-500 ring-inset' : 'hover:bg-slate-50'}
                   `}
                 >
                   <div className="flex items-center gap-4">
+                    {/* Priority Dot */}
+                    <div className={`w-2 h-2 rounded-full ${getPriorityDotColor(caseItem)}`}></div>
+
                     {/* Checkbox */}
                     {selectionMode && (
                       <button
@@ -651,10 +636,10 @@ export default function CasesListPage() {
                     <div className="flex-1 grid grid-cols-12 gap-4 items-center">
                       {/* Case Column - Dense Layout */}
                       <div className="col-span-4">
-                        <p className="font-mono text-sm font-semibold text-blue-600 mb-0.5">
+                        <p className="font-mono text-sm font-semibold text-blue-600 mb-0.5 font-medium">
                           {caseItem.case_number}
                         </p>
-                        <p className="text-sm text-slate-700 truncate leading-tight">
+                        <p className="text-base text-slate-900 truncate leading-tight font-medium">
                           {caseItem.title}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
@@ -776,11 +761,7 @@ export default function CasesListPage() {
               <div
                 key={caseItem.id}
                 onClick={(e) => handleRowClick(caseItem, e)}
-                className={`
-                  bg-white rounded-xl border border-slate-200 shadow-sm p-6
-                  hover:shadow-md transition-shadow cursor-pointer
-                  border-l-4 ${getHealthBarColor(caseItem)}
-                `}
+                className="card-hover cursor-pointer"
               >
                 {selectionMode && (
                   <div className="flex justify-end mb-2">
@@ -800,11 +781,14 @@ export default function CasesListPage() {
                 )}
 
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <p className="font-mono text-sm font-semibold text-blue-600 mb-1">
-                      {caseItem.case_number}
-                    </p>
-                    <h3 className="font-semibold text-slate-800 line-clamp-2">{caseItem.title}</h3>
+                  <div className="flex-1 flex items-start gap-3">
+                    <div className={`w-2 h-2 rounded-full ${getPriorityDotColor(caseItem)} mt-2`}></div>
+                    <div className="flex-1">
+                      <p className="font-mono text-sm font-semibold text-blue-600 mb-1">
+                        {caseItem.case_number}
+                      </p>
+                      <h3 className="font-semibold text-slate-900 line-clamp-2">{caseItem.title}</h3>
+                    </div>
                   </div>
                   {getUrgencyBadge(caseItem._stats?.days_until_next_deadline)}
                 </div>

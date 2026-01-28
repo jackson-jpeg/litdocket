@@ -137,10 +137,10 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
   if (loading) {
     return (
-      <div className="panel-glass p-8">
+      <div className="card p-8">
         <div className="flex items-center justify-center gap-3">
-          <Loader2 className="w-5 h-5 text-accent-info animate-spin" />
-          <span className="text-text-secondary text-sm">Loading intelligence briefing...</span>
+          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+          <span className="text-slate-600 text-sm">Loading intelligence briefing...</span>
         </div>
       </div>
     );
@@ -148,8 +148,8 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
   if (error || !report) {
     return (
-      <div className="panel-glass p-6">
-        <p className="text-text-secondary text-sm text-center">Unable to load briefing data</p>
+      <div className="card p-6">
+        <p className="text-slate-600 text-sm text-center">Unable to load briefing data</p>
       </div>
     );
   }
@@ -163,100 +163,99 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
   });
 
   return (
-    <div className="space-y-4">
-      {/* Header Bar - Bloomberg Terminal Style */}
-      <div className="panel-glass border-border-emphasis">
-        <div className="bg-terminal-surface border-b border-border-subtle px-4 py-3 flex items-baseline justify-between">
+    <div className="space-y-6">
+      {/* Header Bar - Paper & Steel */}
+      <div className="card">
+        <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-baseline justify-between">
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-text-primary">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
               Daily Intelligence Briefing
             </h1>
-            <div className="flex items-center gap-2 text-xs text-text-muted font-mono mt-1">
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-1">
               <Clock className="w-3 h-3" />
               Last updated: {formatDistanceToNow(new Date(report.generated_at), { addSuffix: true })}
             </div>
           </div>
           <div className="text-right text-xs">
-            <span className="text-text-muted font-mono">{dateStr}</span>
+            <span className="text-slate-500 font-mono">{dateStr}</span>
           </div>
         </div>
 
         {/* Summary Panel */}
-        <div className="p-4 bg-terminal-panel">
-          <p className="text-text-primary leading-relaxed text-sm">{report.summary}</p>
+        <div className="p-6 bg-white">
+          <p className="text-slate-900 leading-relaxed text-base">{report.summary}</p>
 
-          {/* Stats Row - Enhanced Bloomberg Terminal Cards */}
-          <div className="grid grid-cols-4 gap-4 mt-4 pt-3 border-t border-border-subtle">
+          {/* Stats Row - Clean Cards */}
+          <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200">
             {/* Active Cases Card */}
             <div
               onClick={() => router.push('/cases')}
-              className="stat-card-info cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-info"
+              className="bg-white border border-slate-200 rounded-lg p-4 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Active Cases
                 </span>
-                {/* Mock trend indicator - backend needed for real data */}
-                <TrendingUp className="w-3 h-3 text-accent-success" />
+                <TrendingUp className="w-3 h-3 text-green-600" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold font-mono text-text-primary">
+                <span className="text-4xl font-bold font-mono text-slate-900">
                   {report.case_overview.total_cases}
                 </span>
-                <span className="text-xs text-accent-success font-mono">+5%</span>
+                <span className="text-xs text-green-600 font-mono">+5%</span>
               </div>
             </div>
 
             {/* Pending Deadlines Card */}
             <div
               onClick={() => router.push('/calendar?filter=pending')}
-              className="stat-card-warning cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-warning"
+              className="bg-white border border-slate-200 rounded-lg p-4 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Pending
                 </span>
-                <Minus className="w-3 h-3 text-text-muted" />
+                <Minus className="w-3 h-3 text-slate-400" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold font-mono text-text-primary">
+                <span className="text-4xl font-bold font-mono text-slate-900">
                   {report.case_overview.total_pending_deadlines}
                 </span>
-                <span className="text-xs text-text-muted font-mono">0%</span>
+                <span className="text-xs text-slate-400 font-mono">0%</span>
               </div>
             </div>
 
             {/* Cases Needing Attention Card */}
             <div
               onClick={() => router.push('/cases?filter=attention')}
-              className={`cursor-pointer hover:scale-105 transition-all duration-200 ${
+              className={`bg-white border rounded-lg p-4 cursor-pointer hover:shadow-md transition-all ${
                 report.case_overview.cases_needing_attention > 0
-                  ? 'stat-card-critical hover:shadow-glow-critical'
-                  : 'stat-card-success hover:shadow-glow-success'
+                  ? 'border-red-200 hover:border-red-300'
+                  : 'border-green-200 hover:border-green-300'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Attention
                 </span>
                 {report.case_overview.cases_needing_attention > 0 ? (
-                  <TrendingUp className="w-3 h-3 text-accent-critical" />
+                  <TrendingUp className="w-3 h-3 text-red-600" />
                 ) : (
-                  <TrendingDown className="w-3 h-3 text-accent-success" />
+                  <TrendingDown className="w-3 h-3 text-green-600" />
                 )}
               </div>
               <div className="flex items-baseline gap-2">
                 <span className={`text-4xl font-bold font-mono ${
                   report.case_overview.cases_needing_attention > 0
-                    ? 'text-accent-critical'
-                    : 'text-accent-success'
+                    ? 'text-red-600'
+                    : 'text-green-600'
                 }`}>
                   {report.case_overview.cases_needing_attention}
                 </span>
                 <span className={`text-xs font-mono ${
                   report.case_overview.cases_needing_attention > 0
-                    ? 'text-accent-critical'
-                    : 'text-accent-success'
+                    ? 'text-red-600'
+                    : 'text-green-600'
                 }`}>
                   {report.case_overview.cases_needing_attention > 0 ? '+15%' : '-20%'}
                 </span>
@@ -267,19 +266,19 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
             {report.week_stats && (
               <div
                 onClick={() => router.push('/calendar?filter=completed')}
-                className="stat-card-success cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-success"
+                className="bg-white border border-green-200 rounded-lg p-4 cursor-pointer hover:border-green-300 hover:shadow-md transition-all"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Completed
                   </span>
-                  <TrendingUp className="w-3 h-3 text-accent-success" />
+                  <TrendingUp className="w-3 h-3 text-green-600" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold font-mono text-accent-success">
+                  <span className="text-4xl font-bold font-mono text-green-600">
                     {report.week_stats.completed_this_week}
                   </span>
-                  <span className="text-xs text-accent-success font-mono">+12%</span>
+                  <span className="text-xs text-green-600 font-mono">+12%</span>
                 </div>
               </div>
             )}
@@ -289,48 +288,48 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
       {/* Critical Alerts Table */}
       {report.high_risk_alerts && report.high_risk_alerts.length > 0 && (
-        <div className="enterprise-card">
-          <div className="enterprise-card-header flex items-center gap-2" style={{ backgroundColor: '#FFEBEE', borderColor: '#8B0000' }}>
-            <AlertTriangle className="w-4 h-4 text-overdue" />
-            <h2 className="text-sm font-semibold text-overdue uppercase tracking-wide">
+        <div className="card overflow-hidden">
+          <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
+            <h2 className="text-sm font-semibold text-red-900 uppercase tracking-wide">
               Critical Alerts ({report.high_risk_alerts.length})
             </h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="w-20">Status</th>
-                  <th className="w-20">Priority</th>
-                  <th>Deadline</th>
-                  <th>Case</th>
-                  <th className="w-28">Due Date</th>
-                  <th className="w-8"></th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Deadline</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Case</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Due Date</th>
+                  <th className="px-6 py-3 w-8"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white divide-y divide-slate-200">
                 {report.high_risk_alerts.map((alert, idx) => {
                   const status = getAlertStatus(alert);
                   const priority = getPriorityDisplay(alert.priority || 'fatal');
                   return (
                     <tr
                       key={idx}
-                      className="cursor-pointer"
+                      className="cursor-pointer hover:bg-slate-50 transition-colors"
                       onClick={() => onCaseClick?.(alert.case_id)}
                     >
-                      <td>
+                      <td className="px-6 py-4">
                         <span className={`font-mono text-xs ${status.class}`}>{status.label}</span>
                       </td>
-                      <td>
+                      <td className="px-6 py-4">
                         <span className={priority.class}>{priority.label}</span>
                       </td>
-                      <td className="font-medium">{alert.deadline_title}</td>
-                      <td className="text-enterprise-grey-600">{alert.case_title}</td>
-                      <td className="font-mono text-xs">
+                      <td className="px-6 py-4 font-medium text-slate-900">{alert.deadline_title}</td>
+                      <td className="px-6 py-4 text-slate-600">{alert.case_title}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-600">
                         {alert.deadline_date ? formatDate(alert.deadline_date) : '—'}
                       </td>
-                      <td>
-                        <ChevronRight className="w-4 h-4 text-enterprise-grey-400" />
+                      <td className="px-6 py-4">
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
                       </td>
                     </tr>
                   );
@@ -342,36 +341,36 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
       )}
 
       {/* Two Column Layout */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-6">
         {/* Upcoming Deadlines */}
         {report.upcoming_deadlines && report.upcoming_deadlines.length > 0 && (
-          <div className="enterprise-card">
-            <div className="enterprise-card-header flex items-center gap-2">
-              <Clock className="w-4 h-4 text-navy" />
-              <h2 className="text-sm uppercase tracking-wide">
+          <div className="card overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
                 7-Day Outlook ({report.upcoming_deadlines.length})
               </h2>
             </div>
-            <div className="divide-y divide-enterprise-grey-200 max-h-80 overflow-y-auto classic-scrollbar">
+            <div className="divide-y divide-slate-200 max-h-80 overflow-y-auto">
               {report.upcoming_deadlines.map((deadline, idx) => {
                 const priority = getPriorityDisplay(deadline.priority);
                 return (
                   <div
                     key={idx}
-                    className="px-3 py-2 hover:bg-surface cursor-pointer flex items-center gap-3"
+                    className="px-6 py-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 transition-colors"
                     onClick={() => onCaseClick?.(deadline.case_id)}
                   >
                     <div className="flex-shrink-0 w-16 text-center">
-                      <p className="font-mono text-sm font-bold text-enterprise-grey-900">
+                      <p className="font-mono text-sm font-bold text-slate-900">
                         {formatShortDate(deadline.deadline_date)}
                       </p>
-                      <p className={`text-xs ${deadline.days_until <= 1 ? 'text-overdue font-semibold' : 'text-enterprise-grey-500'}`}>
+                      <p className={`text-xs ${deadline.days_until <= 1 ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
                         {deadline.days_until === 0 ? 'Today' : deadline.days_until === 1 ? 'Tomorrow' : `${deadline.days_until}d`}
                       </p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-enterprise-grey-900 truncate">{deadline.deadline_title}</p>
-                      <p className="text-xs text-enterprise-grey-500 truncate">{deadline.case_title}</p>
+                      <p className="text-sm text-slate-900 truncate font-medium">{deadline.deadline_title}</p>
+                      <p className="text-xs text-slate-500 truncate">{deadline.case_title}</p>
                     </div>
                     <span className={`flex-shrink-0 ${priority.class}`}>
                       {priority.label}
@@ -385,34 +384,34 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
         {/* Milestones */}
         {report.milestones && report.milestones.length > 0 && (
-          <div className="enterprise-card">
-            <div className="enterprise-card-header">
-              <h2 className="text-sm uppercase tracking-wide">
+          <div className="card overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-3">
+              <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
                 Upcoming Proceedings
               </h2>
             </div>
-            <div className="divide-y divide-enterprise-grey-200">
+            <div className="divide-y divide-slate-200">
               {report.milestones.map((milestone, idx) => (
                 <div
                   key={idx}
-                  className="px-3 py-2 hover:bg-surface cursor-pointer flex items-center gap-3"
+                  className="px-6 py-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 transition-colors"
                   onClick={() => onCaseClick?.(milestone.case_id)}
                 >
-                  <div className="flex-shrink-0 w-16 text-center border-r border-enterprise-grey-200 pr-3">
-                    <p className="text-xs text-enterprise-grey-500 uppercase">
+                  <div className="flex-shrink-0 w-16 text-center border-r border-slate-200 pr-4">
+                    <p className="text-xs text-slate-500 uppercase font-semibold">
                       {new Date(milestone.date).toLocaleDateString('en-US', { month: 'short' })}
                     </p>
-                    <p className="font-mono text-xl font-bold text-enterprise-grey-900">
+                    <p className="font-mono text-2xl font-bold text-slate-900">
                       {new Date(milestone.date).getDate()}
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-enterprise-grey-900 uppercase tracking-wide">
+                    <p className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
                       {milestone.type}
                     </p>
-                    <p className="text-xs text-enterprise-grey-600 truncate">{milestone.case_title}</p>
+                    <p className="text-xs text-slate-600 truncate">{milestone.case_title}</p>
                   </div>
-                  <span className="text-xs text-enterprise-grey-500 flex-shrink-0 font-mono">
+                  <span className="text-xs text-slate-500 flex-shrink-0 font-mono">
                     {milestone.days_until}d
                   </span>
                 </div>
@@ -424,33 +423,33 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
       {/* New Documents */}
       {report.new_filings && report.new_filings.length > 0 && (
-        <div className="enterprise-card">
-          <div className="enterprise-card-header">
-            <h2 className="text-sm uppercase tracking-wide">
+        <div className="card overflow-hidden">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-3">
+            <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
               Recent Document Activity ({report.new_filings.length})
             </h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th>Document</th>
-                  <th>Type</th>
-                  <th>Case</th>
-                  <th className="w-36">Uploaded</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Document</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Case</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-40">Uploaded</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="bg-white divide-y divide-slate-200">
                 {report.new_filings.slice(0, 5).map((filing, idx) => (
                   <tr
                     key={idx}
-                    className="cursor-pointer"
+                    className="cursor-pointer hover:bg-slate-50 transition-colors"
                     onClick={() => onCaseClick?.(filing.case_id)}
                   >
-                    <td>{filing.document_title}</td>
-                    <td className="text-xs uppercase">{filing.document_type || '—'}</td>
-                    <td className="text-enterprise-grey-600">{filing.case_title}</td>
-                    <td className="font-mono text-xs text-enterprise-grey-500">
+                    <td className="px-6 py-4 font-medium text-slate-900">{filing.document_title}</td>
+                    <td className="px-6 py-4 text-xs uppercase text-slate-600">{filing.document_type || '—'}</td>
+                    <td className="px-6 py-4 text-slate-600">{filing.case_title}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
                       {new Date(filing.uploaded_at).toLocaleString()}
                     </td>
                   </tr>
@@ -463,32 +462,31 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
       {/* Actionable Items */}
       {report.actionable_insights && report.actionable_insights.length > 0 && (
-        <div className="enterprise-card">
-          <div className="enterprise-card-header" style={{ backgroundColor: '#E3F2FD' }}>
-            <h2 className="text-sm text-navy uppercase tracking-wide">
+        <div className="card overflow-hidden">
+          <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
+            <h2 className="text-sm font-semibold text-blue-900 uppercase tracking-wide">
               Recommended Actions
             </h2>
           </div>
-          <div className="enterprise-card-body space-y-2">
+          <div className="p-6 space-y-3">
             {report.actionable_insights.map((insight, idx) => (
               <div
                 key={idx}
-                className={`
-                  p-3 bg-surface-light
-                  ${insight.priority === 'critical' ? 'priority-fatal' : ''}
-                  ${insight.priority === 'high' ? 'priority-critical' : ''}
-                  ${insight.priority === 'medium' ? 'priority-important' : ''}
-                  ${insight.priority === 'low' ? 'priority-standard' : ''}
-                `}
+                className={`p-4 rounded-lg border ${
+                  insight.priority === 'critical' ? 'bg-red-50 border-red-200' :
+                  insight.priority === 'high' ? 'bg-orange-50 border-orange-200' :
+                  insight.priority === 'medium' ? 'bg-amber-50 border-amber-200' :
+                  'bg-blue-50 border-blue-200'
+                }`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-lg flex-shrink-0">{insight.icon}</span>
                   <div className="flex-1">
-                    <p className="font-semibold text-enterprise-grey-900 text-sm">{insight.title}</p>
-                    <p className="text-xs text-enterprise-grey-600 mt-0.5">{insight.message}</p>
+                    <p className="font-semibold text-slate-900 text-sm">{insight.title}</p>
+                    <p className="text-xs text-slate-600 mt-1">{insight.message}</p>
                   </div>
                   {insight.action && insight.action_type !== 'info' && (
-                    <button className="btn-beveled text-xs flex-shrink-0">
+                    <button className="btn-primary text-xs flex-shrink-0">
                       {insight.action}
                     </button>
                   )}
@@ -501,13 +499,13 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
       {/* Empty State */}
       {report.case_overview.total_cases === 0 && (
-        <div className="panel-beveled p-8 text-center">
-          <p className="text-enterprise-grey-600">No active cases. Add a case to begin tracking deadlines.</p>
+        <div className="card p-8 text-center">
+          <p className="text-slate-600">No active cases. Add a case to begin tracking deadlines.</p>
         </div>
       )}
 
       {/* Footer */}
-      <div className="text-center text-xs text-enterprise-grey-500 py-2 font-mono">
+      <div className="text-center text-xs text-slate-500 py-4 font-mono">
         LitDocket Intelligence System &bull; Data as of {new Date(report.generated_at).toLocaleString()}
       </div>
     </div>

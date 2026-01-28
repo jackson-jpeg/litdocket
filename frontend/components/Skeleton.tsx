@@ -1,7 +1,7 @@
 export function Skeleton({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse bg-gradient-to-r from-terminal-elevated via-border-subtle to-terminal-elevated bg-[length:200%_100%] rounded ${className}`}
+      className={`animate-pulse bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 bg-[length:200%_100%] rounded ${className}`}
       style={{
         animation: 'shimmer 2s infinite linear'
       }}
@@ -88,11 +88,11 @@ export function CaseSummarySkeleton() {
   )
 }
 
-// Bloomberg Terminal Skeletons
+// Paper & Steel Skeletons
 export function HeatMapSkeleton() {
   return (
-    <div className="panel-glass border-border-emphasis">
-      <div className="p-6 border-b border-border-subtle bg-terminal-surface">
+    <div className="card border border-slate-200">
+      <div className="p-6 border-b border-slate-200 bg-slate-50">
         <Skeleton className="h-6 w-48 mb-2" />
         <Skeleton className="h-4 w-64" />
       </div>
@@ -109,14 +109,14 @@ export function HeatMapSkeleton() {
 
 export function MatterHealthSkeleton() {
   return (
-    <div className="panel-glass">
-      <div className="p-6 border-b border-border-subtle">
+    <div className="card">
+      <div className="p-6 border-b border-slate-200">
         <Skeleton className="h-6 w-48 mb-2" />
         <Skeleton className="h-4 w-64" />
       </div>
       <div className="p-6 space-y-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="panel-elevated p-5 rounded-lg">
+          <div key={i} className="bg-slate-50 p-5 rounded-lg border border-slate-200">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <Skeleton className="h-5 w-32 mb-2" />
@@ -138,7 +138,7 @@ export function MatterHealthSkeleton() {
 
 export function StatsCardSkeleton() {
   return (
-    <div className="stat-card">
+    <div className="card">
       <Skeleton className="h-4 w-24 mb-2" />
       <Skeleton className="h-10 w-16 mb-1" />
       <Skeleton className="h-3 w-32" />

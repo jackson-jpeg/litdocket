@@ -1,9 +1,9 @@
 import type { Config } from "tailwindcss";
 
 /**
- * BLOOMBERG TERMINAL DESIGN SYSTEM
- * "Maximum Density, Instant Clarity"
- * Dark theme optimized for long work sessions with neon accent colors
+ * PAPER & STEEL DESIGN SYSTEM
+ * "Bloomberg Law meets Linear"
+ * Professional, high-contrast, whitespace-heavy, trustworthy
  */
 
 const config: Config = {
@@ -16,108 +16,110 @@ const config: Config = {
     extend: {
       colors: {
         // ============================================
-        // BLOOMBERG TERMINAL DARK THEME
+        // PAPER & STEEL SEMANTIC PALETTE
         // ============================================
 
-        // Dark Foundation
-        terminal: {
-          bg: '#0A0E14',
-          panel: '#14181F',
-          elevated: '#1C2128',
-          surface: '#161B22',
-          text: '#E6EDF3',      // Light gray text
-          green: '#26DE81',     // Success/ready green
-          amber: '#FFA502',     // Warning/attention amber
+        // Base Colors - Light Mode Foundation
+        app: {
+          bg: '#f8fafc',        // slate-50 - Main page background
+          surface: '#ffffff',    // white - Cards/Modals
         },
 
         // Text Hierarchy
         text: {
-          primary: '#E6EDF3',
-          secondary: '#8B949E',
-          muted: '#57606A',
-          inverse: '#0A0E14',
+          primary: '#0f172a',    // slate-900 - Primary text
+          secondary: '#64748b',  // slate-500 - Secondary text
+          muted: '#94a3b8',      // slate-400 - Muted text
         },
 
-        // Accent Colors - Neon on Dark for Urgency Signals
-        accent: {
-          critical: '#FF4757',
-          warning: '#FFA502',
-          success: '#26DE81',
-          info: '#45AAF2',
-          purple: '#A55EEA',
-        },
-
-        // Priority Color Scale (Fatality Levels)
-        priority: {
-          fatal: '#FF4757',        // Bright red
-          critical: '#FF6B6B',     // Red-orange
-          high: '#FFA502',         // Bright orange
-          medium: '#FFD93D',       // Yellow
-          low: '#45AAF2',          // Blue
-          info: '#8B949E',         // Gray
-        },
-
-        // Grid & Structural Elements
+        // Borders
         border: {
-          subtle: '#30363D',
-          emphasis: '#444C56',
+          subtle: '#e2e8f0',     // slate-200 - Subtle borders
+          emphasis: '#cbd5e1',   // slate-300 - Emphasis borders
+        },
+
+        // Sidebar - Dark Slate
+        sidebar: {
+          bg: '#0f172a',         // slate-900 - Sidebar background
+          text: '#cbd5e1',       // slate-300 - Sidebar text
+          hover: '#1e293b',      // slate-800 - Hover state
+          active: '#1e293b',     // slate-800 - Active state
+        },
+
+        // Priority Colors for Deadlines
+        priority: {
+          fatal: '#dc2626',      // red-600 - Fatal/jurisdictional deadlines
+          critical: '#ea580c',   // orange-600 - Critical/court-ordered
+          important: '#f59e0b',  // amber-500 - Important procedural
+          standard: '#3b82f6',   // blue-500 - Standard deadlines
+          info: '#64748b',       // slate-500 - Informational
+        },
+
+        // Status Colors
+        status: {
+          success: '#16a34a',    // green-600
+          warning: '#f59e0b',    // amber-500
+          error: '#dc2626',      // red-600
+          info: '#3b82f6',       // blue-500
         },
 
         // Legacy compatibility (for gradual migration)
-        navy: '#45AAF2',
-        alert: '#FF4757',
-        amber: '#FFA502',
-        success: '#26DE81',
+        navy: '#3b82f6',
+        alert: '#dc2626',
+        amber: '#f59e0b',
+        success: '#16a34a',
       },
 
       fontFamily: {
-        // Bloomberg Typography Stack
+        // Professional Typography Stack
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        tight: ['Inter Tight', 'Inter', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'SF Mono', 'Monaco', 'Consolas', 'monospace'],
+        mono: ['SF Mono', 'Monaco', 'Consolas', 'monospace'],
       },
 
       fontSize: {
-        'xxs': ['10px', { lineHeight: '14px' }],
-        'xs': ['11px', { lineHeight: '16px' }],
-        'sm': ['13px', { lineHeight: '18px' }],
-        'base': ['13px', { lineHeight: '20px' }],
-        'lg': ['14px', { lineHeight: '22px' }],
-        'xl': ['16px', { lineHeight: '24px' }],
-        '2xl': ['20px', { lineHeight: '28px' }],
-        '3xl': ['24px', { lineHeight: '32px' }],
-        '4xl': ['32px', { lineHeight: '40px' }],
+        'xxs': ['0.625rem', { lineHeight: '0.875rem' }],  // 10px
+        'xs': ['0.75rem', { lineHeight: '1rem' }],         // 12px
+        'sm': ['0.875rem', { lineHeight: '1.25rem' }],     // 14px
+        'base': ['0.875rem', { lineHeight: '1.5rem' }],    // 14px
+        'lg': ['1rem', { lineHeight: '1.5rem' }],          // 16px
+        'xl': ['1.125rem', { lineHeight: '1.75rem' }],     // 18px
+        '2xl': ['1.5rem', { lineHeight: '2rem' }],         // 24px
+        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],    // 30px
+        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],      // 36px
       },
 
       boxShadow: {
-        // Glow effects for critical items
-        'glow-critical': '0 0 16px rgba(255, 71, 87, 0.4)',
-        'glow-warning': '0 0 16px rgba(255, 165, 2, 0.3)',
-        'glow-info': '0 0 12px rgba(69, 170, 242, 0.2)',
-        'glow-success': '0 0 12px rgba(38, 222, 129, 0.2)',
+        // Subtle shadows for light mode
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
+        'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
+        'modal': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+        'command': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
       },
 
       animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'glow': 'glow 2s ease-in-out infinite',
         'fade-in': 'fadeIn 0.2s ease-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out',
       },
 
       keyframes: {
-        glow: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.6' },
-        },
         fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
 
       // Fixed viewport heights for fullscreen layout
       height: {
-        'screen-minus-header': 'calc(100vh - 48px)',
-        'screen-minus-header-terminal': 'calc(100vh - 48px - 40px)',
+        'screen-minus-header': 'calc(100vh - 64px)',
       },
     },
   },

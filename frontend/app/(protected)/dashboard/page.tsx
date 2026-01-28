@@ -184,7 +184,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-accent-info animate-spin" />
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
       </div>
     );
   }
@@ -195,10 +195,10 @@ export default function DashboardPage() {
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* Header Actions Bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary mb-1">Dashboard</h1>
-          <p className="text-sm text-text-muted">Overview of all cases and deadlines</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
+          <p className="text-sm text-slate-500">Overview of all cases and deadlines</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -210,26 +210,45 @@ export default function DashboardPage() {
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => setSearchOpen(true)}
+            onClick={() => router.push('/settings')}
             className="btn-ghost"
-            title="Search (Cmd/Ctrl+K)"
+            title="Settings"
           >
-            <Search className="w-4 h-4" />
-            <kbd className="ml-2 px-1.5 py-0.5 text-xxs bg-terminal-elevated text-text-muted rounded border border-border-subtle font-mono">
-              ⌘K
-            </kbd>
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       <div className="space-y-6">
+        {/* Critical Alert Banner - Show if Fatal/Critical deadlines exist */}
+        {dashboardData && (dashboardData.deadline_alerts.overdue.count > 0 || dashboardData.deadline_alerts.urgent.count > 0) && (
+          <div className="bg-red-50 border-l-4 border-red-600 rounded-lg p-6 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-red-900 mb-2">Critical Attention Required</h3>
+                <p className="text-sm text-red-800 mb-3">
+                  You have {dashboardData.deadline_alerts.overdue.count} overdue deadline{dashboardData.deadline_alerts.overdue.count !== 1 ? 's' : ''}
+                  {dashboardData.deadline_alerts.urgent.count > 0 && ` and ${dashboardData.deadline_alerts.urgent.count} urgent deadline${dashboardData.deadline_alerts.urgent.count !== 1 ? 's' : ''}`} requiring immediate action.
+                </p>
+                <button
+                  onClick={() => router.push('/calendar?filter=critical')}
+                  className="btn-danger btn-sm"
+                >
+                  View Critical Deadlines
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Show upload prompt if no cases */}
         {dashboardData && dashboardData.case_statistics.total_cases === 0 ? (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
-              <Scale className="w-16 h-16 text-accent-info mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-text-primary mb-2">Welcome to LitDocket</h2>
-              <p className="text-text-secondary">
+              <Scale className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">Welcome to LitDocket</h2>
+              <p className="text-slate-600">
                 Get started by uploading your first court document. We'll analyze it and extract deadlines automatically.
               </p>
             </div>
@@ -293,43 +312,43 @@ export default function DashboardPage() {
               <MorningReport onCaseClick={(caseId) => router.push(`/cases/${caseId}`)} />
             </div>
 
-            {/* View Switcher - Bloomberg Terminal Style */}
+            {/* View Switcher - Clean Tabs */}
             <div className="mb-6">
               <div className="flex items-center justify-between">
-                <div className="flex gap-2 bg-terminal-surface rounded-lg p-1 border border-border-subtle">
+                <div className="flex gap-2 bg-white rounded-lg p-1 border border-slate-200">
                   <button
                     onClick={() => setActiveView('overview')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       activeView === 'overview'
-                        ? 'bg-accent-info text-terminal-bg shadow-glow-info'
-                        : 'text-text-secondary hover:bg-terminal-elevated hover:text-text-primary'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     Overview
                   </button>
                   <button
                     onClick={() => setActiveView('heatmap')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       activeView === 'heatmap'
-                        ? 'bg-accent-info text-terminal-bg shadow-glow-info'
-                        : 'text-text-secondary hover:bg-terminal-elevated hover:text-text-primary'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     Heat Map
                   </button>
                   <button
                     onClick={() => setActiveView('cases')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       activeView === 'cases'
-                        ? 'bg-accent-info text-terminal-bg shadow-glow-info'
-                        : 'text-text-secondary hover:bg-terminal-elevated hover:text-text-primary'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     Cases
                   </button>
                 </div>
-                <p className="text-xs text-text-muted font-mono">
-                  ⟳ Auto-refresh: 30s
+                <p className="text-xs text-slate-500">
+                  Auto-refresh: 30s
                 </p>
               </div>
             </div>
@@ -337,206 +356,158 @@ export default function DashboardPage() {
         {/* Content based on active view */}
         {activeView === 'overview' && (
           <>
-            {/* Stats Grid - Enhanced Bloomberg Terminal Style */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Stats Grid - Clean Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {/* Critical/Overdue Card */}
               <div
                 onClick={() => router.push('/calendar?filter=overdue')}
-                className={`cursor-pointer hover:scale-105 transition-all duration-200 ${
-                  (dashboardData?.deadline_alerts.overdue.count || 0) > 0
-                    ? 'stat-card-critical hover:shadow-glow-critical'
-                    : 'stat-card-success hover:shadow-glow-success'
-                }`}
+                className="card-hover cursor-pointer group"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Critical</div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Critical</div>
                   {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? (
-                    <TrendingUp className="w-3 h-3 text-accent-critical" />
+                    <div className="w-2 h-2 rounded-full bg-red-600"></div>
                   ) : (
-                    <CheckCircle className="w-3 h-3 text-accent-success" />
+                    <CheckCircle className="w-4 h-4 text-green-600" />
                   )}
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-4xl font-bold font-mono ${
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className={`text-4xl font-bold ${
                     (dashboardData?.deadline_alerts.overdue.count || 0) > 0
-                      ? 'text-accent-critical'
-                      : 'text-accent-success'
+                      ? 'text-red-600'
+                      : 'text-green-600'
                   }`}>
                     {(dashboardData?.deadline_alerts.overdue.count || 0) +
                      (dashboardData?.deadline_alerts.urgent.count || 0)}
                   </span>
-                  <span className={`text-xs font-mono ${
-                    (dashboardData?.deadline_alerts.overdue.count || 0) > 0
-                      ? 'text-accent-critical'
-                      : 'text-accent-success'
-                  }`}>
-                    {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? '+20%' : '0'}
-                  </span>
                 </div>
-                <div className="text-xs text-text-secondary mt-1">
+                <p className="text-sm text-slate-600">
                   {dashboardData?.deadline_alerts.overdue.count || 0} overdue, {dashboardData?.deadline_alerts.urgent.count || 0} urgent
-                </div>
+                </p>
               </div>
 
               {/* Pending Deadlines */}
               <div
                 onClick={() => router.push('/calendar?filter=pending')}
-                className="stat-card-warning cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-warning"
+                className="card-hover cursor-pointer group"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Pending</div>
-                  <Clock className="w-4 h-4 text-accent-warning" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending</div>
+                  <Clock className="w-4 h-4 text-amber-600" />
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold font-mono text-accent-warning">
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-4xl font-bold text-amber-600">
                     {dashboardData?.case_statistics.total_pending_deadlines || 0}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">+3%</span>
                 </div>
-                <div className="text-xs text-text-secondary mt-1">
+                <p className="text-sm text-slate-600">
                   {dashboardData?.deadline_alerts.upcoming_week.count || 0} this week · {dashboardData?.deadline_alerts.upcoming_month.count || 0} this month
-                </div>
+                </p>
               </div>
 
               {/* Active Cases */}
               <div
                 onClick={() => router.push('/cases')}
-                className="stat-card-info cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-info"
+                className="card-hover cursor-pointer group"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Cases</div>
-                  <TrendingUp className="w-3 h-3 text-accent-success" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cases</div>
+                  <Folder className="w-4 h-4 text-blue-600" />
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold font-mono text-accent-info">
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-4xl font-bold text-blue-600">
                     {dashboardData?.case_statistics.total_cases || 0}
                   </span>
-                  <span className="text-xs font-mono text-accent-success">+5%</span>
                 </div>
-                <div className="text-xs text-text-secondary mt-1">
+                <p className="text-sm text-slate-600">
                   {dashboardData?.case_statistics.by_jurisdiction.state || 0} State · {dashboardData?.case_statistics.by_jurisdiction.federal || 0} Federal
-                </div>
+                </p>
               </div>
 
               {/* Documents */}
               <div
                 onClick={() => router.push('/cases')}
-                className="stat-card cursor-pointer hover:scale-105 transition-all duration-200 hover:shadow-glow-info border-l-4 border-l-accent-purple"
+                className="card-hover cursor-pointer group"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wide">Documents</div>
-                  <TrendingUp className="w-3 h-3 text-accent-success" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Documents</div>
+                  <FileText className="w-4 h-4 text-purple-600" />
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold font-mono text-accent-purple">
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-4xl font-bold text-purple-600">
                     {dashboardData?.case_statistics.total_documents || 0}
                   </span>
-                  <span className="text-xs font-mono text-accent-success">+8%</span>
                 </div>
                 {dashboardData && dashboardData.case_statistics.total_cases > 0 && (
-                  <div className="text-xs text-text-secondary mt-1">
+                  <p className="text-sm text-slate-600">
                     ~{Math.round(dashboardData.case_statistics.total_documents / dashboardData.case_statistics.total_cases)} per case
-                  </div>
+                  </p>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Deadline Alerts & Upload */}
+              {/* Left Column - Deadline Timeline */}
               <div className="lg:col-span-2 space-y-6">
-                {/* Critical Deadline Alerts */}
-                {dashboardData && (dashboardData.deadline_alerts.overdue.count > 0 ||
-                                    dashboardData.deadline_alerts.urgent.count > 0) && (
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <div className="p-6 border-b border-slate-200">
-                      <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
-                        Critical Deadlines
-                      </h3>
-                    </div>
-                    <div className="p-6 space-y-3 max-h-96 overflow-y-auto">
-                      {dashboardData.deadline_alerts.overdue.deadlines.map((deadline) => (
-                        <div
-                          key={deadline.id}
-                          className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
-                          onClick={() => router.push(`/cases/${deadline.case_id}`)}
-                        >
-                          <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 truncate">{deadline.title}</p>
-                            <p className="text-sm text-red-700 mt-1">
-                              OVERDUE: {deadline.deadline_date} ({Math.abs(deadline.days_until)} days ago)
-                            </p>
-                            {deadline.action_required && (
-                              <p className="text-sm text-slate-600 mt-1">{deadline.action_required}</p>
-                            )}
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                      ))}
-
-                      {dashboardData.deadline_alerts.urgent.deadlines.map((deadline) => (
-                        <div
-                          key={deadline.id}
-                          className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
-                          onClick={() => router.push(`/cases/${deadline.case_id}`)}
-                        >
-                          <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-800 truncate">{deadline.title}</p>
-                            <p className="text-sm text-orange-700 mt-1">
-                              Due: {deadline.deadline_date} ({deadline.days_until} days)
-                            </p>
-                            {deadline.action_required && (
-                              <p className="text-sm text-slate-600 mt-1">{deadline.action_required}</p>
-                            )}
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Upcoming Deadlines */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <div className="p-6 border-b border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-blue-500" />
+                {/* Upcoming Deadlines - Timeline View */}
+                <div className="card">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-blue-600" />
                       Upcoming Deadlines
                     </h3>
                   </div>
-                  <div className="p-6 space-y-3 max-h-96 overflow-y-auto">
-                    {dashboardData?.upcoming_deadlines.slice(0, 10).map((deadline) => (
-                      <div
-                        key={deadline.id}
-                        className={`
-                          flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors
-                          ${getUrgencyColor(deadline.urgency_level)} hover:opacity-80
-                        `}
-                        onClick={() => router.push(`/cases/${deadline.case_id}`)}
-                      >
-                        {getUrgencyIcon(deadline.urgency_level)}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-800 truncate">{deadline.title}</p>
-                          <p className="text-sm mt-1">
-                            {deadline.deadline_date} ({deadline.days_until} days)
-                          </p>
-                          {deadline.party_role && (
-                            <p className="text-xs mt-1">Party: {deadline.party_role}</p>
-                          )}
-                        </div>
-                        <ChevronRight className="w-5 h-5" />
-                      </div>
-                    ))}
 
-                    {(!dashboardData?.upcoming_deadlines || dashboardData.upcoming_deadlines.length === 0) && (
-                      <div className="text-center py-8 text-slate-500">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
-                        <p>No upcoming deadlines</p>
-                      </div>
-                    )}
-                  </div>
+                  {dashboardData?.upcoming_deadlines && dashboardData.upcoming_deadlines.length > 0 ? (
+                    <div className="timeline">
+                      {dashboardData.upcoming_deadlines.slice(0, 10).map((deadline) => (
+                        <div
+                          key={deadline.id}
+                          className="timeline-item cursor-pointer group"
+                          onClick={() => router.push(`/cases/${deadline.case_id}`)}
+                        >
+                          <div className={`timeline-dot ${
+                            deadline.urgency_level === 'overdue' ? 'bg-red-600' :
+                            deadline.urgency_level === 'urgent' ? 'bg-orange-600' :
+                            deadline.urgency_level === 'upcoming-week' ? 'bg-amber-500' : 'bg-blue-500'
+                          }`}></div>
+                          <div className="bg-white border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-slate-900 truncate group-hover:text-blue-600">{deadline.title}</p>
+                                <p className="text-sm text-slate-600 mt-1">
+                                  {deadline.deadline_date} • {Math.abs(deadline.days_until)} day{Math.abs(deadline.days_until) !== 1 ? 's' : ''} {deadline.days_until < 0 ? 'overdue' : 'remaining'}
+                                </p>
+                                {deadline.action_required && (
+                                  <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
+                                )}
+                                {deadline.party_role && (
+                                  <span className="inline-block mt-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
+                                    {deadline.party_role}
+                                  </span>
+                                )}
+                              </div>
+                              <span className={`badge ${
+                                deadline.urgency_level === 'overdue' ? 'badge-fatal' :
+                                deadline.urgency_level === 'urgent' ? 'badge-critical' :
+                                deadline.urgency_level === 'upcoming-week' ? 'badge-important' : 'badge-standard'
+                              }`}>
+                                {deadline.urgency_level === 'overdue' ? 'OVERDUE' :
+                                 deadline.urgency_level === 'urgent' ? 'URGENT' :
+                                 deadline.urgency_level === 'upcoming-week' ? 'THIS WEEK' : 'UPCOMING'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-slate-500">
+                      <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600" />
+                      <p className="font-medium">All clear!</p>
+                      <p className="text-sm mt-1">No upcoming deadlines</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -544,27 +515,24 @@ export default function DashboardPage() {
               <div className="space-y-6">
                 {/* Critical Cases */}
                 {dashboardData && dashboardData.critical_cases.length > 0 && (
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                    <div className="p-6 border-b border-slate-200">
-                      <h3 className="text-lg font-semibold text-slate-800">Critical Cases</h3>
-                    </div>
-                    <div className="p-6 space-y-3">
+                  <div className="card">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Critical Cases</h3>
+                    <div className="space-y-3">
                       {dashboardData.critical_cases.slice(0, 5).map((caseItem) => (
                         <div
                           key={caseItem.case_id}
-                          className="p-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                          className="p-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all group"
                           onClick={() => router.push(`/cases/${caseItem.case_id}`)}
                         >
-                          <p className="font-medium text-slate-800">{caseItem.case_number}</p>
-                          <p className="text-sm text-slate-600 mt-1">{caseItem.title}</p>
+                          <p className="font-medium text-slate-900 group-hover:text-blue-600">{caseItem.case_number}</p>
+                          <p className="text-sm text-slate-600 mt-1 truncate">{caseItem.title}</p>
                           <div className="mt-3 flex items-center justify-between">
-                            <span className={`
-                              text-xs px-2 py-1 rounded
-                              ${caseItem.urgency_level === 'critical' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}
-                            `}>
-                              {caseItem.days_until_deadline} days until deadline
+                            <span className={`badge ${
+                              caseItem.urgency_level === 'critical' ? 'badge-fatal' : 'badge-critical'
+                            }`}>
+                              {caseItem.days_until_deadline} days
                             </span>
-                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
                           </div>
                         </div>
                       ))}
@@ -573,21 +541,19 @@ export default function DashboardPage() {
                 )}
 
                 {/* Recent Activity */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <div className="p-6 border-b border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-800">Recent Activity</h3>
-                  </div>
-                  <div className="p-6 space-y-4">
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h3>
+                  <div className="space-y-4">
                     {dashboardData?.recent_activity.slice(0, 8).map((activity, idx) => (
-                      <div key={idx} className="flex items-start gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
+                      <div key={idx} className="flex items-start gap-3 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+                        <div className="p-2 bg-blue-50 rounded-lg">
                           <FileText className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">
+                          <p className="text-sm font-medium text-slate-900 truncate">
                             {activity.case_number}
                           </p>
-                          <p className="text-xs text-slate-600 truncate">
+                          <p className="text-xs text-slate-600 truncate mt-0.5">
                             {activity.description}
                           </p>
                           <p className="text-xs text-slate-400 mt-1">
@@ -598,7 +564,7 @@ export default function DashboardPage() {
                     ))}
 
                     {(!dashboardData?.recent_activity || dashboardData.recent_activity.length === 0) && (
-                      <p className="text-center text-slate-500 py-4">No recent activity</p>
+                      <p className="text-center text-slate-500 py-4 text-sm">No recent activity</p>
                     )}
                   </div>
                 </div>
@@ -617,12 +583,12 @@ export default function DashboardPage() {
                     onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
                   />
                 ) : (
-                  <div className="panel-glass p-12 text-center">
-                    <Calendar className="w-16 h-16 text-text-muted mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  <div className="card text-center py-16">
+                    <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
                       No Heat Map Data
                     </h3>
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-slate-600">
                       Add deadlines to cases to see the deadline heat map visualization
                     </p>
                   </div>
@@ -640,12 +606,12 @@ export default function DashboardPage() {
                     onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
                   />
                 ) : (
-                  <div className="panel-glass p-12 text-center">
-                    <Folder className="w-16 h-16 text-text-muted mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-text-primary mb-2">
+                  <div className="card text-center py-16">
+                    <Folder className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
                       No Cases with Pending Deadlines
                     </h3>
-                    <p className="text-sm text-text-secondary mb-6">
+                    <p className="text-sm text-slate-600 mb-6">
                       All cases are up to date or have no active deadlines
                     </p>
                     <button
@@ -662,12 +628,12 @@ export default function DashboardPage() {
             {/* Quick Upload for Existing Users */}
             {activeView === 'overview' && (
               <div className="mt-8">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Upload New Document</h3>
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Upload New Document</h3>
                   <div
                     {...getRootProps()}
                     className={`
-                      border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+                      border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
                       transition-all duration-200
                       ${isDragActive
                         ? 'border-blue-500 bg-blue-50'
@@ -678,16 +644,16 @@ export default function DashboardPage() {
                   >
                     <input {...getInputProps()} />
                     <Upload className={`w-10 h-10 mx-auto mb-3 ${isDragActive ? 'text-blue-600' : 'text-slate-400'}`} />
-                    <p className="font-medium text-slate-700 mb-1">
+                    <p className="font-medium text-slate-900 mb-1">
                       {uploading ? 'Uploading...' : isDragActive ? 'Drop here' : 'Upload Document'}
                     </p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-slate-600">
                       Drag & drop a PDF or click to browse
                     </p>
                   </div>
                   {error && (
                     <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                       <p className="text-sm text-red-700">{error}</p>
                     </div>
                   )}

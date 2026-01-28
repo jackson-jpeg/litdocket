@@ -2,54 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Google Fonts - Bloomberg Terminal Typography */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+/* Google Fonts - Professional Typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ============================================
-   BLOOMBERG TERMINAL DESIGN SYSTEM
-   "Maximum Density, Instant Clarity"
+   PAPER & STEEL DESIGN SYSTEM
+   "Bloomberg Law meets Linear"
+   Light Mode, Professional, High-Contrast
    ============================================ */
 
 @layer base {
-  /* Bloomberg Terminal Dark Theme */
+  /* Light Mode Foundation */
   :root {
-    /* Dark Foundation */
-    --bg-primary: #0A0E14;
-    --bg-secondary: #14181F;
-    --bg-tertiary: #1C2128;
-    --bg-panel: #161B22;
+    /* Base Colors */
+    --bg-app: #f8fafc;           /* slate-50 - Main page background */
+    --bg-surface: #ffffff;        /* white - Cards/Modals */
 
     /* Text Colors */
-    --text-primary: #E6EDF3;
-    --text-secondary: #8B949E;
-    --text-muted: #57606A;
-    --text-inverse: #0A0E14;
+    --text-primary: #0f172a;      /* slate-900 */
+    --text-secondary: #64748b;    /* slate-500 */
+    --text-muted: #94a3b8;        /* slate-400 */
 
-    /* Accent Colors - Neon on Dark */
-    --accent-critical: #FF4757;
-    --accent-warning: #FFA502;
-    --accent-success: #26DE81;
-    --accent-info: #45AAF2;
-    --accent-purple: #A55EEA;
+    /* Borders */
+    --border-subtle: #e2e8f0;     /* slate-200 */
+    --border-emphasis: #cbd5e1;   /* slate-300 */
 
-    /* Priority Gradient */
-    --priority-fatal: #FF4757;
-    --priority-critical: #FF6B6B;
-    --priority-high: #FFA502;
-    --priority-medium: #FFD93D;
-    --priority-low: #45AAF2;
-    --priority-info: #8B949E;
+    /* Priority Colors */
+    --priority-fatal: #dc2626;    /* red-600 */
+    --priority-critical: #ea580c; /* orange-600 */
+    --priority-important: #f59e0b;/* amber-500 */
+    --priority-standard: #3b82f6; /* blue-500 */
+    --priority-info: #64748b;     /* slate-500 */
 
-    /* Grid & Borders */
-    --border-subtle: #30363D;
-    --border-emphasis: #444C56;
-    --border-glow-critical: rgba(255, 71, 87, 0.5);
-    --border-glow-info: rgba(69, 170, 242, 0.3);
-
-    /* Glass Morphism */
-    --glass-bg: rgba(22, 27, 34, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --glass-blur: 16px;
+    /* Sidebar */
+    --sidebar-bg: #0f172a;        /* slate-900 */
+    --sidebar-text: #cbd5e1;      /* slate-300 */
+    --sidebar-hover: #1e293b;     /* slate-800 */
   }
 
   * {
@@ -60,170 +48,75 @@
 
   html {
     height: 100%;
-    overflow: hidden;
   }
 
   body {
-    @apply bg-[#0A0E14] text-[#E6EDF3] font-sans antialiased;
+    @apply bg-app-bg text-text-primary font-sans antialiased;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
     height: 100%;
-    overflow: hidden;
   }
 
   /* Typography Hierarchy */
   h1 {
-    @apply text-2xl font-bold tracking-tight text-[#E6EDF3];
-    font-family: 'Inter Tight', 'Inter', sans-serif;
+    @apply text-3xl font-bold tracking-tight text-text-primary;
   }
 
   h2 {
-    @apply text-xl font-semibold tracking-tight text-[#E6EDF3];
+    @apply text-2xl font-semibold tracking-tight text-text-primary;
   }
 
   h3 {
-    @apply text-lg font-semibold text-[#E6EDF3];
+    @apply text-xl font-semibold text-text-primary;
   }
 
   h4 {
-    @apply text-base font-semibold text-[#8B949E];
+    @apply text-lg font-semibold text-text-secondary;
   }
 
   /* Monospace for data */
   .font-mono {
-    font-family: 'IBM Plex Mono', 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
   /* ==========================================
-     GLASS PANEL SYSTEM - Bloomberg Style
+     CARD SYSTEM - Clean & Professional
      ========================================== */
 
-  .panel-glass {
-    @apply bg-[rgba(22,27,34,0.85)] backdrop-blur-xl border border-[rgba(255,255,255,0.1)] rounded-lg;
+  .card {
+    @apply bg-app-surface border border-border-subtle rounded-xl p-6 shadow-card;
   }
 
-  .panel-solid {
-    @apply bg-[#161B22] border border-[#30363D] rounded-lg;
-  }
-
-  .panel-elevated {
-    @apply bg-[#1C2128] border border-[#30363D] rounded-lg;
+  .card-hover {
+    @apply card hover:shadow-card-hover transition-shadow duration-200;
   }
 
   /* ==========================================
-     STAT CARDS - Bloomberg Terminal Style
-     ========================================== */
-
-  .stat-card {
-    @apply panel-glass p-4 hover:border-[#444C56] transition-all duration-200;
-  }
-
-  .stat-card-critical {
-    @apply stat-card border-l-4 border-l-[#FF4757];
-    box-shadow: 0 0 12px rgba(255, 71, 87, 0.2);
-  }
-
-  .stat-card-warning {
-    @apply stat-card border-l-4 border-l-[#FFA502];
-    box-shadow: 0 0 12px rgba(255, 165, 2, 0.2);
-  }
-
-  .stat-card-success {
-    @apply stat-card border-l-4 border-l-[#26DE81];
-    box-shadow: 0 0 12px rgba(38, 222, 129, 0.2);
-  }
-
-  .stat-card-info {
-    @apply stat-card border-l-4 border-l-[#45AAF2];
-    box-shadow: 0 0 12px rgba(69, 170, 242, 0.2);
-  }
-
-  /* ==========================================
-     TABLE STYLING - Bloomberg Data Tables
-     ========================================== */
-
-  .table-bloomberg {
-    @apply w-full text-xs;
-  }
-
-  .table-bloomberg th {
-    @apply bg-[#1C2128] text-[#8B949E] font-semibold text-left px-3 py-2 border-b border-[#30363D] sticky top-0 uppercase tracking-wide;
-  }
-
-  .table-bloomberg td {
-    @apply px-3 py-2 border-b border-[#30363D] text-[#E6EDF3];
-  }
-
-  .table-bloomberg tr:hover {
-    @apply bg-[#1C2128];
-  }
-
-  .table-bloomberg tr.row-critical td {
-    border-left: 3px solid var(--priority-fatal);
-  }
-
-  .table-bloomberg tr.row-warning td {
-    border-left: 3px solid var(--priority-high);
-  }
-
-  /* ==========================================
-     PRIORITY BADGES - Neon on Dark
-     ========================================== */
-
-  .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold;
-  }
-
-  .badge-fatal {
-    @apply badge bg-[#FF4757] text-white;
-  }
-
-  .badge-critical {
-    @apply badge bg-[#FF6B6B] text-white;
-  }
-
-  .badge-warning {
-    @apply badge bg-[#FFA502] text-[#0A0E14];
-  }
-
-  .badge-info {
-    @apply badge bg-[#45AAF2] text-[#0A0E14];
-  }
-
-  .badge-success {
-    @apply badge bg-[#26DE81] text-[#0A0E14];
-  }
-
-  .badge-neutral {
-    @apply badge bg-[#30363D] text-[#8B949E];
-  }
-
-  /* ==========================================
-     BUTTONS - Bloomberg Style
+     BUTTONS - Professional Style
      ========================================== */
 
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150;
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-150;
   }
 
   .btn-primary {
-    @apply btn bg-[#45AAF2] text-white hover:bg-[#3A9AE0] active:bg-[#2E87CC];
+    @apply btn bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
   }
 
-  .btn-danger {
-    @apply btn bg-[#FF4757] text-white hover:bg-[#E63946] active:bg-[#CC2936];
-  }
-
-  .btn-success {
-    @apply btn bg-[#26DE81] text-[#0A0E14] hover:bg-[#1FC870] active:bg-[#18B260];
+  .btn-secondary {
+    @apply btn bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:bg-slate-100;
   }
 
   .btn-ghost {
-    @apply btn text-[#8B949E] hover:text-[#E6EDF3] hover:bg-[#1C2128];
+    @apply btn text-slate-600 hover:bg-slate-100 active:bg-slate-200;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 active:bg-red-800;
   }
 
   .btn-sm {
@@ -231,208 +124,186 @@
   }
 
   /* ==========================================
-     INPUT FIELDS - Dark Theme
+     BADGES - Priority & Status Indicators
+     ========================================== */
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .badge-fatal {
+    @apply badge bg-red-100 text-red-700 border border-red-200;
+  }
+
+  .badge-critical {
+    @apply badge bg-orange-100 text-orange-700 border border-orange-200;
+  }
+
+  .badge-important {
+    @apply badge bg-amber-100 text-amber-700 border border-amber-200;
+  }
+
+  .badge-standard {
+    @apply badge bg-blue-100 text-blue-700 border border-blue-200;
+  }
+
+  .badge-info {
+    @apply badge bg-slate-100 text-slate-700 border border-slate-200;
+  }
+
+  /* ==========================================
+     INPUT FIELDS - Clean & Accessible
      ========================================== */
 
   .input {
-    @apply w-full px-3 py-2 text-sm bg-[#0A0E14] border border-[#30363D] rounded-md text-[#E6EDF3] placeholder-[#57606A];
-    @apply focus:outline-none focus:border-[#45AAF2] focus:ring-2 focus:ring-[rgba(69,170,242,0.2)] transition-all;
+    @apply w-full px-3 py-2 text-sm bg-white border border-border-subtle rounded-lg text-text-primary placeholder-text-muted;
+    @apply focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all;
   }
 
   .input-sm {
     @apply input px-2 py-1.5 text-xs;
   }
 
-  /* Terminal-specific input - monospace with green text */
-  .terminal-input {
-    @apply w-full bg-transparent text-terminal-text font-mono text-sm;
-    @apply placeholder-[#57606A] focus:outline-none;
+  /* ==========================================
+     TABLE STYLING - Professional Data Tables
+     ========================================== */
+
+  .table-clean {
+    @apply w-full text-sm;
+  }
+
+  .table-clean th {
+    @apply bg-slate-50 text-text-secondary font-semibold text-left px-4 py-3 border-b border-border-subtle;
+  }
+
+  .table-clean td {
+    @apply px-4 py-3 border-b border-border-subtle text-text-primary;
+  }
+
+  .table-clean tr:hover {
+    @apply bg-slate-50;
   }
 
   /* ==========================================
-     GLOW EFFECTS - Critical Item Highlighting
+     MODALS - Centered Overlay
      ========================================== */
 
-  .glow-critical {
-    border-color: var(--priority-fatal);
-    box-shadow: 0 0 16px rgba(255, 71, 87, 0.4);
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center;
   }
 
-  .glow-warning {
-    border-color: var(--priority-high);
-    box-shadow: 0 0 16px rgba(255, 165, 2, 0.3);
+  .modal {
+    @apply bg-white rounded-xl shadow-modal max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden;
   }
 
-  .glow-info {
-    border-color: var(--accent-info);
-    box-shadow: 0 0 12px rgba(69, 170, 242, 0.2);
+  .modal-header {
+    @apply px-6 py-4 border-b border-border-subtle;
+  }
+
+  .modal-body {
+    @apply px-6 py-4 overflow-y-auto;
+  }
+
+  .modal-footer {
+    @apply px-6 py-4 border-t border-border-subtle bg-slate-50;
   }
 
   /* ==========================================
-     PANEL SYSTEM - Containers
+     SCROLLBARS - Light Theme
      ========================================== */
 
-  .panel {
-    @apply bg-[#161B22] border border-[#30363D] rounded-lg;
-  }
-
-  .panel-header {
-    @apply px-4 py-3 border-b border-[#30363D] bg-[#1C2128];
-  }
-
-  .panel-body {
-    @apply p-4;
-  }
-
-  /* Panel Inset - Depressed surface effect */
-  .panel-inset {
-    @apply bg-[#0D1117] border border-[#21262D] rounded-md shadow-inner;
-  }
-
-  /* ==========================================
-     ENTERPRISE CARDS - Bloomberg Terminal Style
-     ========================================== */
-
-  .enterprise-card {
-    @apply panel-glass overflow-hidden;
-  }
-
-  .enterprise-card-header {
-    @apply px-4 py-3 bg-terminal-elevated border-b border-border-subtle;
-    @apply text-sm font-semibold text-text-primary uppercase tracking-wide;
-  }
-
-  .enterprise-card-body {
-    @apply p-4;
-  }
-
-  /* ==========================================
-     SCROLLBARS - Dark Theme
-     ========================================== */
-
-  .scrollbar-dark::-webkit-scrollbar {
+  .scrollbar-light::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
-  .scrollbar-dark::-webkit-scrollbar-track {
-    background: #0A0E14;
+  .scrollbar-light::-webkit-scrollbar-track {
+    background: #f8fafc;
   }
 
-  .scrollbar-dark::-webkit-scrollbar-thumb {
-    background: #30363D;
+  .scrollbar-light::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
     border-radius: 4px;
   }
 
-  .scrollbar-dark::-webkit-scrollbar-thumb:hover {
-    background: #444C56;
+  .scrollbar-light::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 
   /* Default scrollbar styling for all scrollable areas */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #30363D #0A0E14;
+    scrollbar-color: #cbd5e1 #f8fafc;
+  }
+
+  /* ==========================================
+     PRIORITY DOT - Status Indicator
+     ========================================== */
+
+  .priority-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+
+  .priority-dot-fatal {
+    @apply priority-dot bg-red-600;
+  }
+
+  .priority-dot-critical {
+    @apply priority-dot bg-orange-600;
+  }
+
+  .priority-dot-important {
+    @apply priority-dot bg-amber-500;
+  }
+
+  .priority-dot-standard {
+    @apply priority-dot bg-blue-500;
+  }
+
+  /* ==========================================
+     TIMELINE - Vertical Timeline Visual
+     ========================================== */
+
+  .timeline {
+    @apply relative pl-8;
+  }
+
+  .timeline::before {
+    content: '';
+    @apply absolute left-2 top-0 bottom-0 w-0.5 bg-border-subtle;
+  }
+
+  .timeline-item {
+    @apply relative mb-4;
+  }
+
+  .timeline-dot {
+    @apply absolute -left-6 top-2 w-3 h-3 rounded-full border-2 border-white bg-blue-500;
   }
 }
 
 @layer utilities {
   /* Background utilities */
-  .bg-terminal-bg { background-color: #0A0E14; }
-  .bg-terminal-panel { background-color: #14181F; }
-  .bg-terminal-elevated { background-color: #1C2128; }
-  .bg-terminal-surface { background-color: #161B22; }
+  .bg-app-bg { background-color: var(--bg-app); }
+  .bg-app-surface { background-color: var(--bg-surface); }
 
   /* Text utilities */
-  .text-text-primary { color: #E6EDF3; }
-  .text-text-secondary { color: #8B949E; }
-  .text-text-muted { color: #57606A; }
+  .text-text-primary { color: var(--text-primary); }
+  .text-text-secondary { color: var(--text-secondary); }
+  .text-text-muted { color: var(--text-muted); }
 
   /* Border utilities */
-  .border-border-subtle { border-color: #30363D; }
-  .border-border-emphasis { border-color: #444C56; }
+  .border-border-subtle { border-color: var(--border-subtle); }
+  .border-border-emphasis { border-color: var(--border-emphasis); }
 
-  /* Accent utilities */
-  .text-accent-critical { color: #FF4757; }
-  .text-accent-warning { color: #FFA502; }
-  .text-accent-success { color: #26DE81; }
-  .text-accent-info { color: #45AAF2; }
+  /* Priority utilities */
+  .text-priority-fatal { color: var(--priority-fatal); }
+  .text-priority-critical { color: var(--priority-critical); }
+  .text-priority-important { color: var(--priority-important); }
+  .text-priority-standard { color: var(--priority-standard); }
 
-  .bg-accent-critical { background-color: #FF4757; }
-  .bg-accent-warning { background-color: #FFA502; }
-  .bg-accent-success { background-color: #26DE81; }
-  .bg-accent-info { background-color: #45AAF2; }
-
-  /* ==========================================
-     AI TERMINAL STYLES - Cockpit Interface
-     ========================================== */
-
-  /* Terminal text colors */
-  .text-terminal-text { color: #E6EDF3; }
-  .text-terminal-green { color: #26DE81; }
-  .text-terminal-amber { color: #FFA502; }
-
-  /* Main terminal container */
-  .cockpit-terminal {
-    @apply fixed bottom-0 left-0 right-0 z-50;
-    @apply border-t border-gray-700;
-  }
-
-  /* Collapsed terminal bar */
-  .terminal-collapsed {
-    @apply bg-terminal-bg;
-    @apply flex items-center justify-between px-4 py-2;
-    @apply cursor-pointer hover:bg-terminal-panel transition-colors;
-  }
-
-  /* Expanded terminal */
-  .terminal {
-    @apply bg-terminal-bg;
-    @apply flex flex-col;
-    height: 500px;
-    max-height: 60vh;
-  }
-
-  /* Messages area with scrolling */
-  .terminal-expanded {
-    @apply flex-1 overflow-y-auto px-4 py-2;
-    @apply bg-terminal-bg;
-    min-height: 0; /* Important for flex children to scroll */
-  }
-
-  /* Custom scrollbar for terminal */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #30363D #0A0E14;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: #0A0E14;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #30363D;
-    border-radius: 4px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #444C56;
-  }
-
-  /* Terminal cursor animation */
-  .terminal-cursor {
-    display: inline-block;
-    width: 8px;
-    height: 14px;
-    background-color: #26DE81;
-    animation: terminal-blink 1s infinite;
-  }
-
-  @keyframes terminal-blink {
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0; }
-  }
+  .bg-priority-fatal { background-color: var(--priority-fatal); }
+  .bg-priority-critical { background-color: var(--priority-critical); }
+  .bg-priority-important { background-color: var(--priority-important); }
+  .bg-priority-standard { background-color: var(--priority-standard); }
 }

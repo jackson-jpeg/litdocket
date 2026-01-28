@@ -15,20 +15,20 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-modal max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-500 rounded-lg">
+            <div className="p-2 bg-blue-600 rounded-lg">
               <Command className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900">Keyboard Shortcuts</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Keyboard Shortcuts</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -38,17 +38,17 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
             {shortcuts.map((shortcut, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
               >
-                <span className="text-sm text-gray-700">{shortcut.description}</span>
+                <span className="text-sm text-slate-700">{shortcut.description}</span>
                 <div className="flex items-center gap-1">
                   {shortcut.keys.map((key, keyIndex) => (
                     <span key={keyIndex} className="flex items-center gap-1">
-                      <kbd className="px-2 py-1 text-xs font-semibold text-gray-800 bg-white border border-gray-300 rounded shadow-sm">
+                      <kbd className="px-2 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded shadow-sm">
                         {key}
                       </kbd>
                       {keyIndex < shortcut.keys.length - 1 && (
-                        <span className="text-gray-400 text-xs">+</span>
+                        <span className="text-slate-400 text-xs">+</span>
                       )}
                     </span>
                   ))}
@@ -69,9 +69,9 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <p className="text-xs text-gray-600 text-center">
-            Press <kbd className="px-1 py-0.5 text-xs bg-white border border-gray-300 rounded">Esc</kbd> or click outside to close
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+          <p className="text-xs text-slate-600 text-center">
+            Press <kbd className="px-1 py-0.5 text-xs bg-white border border-slate-300 rounded">Esc</kbd> or click outside to close
           </p>
         </div>
       </div>

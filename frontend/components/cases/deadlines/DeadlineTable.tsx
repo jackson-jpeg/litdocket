@@ -52,7 +52,7 @@ const StatusFlag = ({ deadline }: { deadline: Deadline }) => {
     case 'important':
       return <span className="text-amber font-bold">!</span>;
     default:
-      return <span className="text-ink-muted">·</span>;
+      return <span className="text-slate-400">·</span>;
   }
 };
 
@@ -142,7 +142,7 @@ export default function DeadlineTable({
     return (
       <div className="panel">
         <div className="panel-body text-center py-8">
-          <p className="text-ink-muted">No deadlines</p>
+          <p className="text-slate-400">No deadlines</p>
         </div>
       </div>
     );
@@ -236,7 +236,7 @@ export default function DeadlineTable({
                     <button
                       onClick={() => handleDateClick(deadline)}
                       className={`hover:underline ${
-                        isCompleted ? 'line-through text-ink-muted' : ''
+                        isCompleted ? 'line-through text-slate-400' : ''
                       }`}
                       disabled={isCompleted}
                       style={{ fontVariantNumeric: 'tabular-nums' }}
@@ -253,11 +253,11 @@ export default function DeadlineTable({
                   {/* DONE Stamp overlay for completed items */}
                   {isCompleted && <DoneStamp />}
 
-                  <div className={`${isCompleted ? 'line-through text-ink-muted' : ''}`}>
+                  <div className={`${isCompleted ? 'line-through text-slate-400' : ''}`}>
                     {deadline.title}
                   </div>
                   {deadline.trigger_event && (
-                    <div className="text-xxs text-ink-muted">
+                    <div className="text-xxs text-slate-400">
                       ← {getTriggerTitle(deadline.trigger_event)}
                     </div>
                   )}
@@ -265,7 +265,7 @@ export default function DeadlineTable({
 
                 {/* Authority/Rule - Monospace with truncate + hover tooltip */}
                 <td
-                  className="py-2 px-1 font-mono text-xs text-ink-secondary truncate border-r border-gray-200"
+                  className="py-2 px-1 font-mono text-xs text-slate-600 truncate border-r border-gray-200"
                   title={deadline.applicable_rule || undefined}
                 >
                   {/* E-Service badge */}
