@@ -104,7 +104,7 @@ class StreamingChatService:
     async def stream_message(
         self,
         user_message: str,
-        case_id: str,
+        case_id: Optional[str],
         user_id: str,
         session_id: str,
         db: Session
@@ -122,7 +122,7 @@ class StreamingChatService:
 
         Args:
             user_message: User's input message
-            case_id: Case UUID
+            case_id: Case UUID (optional - None for global/dashboard queries)
             user_id: User UUID
             session_id: Unique session ID for this stream
             db: Database session
@@ -131,7 +131,7 @@ class StreamingChatService:
             ServerSentEvent objects to be sent as SSE
         """
         logger.info(
-            f"Starting streaming session {session_id} for case {case_id}: "
+            f"Starting streaming session {session_id} for case {case_id or 'GLOBAL'}: "
             f"{user_message[:50]}..."
         )
 
@@ -141,45 +141,71 @@ class StreamingChatService:
                 event="status",
                 data={
                     "status": "loading_context",
-                    "message": "Loading case context..."
+                    "message": "Loading context..." if case_id else "Preparing assistant..."
                 }
             )
 
-            # Get case
-            case = db.query(Case).filter(Case.id == case_id).first()
-            if not case:
-                yield ServerSentEvent(
-                    event="error",
-                    data={"error": "Case not found", "code": "CASE_NOT_FOUND"}
-                )
-                return
+            # Get case if case_id provided
+            case = None
+            if case_id:
+                case = db.query(Case).filter(Case.id == case_id).first()
+                if not case:
+                    yield ServerSentEvent(
+                        event="error",
+                        data={"error": "Case not found", "code": "CASE_NOT_FOUND"}
+                    )
+                    return
 
             # Load conversation history (last 10 messages)
             try:
-                history = db.query(ChatMessage).filter(
-                    ChatMessage.case_id == case_id
-                ).order_by(ChatMessage.created_at.desc()).limit(10).all()
-                history = list(reversed(history))
+                if case_id:
+                    history = db.query(ChatMessage).filter(
+                        ChatMessage.case_id == case_id
+                    ).order_by(ChatMessage.created_at.desc()).limit(10).all()
+                    history = list(reversed(history))
+                else:
+                    # For global queries, load recent history across all cases
+                    history = db.query(ChatMessage).filter(
+                        ChatMessage.user_id == user_id
+                    ).order_by(ChatMessage.created_at.desc()).limit(5).all()
+                    history = list(reversed(history))
             except Exception as e:
                 logger.warning(f"Failed to load chat history: {e}")
                 history = []
 
-            # Build context (using omniscient for now - Phase 3 will add lazy)
-            yield ServerSentEvent(
-                event="status",
-                data={
-                    "status": "building_context",
-                    "message": "Analyzing case deadlines and documents..."
-                }
-            )
+            # Build context based on scope
+            if case_id and case:
+                yield ServerSentEvent(
+                    event="status",
+                    data={
+                        "status": "building_context",
+                        "message": "Analyzing case deadlines and documents..."
+                    }
+                )
 
-            try:
-                context_builder = CaseContextBuilder(db)
-                system_prompt = context_builder.get_system_prompt_context(case_id)
-            except Exception as e:
-                logger.error(f"Context building failed: {e}")
-                # Use minimal fallback
-                system_prompt = f"You are an AI docketing assistant for case {case.case_number}."
+                try:
+                    context_builder = CaseContextBuilder(db)
+                    system_prompt = context_builder.get_system_prompt_context(case_id)
+                except Exception as e:
+                    logger.error(f"Context building failed: {e}")
+                    # Use minimal fallback
+                    system_prompt = f"You are an AI docketing assistant for case {case.case_number}."
+            else:
+                # Global context for dashboard queries
+                yield ServerSentEvent(
+                    event="status",
+                    data={
+                        "status": "ready",
+                        "message": "Ready to answer your questions"
+                    }
+                )
+
+                system_prompt = (
+                    "You are an AI docketing assistant for LitDocket, a legal case management system. "
+                    f"You're helping user {user_id} with general queries about their cases, deadlines, and workload. "
+                    "You have access to tools to query their cases and deadlines across all their cases. "
+                    "Be helpful, professional, and focused on legal deadline management."
+                )
 
             # Build messages array
             messages = []

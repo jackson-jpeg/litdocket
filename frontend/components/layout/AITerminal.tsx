@@ -153,12 +153,18 @@ export function AITerminal() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Reset history flag when case changes
+  useEffect(() => {
+    setHasHistory(false);
+    setMessages([]);
+  }, [caseId]);
+
   // Load chat history when modal opens with case context
   useEffect(() => {
     if (isOpen && caseId && !hasHistory) {
       loadChatHistory();
     }
-  }, [isOpen, caseId, hasHistory]);
+  }, [isOpen, caseId]);
 
   const loadChatHistory = async () => {
     if (!caseId) return;

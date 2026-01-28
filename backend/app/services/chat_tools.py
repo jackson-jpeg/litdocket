@@ -646,7 +646,7 @@ Use this for trial dates, mediation dates, appeal filed dates, service dates, et
 class ChatToolExecutor:
     """Executes tool calls from Claude"""
 
-    def __init__(self, case_id: str, user_id: str, db: Session):
+    def __init__(self, case_id: Optional[str], user_id: str, db: Session):
         self.case_id = case_id
         self.user_id = user_id
         self.db = db

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import * as React from 'react';
 import { useRules } from '@/hooks/useRules';
 import TimelineRuleBuilder from '@/components/rules/TimelineRuleBuilder';
+import { useToast } from '@/components/Toast';
 import {
   Settings,
   Sparkles,
@@ -21,6 +22,8 @@ type TabType = 'my-rules' | 'marketplace' | 'create' | 'history';
 
 export default function RulesBuilderDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('my-rules');
+  const { showSuccess, showError } = useToast();
+
   // Lift the hook to parent so all tabs share the same state
   const {
     rules,
@@ -30,13 +33,16 @@ export default function RulesBuilderDashboard() {
     fetchRules,
     fetchMarketplaceRules
   } = useRules({
-    include_public: false
+    include_public: false,
+    onSuccess: () => showSuccess('Rule saved successfully!'),
+    onError: (error) => showError(error.message || 'Failed to save rule')
   });
 
   // Callback for when a rule is created successfully
   const handleRuleCreated = async () => {
     await fetchRules(); // Refresh the rules list
     setActiveTab('my-rules'); // Navigate to My Rules tab
+    showSuccess('Rule created successfully! View it in the My Rules tab.');
   };
 
   const tabs = [
@@ -100,11 +106,7 @@ export default function RulesBuilderDashboard() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-800 text-sm">{error}</p>
-          </div>
-        )}
+        {/* Errors are now shown as toast notifications instead of persistent banners */}
 
         {activeTab === 'my-rules' && <MyRulesTab rules={rules} loading={loading} />}
         {activeTab === 'marketplace' && <MarketplaceTab />}

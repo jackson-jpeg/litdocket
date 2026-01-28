@@ -449,39 +449,24 @@ export function SovereignTreeGrid({
 
   useEffect(() => {
     async function loadData() {
-      if (!isSupabaseAvailable) {
-        setError('Supabase not configured');
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
+        setError(null);
 
-        // Fetch jurisdictions
-        const { data: jurisdictionsData, error: jurisdictionsError } = await supabase
-          .from('jurisdictions')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
+        // Import apiClient dynamically to avoid SSR issues
+        const { default: apiClient } = await import('@/lib/api-client');
 
-        if (jurisdictionsError) throw jurisdictionsError;
+        // Fetch jurisdictions from backend API
+        const jurisdictionsResponse = await apiClient.get('/api/v1/jurisdictions');
+        const jurisdictionsData = jurisdictionsResponse.data;
 
-        // Fetch rule sets
-        const { data: ruleSetsData, error: ruleSetsError } = await supabase
-          .from('rule_sets')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
+        // Fetch rule sets from backend API
+        const ruleSetsResponse = await apiClient.get('/api/v1/jurisdictions/rule-sets');
+        const ruleSetsData = ruleSetsResponse.data;
 
-        if (ruleSetsError) throw ruleSetsError;
-
-        // Fetch dependencies
-        const { data: depsData, error: depsError } = await supabase
-          .from('rule_set_dependencies')
-          .select('*');
-
-        if (depsError) throw depsError;
+        // For now, set empty dependencies array - can be enhanced later
+        // Dependencies are included in individual rule set details if needed
+        const depsData: any[] = [];
 
         setJurisdictions(jurisdictionsData || []);
         setRuleSets(ruleSetsData || []);
