@@ -458,23 +458,23 @@ export function SovereignTreeGrid({
 
         // Fetch jurisdictions from backend API
         const jurisdictionsResponse = await apiClient.get('/api/v1/jurisdictions');
-        const jurisdictionsData = jurisdictionsResponse.data;
+        const jurisdictionsData: Jurisdiction[] = jurisdictionsResponse.data || [];
 
         // Fetch rule sets from backend API
         const ruleSetsResponse = await apiClient.get('/api/v1/jurisdictions/rule-sets');
-        const ruleSetsData = ruleSetsResponse.data;
+        const ruleSetsData: RuleSet[] = ruleSetsResponse.data || [];
 
         // For now, set empty dependencies array - can be enhanced later
         // Dependencies are included in individual rule set details if needed
         const depsData: any[] = [];
 
-        setJurisdictions(jurisdictionsData || []);
-        setRuleSets(ruleSetsData || []);
+        setJurisdictions(jurisdictionsData);
+        setRuleSets(ruleSetsData);
 
         // Build dependency map
         const depMap = new Map<string, RuleSetWithDependency[]>();
-        (depsData || []).forEach((dep) => {
-          const ruleSet = (ruleSetsData || []).find((rs) => rs.id === dep.required_rule_set_id);
+        (depsData || []).forEach((dep: any) => {
+          const ruleSet = ruleSetsData.find((rs: RuleSet) => rs.id === dep.required_rule_set_id);
           if (ruleSet) {
             const existing = depMap.get(dep.rule_set_id) || [];
             existing.push({
@@ -490,11 +490,11 @@ export function SovereignTreeGrid({
         setDependencies(depMap);
 
         // Build tree
-        const treeData = buildJurisdictionTree(jurisdictionsData || [], ruleSetsData || []);
+        const treeData = buildJurisdictionTree(jurisdictionsData, ruleSetsData);
         setTree(treeData);
 
         setLoading(false);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to load jurisdiction data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
         setLoading(false);
