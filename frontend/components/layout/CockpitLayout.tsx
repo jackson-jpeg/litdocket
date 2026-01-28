@@ -40,7 +40,6 @@ export function CockpitLayout({ children }: CockpitLayoutProps) {
 
       {/* AI Command Bar - Floating overlay, independent of layout */}
       <AITerminal />
-      </div>
     </div>
   );
 }

@@ -834,7 +834,6 @@ export default function CasesListPage() {
             ))}
           </div>
         )}
-      </main>
 
       {/* Bulk Action Bar */}
       {selectionMode && selectedIds.size > 0 && (
