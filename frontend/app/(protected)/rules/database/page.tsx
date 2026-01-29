@@ -306,8 +306,8 @@ export default function RulesDatabasePage() {
     setIsLoading(true);
     try {
       const [rulesRes, jurisdictionsRes] = await Promise.all([
-        apiClient.get('/authority-core/rules?limit=200'),
-        apiClient.get('/jurisdictions'),
+        apiClient.get('/api/v1/authority-core/rules?limit=200'),
+        apiClient.get('/api/v1/jurisdictions'),
       ]);
       setRules(rulesRes.data);
       setJurisdictions(jurisdictionsRes.data);
@@ -325,11 +325,11 @@ export default function RulesDatabasePage() {
   const handleSearch = async () => {
     setIsLoading(true);
     try {
-      let url = '/authority-core/rules';
+      let url = '/api/v1/authority-core/rules';
       const params: string[] = [];
 
       if (searchQuery.trim()) {
-        url = '/authority-core/rules/search';
+        url = '/api/v1/authority-core/rules/search';
         params.push(`q=${encodeURIComponent(searchQuery.trim())}`);
       }
 

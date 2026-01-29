@@ -52,11 +52,11 @@ export default function RuleSelector({
   const fetchRules = useCallback(async () => {
     setIsLoading(true);
     try {
-      let url = '/authority-core/rules';
+      let url = '/api/v1/authority-core/rules';
       const params: string[] = [];
 
       if (searchQuery.trim()) {
-        url = '/authority-core/rules/search';
+        url = '/api/v1/authority-core/rules/search';
         params.push(`q=${encodeURIComponent(searchQuery.trim())}`);
       }
 

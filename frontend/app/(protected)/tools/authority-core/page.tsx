@@ -92,7 +92,7 @@ function ScrapePanel({ jurisdictions, onJobCreated }: {
     setError(null);
 
     try {
-      const response = await apiClient.post('/authority-core/scrape', {
+      const response = await apiClient.post('/api/v1/authority-core/scrape', {
         jurisdiction_id: selectedJurisdiction,
         search_query: searchQuery.trim(),
       });
@@ -346,17 +346,38 @@ export default function AuthorityCorePage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [jurisdictionsRes, jobsRes, proposalsRes, rulesRes] = await Promise.all([
-        apiClient.get('/jurisdictions'),
-        apiClient.get('/authority-core/jobs?limit=10'),
-        apiClient.get('/authority-core/proposals?status=pending&limit=20'),
-        apiClient.get('/authority-core/rules?limit=50'),
+      // Fetch each resource independently so one failure doesn't block others
+      const [jurisdictionsRes, jobsRes, proposalsRes, rulesRes] = await Promise.allSettled([
+        apiClient.get('/api/v1/jurisdictions'),
+        apiClient.get('/api/v1/authority-core/jobs?limit=10'),
+        apiClient.get('/api/v1/authority-core/proposals?status=pending&limit=20'),
+        apiClient.get('/api/v1/authority-core/rules?limit=50'),
       ]);
 
-      setJurisdictions(jurisdictionsRes.data);
-      setJobs(jobsRes.data);
-      setProposals(proposalsRes.data);
-      setRules(rulesRes.data);
+      // Set data from successful responses
+      if (jurisdictionsRes.status === 'fulfilled') {
+        setJurisdictions(jurisdictionsRes.value.data);
+      } else {
+        console.error('Failed to fetch jurisdictions:', jurisdictionsRes.reason);
+      }
+
+      if (jobsRes.status === 'fulfilled') {
+        setJobs(jobsRes.value.data);
+      } else {
+        console.error('Failed to fetch jobs:', jobsRes.reason);
+      }
+
+      if (proposalsRes.status === 'fulfilled') {
+        setProposals(proposalsRes.value.data);
+      } else {
+        console.error('Failed to fetch proposals:', proposalsRes.reason);
+      }
+
+      if (rulesRes.status === 'fulfilled') {
+        setRules(rulesRes.value.data);
+      } else {
+        console.error('Failed to fetch rules:', rulesRes.reason);
+      }
     } catch (err) {
       console.error('Failed to fetch data:', err);
     } finally {
@@ -373,7 +394,7 @@ export default function AuthorityCorePage() {
     // Poll for updates
     const pollInterval = setInterval(async () => {
       try {
-        const response = await apiClient.get(`/authority-core/scrape/${job.id}`);
+        const response = await apiClient.get(`/api/v1/authority-core/scrape/${job.id}`);
         const updatedJob = response.data;
 
         setJobs((prev) =>
@@ -384,7 +405,7 @@ export default function AuthorityCorePage() {
           clearInterval(pollInterval);
           // Refresh proposals if job completed
           if (updatedJob.status === 'completed') {
-            const proposalsRes = await apiClient.get('/authority-core/proposals?status=pending&limit=20');
+            const proposalsRes = await apiClient.get('/api/v1/authority-core/proposals?status=pending&limit=20');
             setProposals(proposalsRes.data);
           }
         }
@@ -401,7 +422,7 @@ export default function AuthorityCorePage() {
     if (!searchQuery.trim()) return;
 
     try {
-      const response = await apiClient.get(`/authority-core/rules/search?q=${encodeURIComponent(searchQuery)}`);
+      const response = await apiClient.get(`/api/v1/authority-core/rules/search?q=${encodeURIComponent(searchQuery)}`);
       setRules(response.data);
     } catch (err) {
       console.error('Search failed:', err);
