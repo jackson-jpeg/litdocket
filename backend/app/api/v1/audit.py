@@ -17,7 +17,7 @@ from typing import Optional, List, Any
 from datetime import datetime
 
 from app.database import get_db
-from app.auth.firebase_auth import get_current_user
+from app.utils.auth import get_current_user
 from app.models.user import User
 
 router = APIRouter()
