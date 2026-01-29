@@ -43,6 +43,17 @@ interface Tool {
 
 const TOOLS: Tool[] = [
   {
+    id: 'authority-core',
+    name: 'Authority Core',
+    description: 'AI-powered rules database. Extract, verify, and manage court rules from any jurisdiction.',
+    icon: <Database className="w-5 h-5" />,
+    href: '/tools/authority-core',
+    status: 'active',
+    category: 'navigation',
+    shortcut: 'Alt+A',
+    docsLink: '/docs/tools/authority-core',
+  },
+  {
     id: 'deadline-calculator',
     name: 'Deadline Calculator',
     description: 'Calculate deadlines with federal/state holiday awareness, service day extensions, and full audit trail.',

@@ -2626,6 +2626,113 @@ class DatabaseRulesEngine:
         self._db_templates_cache = None
 
     # =========================================================================
+    # AUTHORITY CORE INTEGRATION
+    # =========================================================================
+
+    async def get_authority_core_templates(
+        self,
+        jurisdiction_id: str,
+        trigger_type: TriggerType,
+        case_context: Optional[Dict[str, Any]] = None
+    ) -> List[RuleTemplate]:
+        """
+        Get rule templates from Authority Core database.
+
+        This method queries the Authority Core rules database and converts
+        matching rules to RuleTemplate dataclasses for use with the deadline
+        calculation engine.
+
+        Args:
+            jurisdiction_id: UUID of the target jurisdiction
+            trigger_type: The trigger event type
+            case_context: Optional context for condition evaluation
+
+        Returns:
+            List of RuleTemplate dataclasses from Authority Core
+        """
+        # Query Authority Core
+        ac_rules = await get_authority_core_rules(
+            self.db, jurisdiction_id, trigger_type, case_context
+        )
+
+        if not ac_rules:
+            return []
+
+        # Convert to RuleTemplates
+        templates = []
+        for rule_dict in ac_rules:
+            template = convert_authority_rule_to_template(rule_dict)
+            templates.append(template)
+
+        logger.info(f"Loaded {len(templates)} Authority Core templates for {trigger_type.value}")
+        return templates
+
+    def get_templates_with_authority_core(
+        self,
+        jurisdiction_id: str,
+        trigger_type: TriggerType,
+        case_context: Optional[Dict[str, Any]] = None,
+        fallback_jurisdiction: str = "florida_state",
+        fallback_court_type: str = "civil"
+    ) -> List[RuleTemplate]:
+        """
+        Get rule templates, prioritizing Authority Core over hardcoded rules.
+
+        This is the primary method for getting rules in the new architecture.
+        It first checks Authority Core database, then falls back to hardcoded
+        templates if no Authority Core rules are found.
+
+        Args:
+            jurisdiction_id: UUID of the target jurisdiction
+            trigger_type: The trigger event type
+            case_context: Optional context for condition evaluation
+            fallback_jurisdiction: Jurisdiction string for hardcoded fallback
+            fallback_court_type: Court type for hardcoded fallback
+
+        Returns:
+            List of RuleTemplate dataclasses (Authority Core or hardcoded)
+        """
+        import asyncio
+
+        # Try to get Authority Core rules (run async in sync context)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If already in async context, create task
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        get_authority_core_rules(self.db, jurisdiction_id, trigger_type, case_context)
+                    )
+                    ac_rules = future.result(timeout=5)
+            else:
+                ac_rules = asyncio.run(
+                    get_authority_core_rules(self.db, jurisdiction_id, trigger_type, case_context)
+                )
+        except Exception as e:
+            logger.warning(f"Authority Core query failed, using fallback: {e}")
+            ac_rules = []
+
+        if ac_rules:
+            # Convert Authority Core rules to templates
+            templates = []
+            for rule_dict in ac_rules:
+                template = convert_authority_rule_to_template(
+                    rule_dict, fallback_jurisdiction, fallback_court_type
+                )
+                templates.append(template)
+
+            logger.info(f"Using {len(templates)} Authority Core templates for {trigger_type.value}")
+            return templates
+
+        # Fallback to hardcoded templates
+        logger.info(f"No Authority Core rules found, using hardcoded templates for {trigger_type.value}")
+        return self.get_applicable_rules(
+            fallback_jurisdiction, fallback_court_type, trigger_type
+        )
+
+    # =========================================================================
     # HIERARCHY RESOLUTION - The "Sovereign Brain" Graph Traversal
     # =========================================================================
 
@@ -3152,6 +3259,156 @@ class DatabaseRulesEngine:
 
 # Singleton instance (for backwards compatibility with hardcoded rules)
 rules_engine = RulesEngine()
+
+
+# =============================================================================
+# AUTHORITY CORE INTEGRATION
+# =============================================================================
+
+async def get_authority_core_rules(
+    db: "Session",
+    jurisdiction_id: str,
+    trigger_type: TriggerType,
+    case_context: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
+    """
+    Query Authority Core database for matching rules.
+
+    This function checks the Authority Core database (authority_rules table)
+    for verified rules that match the trigger type and jurisdiction.
+
+    Authority Core rules take precedence over hardcoded templates when available.
+
+    Args:
+        db: Database session
+        jurisdiction_id: UUID of the jurisdiction
+        trigger_type: The trigger event type
+        case_context: Optional context for condition evaluation
+
+    Returns:
+        List of rule dictionaries with deadline specifications
+    """
+    from app.models.authority_core import AuthorityRule
+    from app.models.enums import AuthorityTier
+    from sqlalchemy import or_
+
+    try:
+        # Query for matching verified rules
+        query = db.query(AuthorityRule).filter(
+            AuthorityRule.trigger_type == trigger_type.value,
+            AuthorityRule.is_active == True,
+            AuthorityRule.is_verified == True
+        )
+
+        # Include rules for this jurisdiction OR federal rules (higher precedence)
+        query = query.filter(
+            or_(
+                AuthorityRule.jurisdiction_id == jurisdiction_id,
+                AuthorityRule.authority_tier == AuthorityTier.FEDERAL
+            )
+        )
+
+        rules = query.all()
+
+        if not rules:
+            logger.debug(f"No Authority Core rules found for trigger_type={trigger_type.value}, jurisdiction={jurisdiction_id}")
+            return []
+
+        # Sort by tier precedence (federal > state > local > standing_order > firm)
+        tier_order = {
+            AuthorityTier.FEDERAL: 1,
+            AuthorityTier.STATE: 2,
+            AuthorityTier.LOCAL: 3,
+            AuthorityTier.STANDING_ORDER: 4,
+            AuthorityTier.FIRM: 5
+        }
+        rules.sort(key=lambda r: tier_order.get(r.authority_tier, 99))
+
+        # Convert to dictionaries
+        result = []
+        for rule in rules:
+            result.append({
+                'rule_id': rule.id,
+                'rule_code': rule.rule_code,
+                'rule_name': rule.rule_name,
+                'trigger_type': rule.trigger_type,
+                'authority_tier': rule.authority_tier.value if rule.authority_tier else 'state',
+                'citation': rule.citation,
+                'deadlines': rule.deadlines or [],
+                'conditions': rule.conditions,
+                'service_extensions': rule.service_extensions or {'mail': 3, 'electronic': 0, 'personal': 0},
+                'source_url': rule.source_url,
+                'is_verified': rule.is_verified,
+                'confidence_score': float(rule.confidence_score) if rule.confidence_score else 0.0
+            })
+
+        logger.info(f"Found {len(result)} Authority Core rules for trigger_type={trigger_type.value}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Error querying Authority Core: {e}")
+        return []
+
+
+def convert_authority_rule_to_template(
+    rule_dict: Dict[str, Any],
+    jurisdiction: str = "florida_state",
+    court_type: str = "civil"
+) -> RuleTemplate:
+    """
+    Convert an Authority Core rule dictionary to a RuleTemplate dataclass.
+
+    This allows Authority Core rules to be used with the existing
+    calculate_dependent_deadlines method.
+
+    Args:
+        rule_dict: Rule dictionary from Authority Core
+        jurisdiction: Jurisdiction string for template
+        court_type: Court type for template
+
+    Returns:
+        RuleTemplate dataclass compatible with rules engine
+    """
+    # Convert trigger type string to enum
+    trigger_type_str = rule_dict.get('trigger_type', 'custom_trigger')
+    try:
+        trigger_type = TriggerType(trigger_type_str)
+    except ValueError:
+        trigger_type = TriggerType.CUSTOM_TRIGGER
+
+    # Convert deadlines to DependentDeadline dataclasses
+    dependent_deadlines = []
+    for dl_spec in rule_dict.get('deadlines', []):
+        # Map priority string to enum
+        priority_str = dl_spec.get('priority', 'standard')
+        try:
+            priority = DeadlinePriority(priority_str)
+        except ValueError:
+            priority = DeadlinePriority.STANDARD
+
+        dependent_deadlines.append(DependentDeadline(
+            name=dl_spec.get('title', 'Unknown Deadline'),
+            description=dl_spec.get('description', ''),
+            days_from_trigger=dl_spec.get('days_from_trigger', 0),
+            priority=priority,
+            party_responsible=dl_spec.get('party_responsible', 'both'),
+            action_required=dl_spec.get('description', ''),
+            calculation_method=dl_spec.get('calculation_method', 'calendar_days'),
+            add_service_method_days=True,  # Authority Core rules include service extensions
+            rule_citation=rule_dict.get('citation', ''),
+            notes=f"Source: Authority Core ({rule_dict.get('rule_code', 'N/A')})"
+        ))
+
+    return RuleTemplate(
+        rule_id=f"AC_{rule_dict.get('rule_id', 'unknown')[:8]}",
+        name=rule_dict.get('rule_name', 'Authority Core Rule'),
+        description=f"Authority Core verified rule: {rule_dict.get('rule_code', '')}",
+        jurisdiction=jurisdiction,
+        court_type=court_type,
+        trigger_type=trigger_type,
+        dependent_deadlines=dependent_deadlines,
+        citation=rule_dict.get('citation', '')
+    )
 
 
 def get_rules_engine_for_case(db: "Session", case_id: str) -> DatabaseRulesEngine:

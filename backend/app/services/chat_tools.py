@@ -639,6 +639,99 @@ Use this for trial dates, mediation dates, appeal filed dates, service dates, et
             },
             "required": ["parent_deadline_id", "child_deadline_id", "days_offset"]
         }
+    },
+    # =========================================================================
+    # AUTHORITY CORE TOOLS - AI-Powered Rules Database
+    # =========================================================================
+    {
+        "name": "search_court_rules",
+        "description": """Search the Authority Core rules database for procedural court rules.
+
+Use this tool when the user asks about:
+- Deadline requirements (e.g., "How long do I have to respond to a motion?")
+- Procedural rules (e.g., "What are the expert disclosure deadlines?")
+- Rule citations (e.g., "What does FRCP 12 say about answers?")
+- Jurisdiction-specific rules (e.g., "What are the S.D. Florida local rules for motions?")
+
+The tool searches verified rules from the Authority Core database and returns matching rules with citations.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query (e.g., 'motion response deadline', 'discovery cutoff', 'expert disclosure')"
+                },
+                "jurisdiction_id": {
+                    "type": "string",
+                    "description": "Optional UUID of jurisdiction to filter by"
+                },
+                "trigger_type": {
+                    "type": "string",
+                    "enum": [
+                        "case_filed", "service_completed", "complaint_served", "answer_due",
+                        "discovery_commenced", "discovery_deadline", "dispositive_motions_due",
+                        "pretrial_conference", "trial_date", "hearing_scheduled",
+                        "motion_filed", "order_entered", "appeal_filed", "mediation_scheduled",
+                        "custom_trigger"
+                    ],
+                    "description": "Optional trigger type to filter by"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "get_rule_details",
+        "description": """Get full details of a specific court rule from Authority Core.
+
+Use this when you have a rule ID and need complete information including:
+- Full citation and source text
+- All deadline specifications
+- Conditions when the rule applies
+- Service method extensions
+
+This is useful after search_court_rules returns results and you need more detail.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "rule_id": {
+                    "type": "string",
+                    "description": "UUID of the rule to retrieve"
+                }
+            },
+            "required": ["rule_id"]
+        }
+    },
+    {
+        "name": "calculate_from_rule",
+        "description": """Calculate deadlines using a specific Authority Core rule.
+
+Use this when you want to show the user what deadlines a specific rule would generate
+without actually creating them. Useful for:
+- Explaining what deadlines apply to a situation
+- Previewing before creating trigger deadlines
+- Answering "what if" questions about dates
+
+The tool returns calculated dates based on the rule's deadline specifications.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "rule_id": {
+                    "type": "string",
+                    "description": "UUID of the Authority Core rule to use"
+                },
+                "trigger_date": {
+                    "type": "string",
+                    "description": "Trigger date in YYYY-MM-DD format"
+                },
+                "service_method": {
+                    "type": "string",
+                    "enum": ["electronic", "mail", "personal"],
+                    "description": "Service method for extension calculation (default: electronic)"
+                }
+            },
+            "required": ["rule_id", "trigger_date"]
+        }
     }
 ]
 
@@ -717,6 +810,14 @@ class ChatToolExecutor:
             return self._duplicate_deadline(tool_input)
         elif tool_name == "link_deadlines":
             return self._link_deadlines(tool_input)
+
+        # Authority Core tools - AI-Powered Rules Database
+        elif tool_name == "search_court_rules":
+            return self._search_court_rules(tool_input)
+        elif tool_name == "get_rule_details":
+            return self._get_rule_details(tool_input)
+        elif tool_name == "calculate_from_rule":
+            return self._calculate_from_rule(tool_input)
 
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -2163,4 +2264,206 @@ class ChatToolExecutor:
 
         except Exception as e:
             self.db.rollback()
+            return {"success": False, "error": str(e)}
+
+    # =========================================================================
+    # AUTHORITY CORE TOOLS
+    # =========================================================================
+
+    def _search_court_rules(self, input_data: Dict) -> Dict:
+        """Search Authority Core rules database"""
+        try:
+            from app.models.authority_core import AuthorityRule
+            from app.models.jurisdiction import Jurisdiction
+            from sqlalchemy import or_
+
+            query_text = input_data.get('query', '')
+            jurisdiction_id = input_data.get('jurisdiction_id')
+            trigger_type = input_data.get('trigger_type')
+
+            # Build search query
+            search_filter = or_(
+                AuthorityRule.rule_name.ilike(f"%{query_text}%"),
+                AuthorityRule.rule_code.ilike(f"%{query_text}%"),
+                AuthorityRule.citation.ilike(f"%{query_text}%"),
+                AuthorityRule.source_text.ilike(f"%{query_text}%")
+            )
+
+            db_query = self.db.query(AuthorityRule).filter(
+                search_filter,
+                AuthorityRule.is_active == True,
+                AuthorityRule.is_verified == True
+            )
+
+            if jurisdiction_id:
+                db_query = db_query.filter(AuthorityRule.jurisdiction_id == jurisdiction_id)
+
+            if trigger_type:
+                db_query = db_query.filter(AuthorityRule.trigger_type == trigger_type)
+
+            rules = db_query.limit(10).all()
+
+            if not rules:
+                return {
+                    "success": True,
+                    "rules_found": 0,
+                    "rules": [],
+                    "message": f"No rules found matching '{query_text}'. Try a different search term or check if rules have been imported for this jurisdiction."
+                }
+
+            # Format results
+            results = []
+            for rule in rules:
+                # Get jurisdiction name
+                jurisdiction = self.db.query(Jurisdiction).filter(
+                    Jurisdiction.id == rule.jurisdiction_id
+                ).first()
+
+                deadline_count = len(rule.deadlines) if rule.deadlines else 0
+
+                results.append({
+                    "rule_id": rule.id,
+                    "rule_code": rule.rule_code,
+                    "rule_name": rule.rule_name,
+                    "citation": rule.citation,
+                    "trigger_type": rule.trigger_type,
+                    "authority_tier": rule.authority_tier.value if rule.authority_tier else "state",
+                    "jurisdiction_name": jurisdiction.name if jurisdiction else "Unknown",
+                    "deadline_count": deadline_count,
+                    "is_verified": rule.is_verified
+                })
+
+            return {
+                "success": True,
+                "rules_found": len(results),
+                "rules": results,
+                "message": f"Found {len(results)} rules matching '{query_text}'."
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _get_rule_details(self, input_data: Dict) -> Dict:
+        """Get full details of a specific Authority Core rule"""
+        try:
+            from app.models.authority_core import AuthorityRule
+            from app.models.jurisdiction import Jurisdiction
+
+            rule_id = input_data.get('rule_id')
+            if not rule_id:
+                return {"success": False, "error": "rule_id is required"}
+
+            rule = self.db.query(AuthorityRule).filter(
+                AuthorityRule.id == rule_id
+            ).first()
+
+            if not rule:
+                return {"success": False, "error": f"Rule {rule_id} not found"}
+
+            # Get jurisdiction name
+            jurisdiction = self.db.query(Jurisdiction).filter(
+                Jurisdiction.id == rule.jurisdiction_id
+            ).first()
+
+            return {
+                "success": True,
+                "rule": {
+                    "id": rule.id,
+                    "rule_code": rule.rule_code,
+                    "rule_name": rule.rule_name,
+                    "citation": rule.citation,
+                    "trigger_type": rule.trigger_type,
+                    "authority_tier": rule.authority_tier.value if rule.authority_tier else "state",
+                    "jurisdiction_name": jurisdiction.name if jurisdiction else "Unknown",
+                    "source_url": rule.source_url,
+                    "source_text": rule.source_text[:1000] if rule.source_text else None,
+                    "deadlines": rule.deadlines or [],
+                    "conditions": rule.conditions,
+                    "service_extensions": rule.service_extensions or {"mail": 3, "electronic": 0, "personal": 0},
+                    "is_verified": rule.is_verified,
+                    "verified_at": rule.verified_at.isoformat() if rule.verified_at else None,
+                    "confidence_score": float(rule.confidence_score) if rule.confidence_score else 0.0
+                },
+                "message": f"Rule details for {rule.rule_name}"
+            }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _calculate_from_rule(self, input_data: Dict) -> Dict:
+        """Calculate deadlines from an Authority Core rule without creating them"""
+        try:
+            from app.models.authority_core import AuthorityRule
+            from app.utils.deadline_calculator import AuthoritativeDeadlineCalculator, CalculationMethod
+            from datetime import datetime, timedelta
+
+            rule_id = input_data.get('rule_id')
+            trigger_date_str = input_data.get('trigger_date')
+            service_method = input_data.get('service_method', 'electronic')
+
+            if not rule_id:
+                return {"success": False, "error": "rule_id is required"}
+            if not trigger_date_str:
+                return {"success": False, "error": "trigger_date is required"}
+
+            # Parse date
+            try:
+                trigger_date = datetime.strptime(trigger_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
+
+            # Get the rule
+            rule = self.db.query(AuthorityRule).filter(
+                AuthorityRule.id == rule_id
+            ).first()
+
+            if not rule:
+                return {"success": False, "error": f"Rule {rule_id} not found"}
+
+            # Calculate deadlines
+            calculator = AuthoritativeDeadlineCalculator()
+            calculated_deadlines = []
+
+            # Get service extension
+            extensions = rule.service_extensions or {}
+            extension_days = extensions.get(service_method, 0)
+
+            for deadline_spec in (rule.deadlines or []):
+                days = deadline_spec.get('days_from_trigger', 0) + extension_days
+                method_str = deadline_spec.get('calculation_method', 'calendar_days')
+
+                # Map calculation method
+                if method_str in ['business_days', 'court_days']:
+                    calc_method = CalculationMethod.COURT_DAYS
+                else:
+                    calc_method = CalculationMethod.CALENDAR_DAYS
+
+                # Calculate the deadline date
+                deadline_date = calculator.calculate_deadline(
+                    start_date=trigger_date,
+                    days=days,
+                    method=calc_method
+                )
+
+                calculated_deadlines.append({
+                    "title": deadline_spec.get('title', 'Unknown'),
+                    "deadline_date": deadline_date.isoformat(),
+                    "days_from_trigger": deadline_spec.get('days_from_trigger', 0),
+                    "calculation_method": method_str,
+                    "priority": deadline_spec.get('priority', 'standard'),
+                    "party_responsible": deadline_spec.get('party_responsible')
+                })
+
+            return {
+                "success": True,
+                "rule_name": rule.rule_name,
+                "citation": rule.citation,
+                "trigger_date": trigger_date_str,
+                "service_method": service_method,
+                "deadlines_calculated": len(calculated_deadlines),
+                "deadlines": calculated_deadlines,
+                "message": f"Calculated {len(calculated_deadlines)} deadlines from {rule.rule_name}"
+            }
+
+        except Exception as e:
             return {"success": False, "error": str(e)}

@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth, documents, cases, deadlines, chat, chat_stream, dashboard, triggers,
     search, insights, verification, notifications, jurisdictions,
-    rag_search, workload, rules, audit
+    rag_search, workload, rules, audit, authority_core
 )
 
 api_router = APIRouter()
@@ -36,3 +36,6 @@ api_router.include_router(rules.router, prefix="/rules", tags=["rules"])
 
 # Audit Trail & AI Staging
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
+
+# Authority Core - AI-Powered Rules Database
+api_router.include_router(authority_core.router, tags=["authority-core"])

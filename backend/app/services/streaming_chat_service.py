@@ -51,7 +51,11 @@ SAFE_TOOLS = {
     'calculate_deadline',
     'preview_cascade_update',  # Read-only preview
     'get_dependency_tree',
-    'get_available_templates'
+    'get_available_templates',
+    # Authority Core tools (read-only)
+    'search_court_rules',
+    'get_rule_details',
+    'calculate_from_rule'
 }
 
 

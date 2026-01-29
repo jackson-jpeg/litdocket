@@ -74,3 +74,44 @@ class CourtType(enum.Enum):
     BANKRUPTCY = "bankruptcy"
     APPELLATE = "appellate"
     SUPREME = "supreme"
+
+
+class AuthorityTier(enum.Enum):
+    """
+    Authority levels for rules, used for precedence.
+
+    Higher tiers take precedence over lower tiers when rules conflict.
+    FEDERAL > STATE > LOCAL > STANDING_ORDER > FIRM
+    """
+    FEDERAL = "federal"
+    STATE = "state"
+    LOCAL = "local"
+    STANDING_ORDER = "standing_order"
+    FIRM = "firm"
+
+
+class ProposalStatus(enum.Enum):
+    """Status of AI-extracted rule proposals awaiting review"""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    NEEDS_REVISION = "needs_revision"
+
+
+class ScrapeStatus(enum.Enum):
+    """Status of web scraping jobs for rule extraction"""
+    QUEUED = "queued"
+    SEARCHING = "searching"
+    EXTRACTING = "extracting"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ConflictResolution(enum.Enum):
+    """How a rule conflict was resolved"""
+    PENDING = "pending"
+    USE_HIGHER_TIER = "use_higher_tier"
+    USE_RULE_A = "use_rule_a"
+    USE_RULE_B = "use_rule_b"
+    MANUAL = "manual"
+    IGNORED = "ignored"

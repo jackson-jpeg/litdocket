@@ -207,3 +207,147 @@ export interface CalendarEvent {
     case_title?: string;
   };
 }
+
+// =============================================================================
+// AUTHORITY CORE TYPES - AI-Powered Rules Database
+// =============================================================================
+
+export type AuthorityTier = 'federal' | 'state' | 'local' | 'standing_order' | 'firm';
+export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'needs_revision';
+export type ScrapeStatus = 'queued' | 'searching' | 'extracting' | 'completed' | 'failed';
+export type ConflictResolution = 'pending' | 'use_higher_tier' | 'use_rule_a' | 'use_rule_b' | 'manual' | 'ignored';
+
+export interface DeadlineSpec {
+  title: string;
+  days_from_trigger: number;
+  calculation_method: 'calendar_days' | 'business_days' | 'court_days';
+  priority: string;
+  party_responsible?: string;
+  conditions?: Record<string, unknown>;
+  description?: string;
+}
+
+export interface ServiceExtensions {
+  mail: number;
+  electronic: number;
+  personal: number;
+}
+
+export interface RuleConditions {
+  case_types?: string[];
+  motion_types?: string[];
+  service_methods?: string[];
+  exclusions?: Record<string, unknown>;
+}
+
+export interface AuthorityRule {
+  id: string;
+  jurisdiction_id?: string;
+  jurisdiction_name?: string;
+  user_id?: string;
+  rule_code: string;
+  rule_name: string;
+  trigger_type: string;
+  authority_tier: AuthorityTier;
+  citation?: string;
+  source_url?: string;
+  source_text?: string;
+  deadlines: DeadlineSpec[];
+  conditions?: RuleConditions;
+  service_extensions?: ServiceExtensions;
+  confidence_score: number;
+  is_verified: boolean;
+  verified_by?: string;
+  verified_at?: string;
+  is_active: boolean;
+  effective_date?: string;
+  superseded_date?: string;
+  created_at: string;
+  updated_at: string;
+  usage_count?: number;
+}
+
+export interface ScrapeJob {
+  id: string;
+  user_id: string;
+  jurisdiction_id?: string;
+  jurisdiction_name?: string;
+  search_query: string;
+  status: ScrapeStatus;
+  progress_pct: number;
+  rules_found: number;
+  proposals_created: number;
+  urls_processed: string[];
+  error_message?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface ScrapeProgress {
+  job_id: string;
+  status: ScrapeStatus;
+  progress_pct: number;
+  message: string;
+  urls_processed: string[];
+  rules_found: number;
+  current_action?: string;
+}
+
+export interface RuleProposal {
+  id: string;
+  user_id: string;
+  scrape_job_id?: string;
+  jurisdiction_id?: string;
+  jurisdiction_name?: string;
+  proposed_rule_data: {
+    rule_code: string;
+    rule_name: string;
+    trigger_type: string;
+    authority_tier: AuthorityTier;
+    citation?: string;
+    deadlines: DeadlineSpec[];
+    conditions?: RuleConditions;
+    service_extensions?: ServiceExtensions;
+  };
+  source_url?: string;
+  source_text?: string;
+  confidence_score: number;
+  extraction_notes?: string;
+  status: ProposalStatus;
+  reviewed_by?: string;
+  reviewer_notes?: string;
+  approved_rule_id?: string;
+  created_at: string;
+  reviewed_at?: string;
+}
+
+export interface RuleConflict {
+  id: string;
+  rule_a_id: string;
+  rule_a_name?: string;
+  rule_a_citation?: string;
+  rule_b_id: string;
+  rule_b_name?: string;
+  rule_b_citation?: string;
+  conflict_type: string;
+  severity: 'info' | 'warning' | 'error';
+  description: string;
+  resolution: ConflictResolution;
+  resolution_notes?: string;
+  resolved_by?: string;
+  resolved_at?: string;
+  created_at: string;
+}
+
+export interface CalculatedDeadline {
+  title: string;
+  deadline_date: string;
+  days_from_trigger: number;
+  calculation_method: string;
+  priority: string;
+  party_responsible?: string;
+  source_rule_id: string;
+  citation?: string;
+  rule_name: string;
+}

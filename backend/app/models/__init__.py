@@ -50,7 +50,24 @@ from app.models.jurisdiction import (
     DependencyType,
 )
 # Centralized enums (SINGLE SOURCE OF TRUTH)
-from app.models.enums import TriggerType, DeadlinePriority, CalculationMethod
+from app.models.enums import (
+    TriggerType,
+    DeadlinePriority,
+    CalculationMethod,
+    AuthorityTier,
+    ProposalStatus,
+    ScrapeStatus,
+    ConflictResolution,
+)
+
+# Authority Core - AI-Powered Rules Database
+from app.models.authority_core import (
+    AuthorityRule,
+    ScrapeJob,
+    RuleProposal,
+    RuleConflict,
+    AuthorityRuleUsage,
+)
 
 __all__ = [
     "Base",
@@ -98,4 +115,14 @@ __all__ = [
     "TriggerType",
     "DeadlinePriority",
     "CalculationMethod",
+    "AuthorityTier",
+    "ProposalStatus",
+    "ScrapeStatus",
+    "ConflictResolution",
+    # Authority Core
+    "AuthorityRule",
+    "ScrapeJob",
+    "RuleProposal",
+    "RuleConflict",
+    "AuthorityRuleUsage",
 ]
