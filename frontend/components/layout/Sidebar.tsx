@@ -1,115 +1,130 @@
 'use client';
 
 /**
- * Sidebar - Paper & Steel Navigation
+ * Sidebar - Main Navigation
  *
- * Dark slate background (slate-900) with professional navigation
- * Active state: slate-800 + blue left border + white text
- * Inactive state: slate-400 text with hover to slate-200
+ * Fixed left sidebar with 4 main nav items.
+ * Settings subsections appear only on /settings route.
  */
 
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth/auth-context';
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-  children?: NavItem[];
-}
+// Icons
+const IconDashboard = () => (
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8.354 1.146a.5.5 0 00-.708 0l-6 6A.5.5 0 001.5 7.5v7a.5.5 0 00.5.5h4a.5.5 0 00.5-.5v-4h3v4a.5.5 0 00.5.5h4a.5.5 0 00.5-.5v-7a.5.5 0 00-.146-.354L13 5.793V2.5a.5.5 0 00-.5-.5h-1a.5.5 0 00-.5.5v1.293L8.354 1.146z"/>
+  </svg>
+);
 
-// Simple icon components
-const IconFolder = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+const IconCases = () => (
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
     <path d="M1 3.5A1.5 1.5 0 012.5 2h3.379a1 1 0 01.707.293L7.707 3.5H13.5A1.5 1.5 0 0115 5v7.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z"/>
   </svg>
 );
 
-const IconCalendar = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+const IconDocket = () => (
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
     <path d="M4 0a1 1 0 00-1 1v1H2a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V4a2 2 0 00-2-2h-1V1a1 1 0 00-2 0v1H5V1a1 1 0 00-1-1zM2 6h12v8H2V6z"/>
   </svg>
 );
 
-const IconDashboard = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M0 2a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H2a2 2 0 01-2-2V2zm4 0v6h8V2H4zm8 8H4v4h8v-4zM2 2v2h2V2H2zm0 4v2h2V6H2zm0 4v4h2v-4H2z"/>
-  </svg>
-);
-
 const IconSettings = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
     <path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492zM5.754 8a2.246 2.246 0 114.492 0 2.246 2.246 0 01-4.492 0z"/>
     <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319z"/>
   </svg>
 );
 
-const IconTools = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M1 0L0 1l2.2 3.081a1 1 0 00.815.419h.07a1 1 0 01.708.293l2.675 2.675-2.617 2.654A3.003 3.003 0 004 13a3 3 0 103.88-2.866l2.656-2.617 2.675 2.675a1 1 0 01.293.708v.07a1 1 0 00.419.815L15 16l1-1-2.775-3.565-5.447-5.447L12.344 1.422l-1.414-1.414L6.363 4.574 1.776.987 1 0zM4 15a2 2 0 110-4 2 2 0 010 4z"/>
-  </svg>
-);
-
-const IconRules = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M5.5 0a.5.5 0 01.5.5V2h4V.5a.5.5 0 011 0V2h1.5A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9A1.5 1.5 0 013.5 2H5V.5a.5.5 0 01.5-.5zM3 5v7.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V5H3zm2.354 1.854a.5.5 0 00-.708.708l1.5 1.5a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L7 7.793 5.354 6.146z"/>
-  </svg>
-);
-
-const navItems: NavItem[] = [
+const mainNavItems = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
-  { label: 'Cases', href: '/cases', icon: <IconFolder /> },
-  { label: 'Calendar', href: '/calendar', icon: <IconCalendar /> },
-  { label: 'Rules Builder', href: '/rules', icon: <IconRules /> },
-  { label: 'Tools', href: '/tools', icon: <IconTools /> },
+  { label: 'Cases', href: '/cases', icon: <IconCases /> },
+  { label: 'Docket', href: '/calendar', icon: <IconDocket /> },
   { label: 'Settings', href: '/settings', icon: <IconSettings /> },
+];
+
+const settingsSubsections = [
+  { label: 'Notifications', section: 'notifications' },
+  { label: 'Preferences', section: 'preferences' },
+  { label: 'Rules', section: 'rules' },
+  { label: 'Account', section: 'account' },
+  { label: 'Integrations', section: 'integrations' },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
+  const isSettingsPage = pathname?.startsWith('/settings');
 
   const isActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === '/dashboard' || pathname === '/';
     }
-    return pathname.startsWith(href);
+    return pathname?.startsWith(href);
   };
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col overflow-y-auto scrollbar-light">
-      {/* Logo/Branding */}
-      <div className="px-4 py-6 border-b border-slate-800">
+    <aside className="w-[280px] bg-[#001f3f] flex-shrink-0 flex flex-col h-screen">
+      {/* Logo */}
+      <div className="px-5 py-6">
         <h1 className="text-xl font-bold text-white">LitDocket</h1>
-        <p className="text-xs text-slate-400 mt-1">Legal Docketing</p>
       </div>
 
-      {/* Navigation Items */}
-      <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => {
-          const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all
-                ${active
-                  ? 'bg-slate-800 text-white border-l-4 border-blue-500 pl-2.5'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }
-              `}
-            >
-              <span className="flex-shrink-0">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+      {/* Main Navigation */}
+      <nav className="flex-1 px-4">
+        <ul className="space-y-1">
+          {mainNavItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={`
+                    flex items-center gap-3 px-4 py-3 rounded-lg text-[15px] font-medium transition-all
+                    ${active
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                    }
+                  `}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Settings Subsections - only show on /settings */}
+        {isSettingsPage && (
+          <ul className="mt-4 pt-4 border-t border-white/10 space-y-1">
+            {settingsSubsections.map((item) => (
+              <li key={item.section}>
+                <button
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
+                >
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </nav>
 
-      {/* System Info Footer */}
-      <div className="p-4 border-t border-slate-800">
-        <div className="text-xs text-slate-500 font-mono">v3.0.0-alpha</div>
+      {/* User Info */}
+      <div className="px-4 py-4 border-t border-white/10">
+        <div className="text-sm text-slate-400 truncate mb-2">
+          {user?.email || 'Not signed in'}
+        </div>
+        <button
+          onClick={() => signOut()}
+          className="text-sm text-slate-500 hover:text-white transition-colors"
+        >
+          Logout
+        </button>
       </div>
     </aside>
   );

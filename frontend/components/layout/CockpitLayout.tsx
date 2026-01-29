@@ -1,14 +1,13 @@
 'use client';
 
 /**
- * Cockpit Layout - Paper & Steel Application Shell
+ * Cockpit Layout - Main Application Shell
  *
- * Fixed Sidebar (dark slate) + Header + Centered Content Area (light)
- * Standard dashboard layout with max-w-7xl content container
+ * Fixed Sidebar (280px) + Main Content Area
+ * No floating elements - clean integrated layout
  */
 
 import React from 'react';
-import { CockpitHeader } from './CockpitHeader';
 import { Sidebar } from './Sidebar';
 import { AITerminal } from './AITerminal';
 
@@ -18,27 +17,21 @@ interface CockpitLayoutProps {
 
 export function CockpitLayout({ children }: CockpitLayoutProps) {
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-app-bg">
-      {/* Top Header Bar */}
-      <CockpitHeader />
+    <div className="h-screen w-screen overflow-hidden flex bg-slate-100">
+      {/* Fixed Left Sidebar */}
+      <Sidebar />
 
-      {/* Main Body: Sidebar + Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Dark Slate */}
-        <Sidebar />
-
-        {/* Main Content Area - Light Background */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-app-bg">
-          {/* Scrollable Content with max-width and centered */}
-          <div className="flex-1 overflow-auto scrollbar-light">
-            <div className="max-w-7xl mx-auto p-8">
-              {children}
-            </div>
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-auto">
+          <div className="p-8">
+            {children}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
 
-      {/* AI Command Bar - Floating overlay, independent of layout */}
+      {/* AI Command Bar */}
       <AITerminal />
     </div>
   );
