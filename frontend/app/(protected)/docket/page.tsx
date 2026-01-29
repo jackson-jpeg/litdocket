@@ -184,7 +184,7 @@ export default function DocketPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
           <p className="text-slate-600 font-mono text-sm">Loading docket...</p>
@@ -196,14 +196,14 @@ export default function DocketPage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center max-w-md">
           <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-slate-800 mb-2">Failed to load docket</h2>
           <p className="text-slate-600 mb-4">{error}</p>
           <button
             onClick={refetch}
-            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+            className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-700 transition-colors rounded-lg"
           >
             Try Again
           </button>
@@ -215,14 +215,13 @@ export default function DocketPage() {
   const today = new Date();
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Title */}
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">Docket</h1>
+    <div>
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          {/* Title */}
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Docket</h1>
               <p className="text-sm text-slate-500">
                 {stats.pending} pending deadlines across {cases.length} cases
               </p>
@@ -350,15 +349,14 @@ export default function DocketPage() {
                 Clear date filter: {format(selectedDate, 'MMM d')}
               </button>
             )}
-          </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <div className="flex">
+      <div className="flex gap-6">
         {/* Sidebar - Mini Calendar & Stats */}
         {showMiniCalendar && (
-          <aside className="w-80 bg-white border-r border-slate-200 flex-shrink-0 sticky top-[120px] h-[calc(100vh-120px)] overflow-y-auto">
+          <aside className="w-80 bg-white border border-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
             {/* Stats Cards */}
             <div className="p-4 border-b border-slate-200">
               <div className="grid grid-cols-2 gap-3">
@@ -522,21 +520,8 @@ export default function DocketPage() {
           </aside>
         )}
 
-        {/* Toggle sidebar button */}
-        <button
-          onClick={() => setShowMiniCalendar(!showMiniCalendar)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 bg-white border border-slate-200 p-1 rounded-r shadow-sm hover:bg-slate-50"
-          style={{ left: showMiniCalendar ? '320px' : '0' }}
-        >
-          {showMiniCalendar ? (
-            <ChevronLeft className="w-4 h-4 text-slate-600" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-slate-600" />
-          )}
-        </button>
-
         {/* Main Content Area */}
-        <main className="flex-1 p-6">
+        <main className="flex-1">
           {viewMode === 'list' ? (
             <DeadlineList
               deadlines={filteredDeadlines}
