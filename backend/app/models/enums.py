@@ -74,3 +74,47 @@ class CourtType(enum.Enum):
     BANKRUPTCY = "bankruptcy"
     APPELLATE = "appellate"
     SUPREME = "supreme"
+
+
+class TriggerStatus(enum.Enum):
+    """
+    Status of document-to-trigger matching.
+
+    Used by DocumentClassificationService to indicate whether a document
+    matches a known trigger pattern or requires further research.
+
+    MATCHED: Document matches a known trigger pattern with established rules
+    UNRECOGNIZED: Document type identified but no matching rules exist
+    NEEDS_RESEARCH: Document may trigger deadlines but requires rule research
+    RESEARCH_COMPLETE: Research performed, proposal awaiting review
+    """
+    MATCHED = "matched"
+    UNRECOGNIZED = "unrecognized"
+    NEEDS_RESEARCH = "needs_research"
+    RESEARCH_COMPLETE = "research_complete"
+
+
+class DocumentClassificationStatus(enum.Enum):
+    """
+    Classification status for uploaded documents.
+
+    Tracks the document's journey through the classification pipeline.
+    """
+    PENDING = "pending"           # Not yet classified
+    MATCHED = "matched"           # Matched to known trigger
+    UNRECOGNIZED = "unrecognized" # Doc type known, no rule exists
+    NEEDS_RESEARCH = "needs_research"  # Flagged for rule discovery
+    RESEARCHED = "researched"     # Rule research complete, awaiting review
+    MANUAL = "manual"             # User manually classified
+
+
+class RuleProposalStatus(enum.Enum):
+    """
+    Status of AI-proposed rules.
+
+    Used to track rule proposals through the review workflow.
+    """
+    PENDING = "pending"     # Awaiting attorney review
+    APPROVED = "approved"   # Accepted and converted to active rule
+    REJECTED = "rejected"   # Rejected by attorney
+    MODIFIED = "modified"   # Approved with modifications

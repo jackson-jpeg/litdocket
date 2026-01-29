@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, BigInteger, Date, DateTime, ForeignKey, Text, func, JSON, Boolean
+from sqlalchemy import Column, String, BigInteger, Date, DateTime, ForeignKey, Text, func, JSON, Boolean, Integer, Numeric
 from sqlalchemy.orm import relationship
 import uuid
 
@@ -26,6 +26,57 @@ class Document(Base):
     extracted_metadata = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # =========================================================================
+    # Phase 1: Document Classification Fields
+    # These fields support "soft ingestion" - rich classification for all
+    # documents, including those that don't match known trigger patterns.
+    # =========================================================================
+
+    # Classification pipeline status: pending, matched, unrecognized, needs_research, researched, manual
+    classification_status = Column(String(50), default="pending", index=True)
+
+    # If matched, what trigger type was matched (TriggerType enum value)
+    matched_trigger_type = Column(String(100))
+
+    # What pattern matched (for debugging/transparency)
+    matched_pattern = Column(String(255))
+
+    # Classification confidence score (0.0 - 1.0)
+    classification_confidence = Column(Numeric(3, 2))
+
+    # For unrecognized documents: AI's best guess at the trigger event
+    # e.g., "Receipt of Rule 11 Motion", "Service of Subpoena"
+    potential_trigger_event = Column(String(255))
+
+    # Whether this document requires a response from another party
+    response_required = Column(Boolean, default=False)
+
+    # Who must respond: plaintiff, defendant, both, third_party, null
+    response_party = Column(String(50))
+
+    # Estimated response deadline in days (from AI analysis)
+    response_deadline_days = Column(Integer)
+
+    # What stage the case is in: Pre-Answer, Discovery Phase, Post-Discovery/Pre-Trial, etc.
+    procedural_posture = Column(String(100))
+
+    # What the filing party is asking for
+    relief_sought = Column(Text)
+
+    # Urgency indicators found in the document (JSON array of strings)
+    # e.g., ["emergency", "expedited", "ex parte"]
+    urgency_indicators = Column(JSON, default=list)
+
+    # Rule citations found in the document (JSON array of strings)
+    # e.g., ["Fla. R. Civ. P. 1.380", "FRCP 37"]
+    rule_references = Column(JSON, default=list)
+
+    # Suggested next action: apply_rules, research_deadlines, manual_review, none
+    suggested_action = Column(String(50))
+
+    # Document category: motion, order, notice, pleading, discovery, subpoena, correspondence, other
+    document_category = Column(String(50))
 
     # Relationships
     case = relationship("Case", back_populates="documents")

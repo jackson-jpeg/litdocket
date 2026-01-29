@@ -208,6 +208,17 @@ async def upload_document(
         else:
             status_message = "Document attached"
 
+        # Build classification info for the response
+        classification_info = {
+            'classification_status': document.classification_status,
+            'detected_document_type': document.document_type,
+            'classification_confidence': float(document.classification_confidence) if document.classification_confidence else None,
+            'suggested_action': document.suggested_action,
+            'potential_trigger_event': document.potential_trigger_event,
+            'response_required': document.response_required,
+            'matched_trigger_type': document.matched_trigger_type,
+        }
+
         return {
             'success': True,
             'document_id': str(document.id),
@@ -219,6 +230,7 @@ async def upload_document(
             'extraction_method': extraction_method,  # "trigger" or "manual"
             'docketing_message': docketing_message,  # Message for chatbot
             'trigger_info': extraction_result.get('trigger_info'),  # Trigger details if PATH A
+            'classification': classification_info,  # Phase 1: Document classification details
             'redirect_url': f"/cases/{analysis_result['case_id']}",
             'message': docketing_message or f'{status_message}. {len(deadlines)} deadline(s) extracted.'
         }
@@ -267,7 +279,24 @@ async def get_document(
         'ai_summary': document.ai_summary,
         'extracted_metadata': document.extracted_metadata,
         'created_at': document.created_at.isoformat(),
-        'tags': [{'id': t.id, 'name': t.name, 'color': t.color} for t in doc_tags]
+        'tags': [{'id': t.id, 'name': t.name, 'color': t.color} for t in doc_tags],
+        # Phase 1: Document classification fields
+        'classification': {
+            'status': document.classification_status,
+            'document_category': document.document_category,
+            'matched_trigger_type': document.matched_trigger_type,
+            'matched_pattern': document.matched_pattern,
+            'confidence': float(document.classification_confidence) if document.classification_confidence else None,
+            'potential_trigger_event': document.potential_trigger_event,
+            'response_required': document.response_required,
+            'response_party': document.response_party,
+            'response_deadline_days': document.response_deadline_days,
+            'procedural_posture': document.procedural_posture,
+            'relief_sought': document.relief_sought,
+            'urgency_indicators': document.urgency_indicators or [],
+            'rule_references': document.rule_references or [],
+            'suggested_action': document.suggested_action,
+        }
     }
 
 

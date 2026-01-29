@@ -1611,7 +1611,8 @@ class RulesEngine:
         self,
         document_type: str,
         jurisdiction: str = "florida_state",
-        court_type: str = "civil"
+        court_type: str = "civil",
+        ai_analysis: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         SINGLE SOURCE OF TRUTH: Map document types to trigger events.
@@ -1620,21 +1621,33 @@ class RulesEngine:
         triggers rule-based deadline generation. Called by deadline_service.py
         to avoid hardcoded duplicate logic.
 
+        Enhanced in Phase 1 to support "soft ingestion" - instead of simply
+        returning no match, we now return rich context about what was detected
+        and what the next steps should be.
+
         Args:
             document_type: Type of document (e.g., "Complaint", "Motion to Dismiss")
             jurisdiction: "florida_state" or "federal"
             court_type: "civil", "criminal", or "appellate"
+            ai_analysis: Optional AI analysis results for enhanced classification
 
         Returns:
             Dict with:
-                - matches_trigger: bool
+                - matches_trigger: bool (backward compat)
+                - trigger_status: TriggerStatus enum value
                 - trigger_type: TriggerType or None
                 - trigger_type_str: str (for API responses)
                 - rule_set_code: str (e.g., "FL:RCP")
                 - expected_deadlines: int
                 - trigger_description: str
                 - matched_pattern: str (which keyword matched)
+                - detected_document_type: str (what we identified the doc as)
+                - classification_confidence: float (0.0-1.0)
+                - suggested_action: str (next step - "apply_rules", "research_deadlines", "manual_review")
+                - potential_trigger_event: str or None (AI's best guess for unrecognized docs)
+                - response_required: bool (does this doc require a response?)
         """
+        from app.models.enums import TriggerStatus
         doc_type_lower = (document_type or "").lower()
 
         # Document type to TriggerType mapping
@@ -1709,6 +1722,7 @@ class RulesEngine:
             rule_set_code = "FL:RCP" if jurisdiction == "florida_state" else "FRCP"
 
             return {
+                # Backward compatibility
                 "matches_trigger": True,
                 "trigger_type": trigger_type,
                 "trigger_type_str": trigger_type.value,
@@ -1716,18 +1730,195 @@ class RulesEngine:
                 "expected_deadlines": expected_deadlines,
                 "trigger_description": pattern_info["description"],
                 "matched_pattern": matched_pattern,
+                # Phase 1: Enhanced classification fields
+                "trigger_status": TriggerStatus.MATCHED,
+                "trigger_status_str": TriggerStatus.MATCHED.value,
+                "detected_document_type": document_type,
+                "classification_confidence": 0.95,  # High confidence for pattern match
+                "suggested_action": "apply_rules",
+                "potential_trigger_event": None,  # Already matched, no guess needed
+                "response_required": self._document_requires_response(document_type, trigger_type),
             }
 
-        # No match found
+        # No match found - Phase 1 "Soft Ingestion"
+        # Instead of just returning "no match", we provide rich context
+        # about what we detected and what the user should do next
+
+        # Extract AI analysis hints if provided
+        ai_doc_type = None
+        ai_relief_sought = None
+        ai_potential_trigger = None
+        ai_response_required = False
+
+        if ai_analysis:
+            ai_doc_type = ai_analysis.get("document_type")
+            ai_relief_sought = ai_analysis.get("relief_sought")
+            ai_potential_trigger = ai_analysis.get("potential_trigger_event")
+            ai_response_required = ai_analysis.get("response_required", False)
+
+            # If AI detected a document type, use it for better messaging
+            if ai_doc_type:
+                document_type = ai_doc_type
+
+        # Determine if this looks like something that could trigger deadlines
+        trigger_likelihood = self._assess_trigger_likelihood(document_type, ai_analysis)
+
+        # Determine suggested action based on what we know
+        if trigger_likelihood > 0.7:
+            suggested_action = "research_deadlines"
+            trigger_status = TriggerStatus.NEEDS_RESEARCH
+            description = f"Document identified as '{document_type}'. This document type may trigger deadlines but no rule template exists. Click 'Research Deadlines' to find applicable rules."
+        elif trigger_likelihood > 0.3:
+            suggested_action = "manual_review"
+            trigger_status = TriggerStatus.UNRECOGNIZED
+            description = f"Document identified as '{document_type}'. Unable to determine if this triggers deadlines. Manual review recommended."
+        else:
+            suggested_action = "none"
+            trigger_status = TriggerStatus.UNRECOGNIZED
+            description = f"Document identified as '{document_type}'. This document type typically does not trigger deadline requirements."
+
         return {
+            # Backward compatibility
             "matches_trigger": False,
             "trigger_type": None,
             "trigger_type_str": None,
             "rule_set_code": None,
             "expected_deadlines": 0,
-            "trigger_description": "No standard rule template found - will extract deadlines from document text",
+            "trigger_description": description,
             "matched_pattern": None,
+            # Phase 1: Enhanced classification fields
+            "trigger_status": trigger_status,
+            "trigger_status_str": trigger_status.value,
+            "detected_document_type": document_type,
+            "classification_confidence": trigger_likelihood,
+            "suggested_action": suggested_action,
+            "potential_trigger_event": ai_potential_trigger or self._guess_potential_trigger(document_type),
+            "response_required": ai_response_required or self._document_likely_requires_response(document_type),
+            "relief_sought": ai_relief_sought,
         }
+
+    def _document_requires_response(self, document_type: str, trigger_type: TriggerType) -> bool:
+        """Determine if a matched document type requires a response."""
+        response_triggers = {
+            TriggerType.COMPLAINT_SERVED,
+            TriggerType.MOTION_FILED,
+            TriggerType.DISCOVERY_COMMENCED,
+        }
+        return trigger_type in response_triggers
+
+    def _document_likely_requires_response(self, document_type: str) -> bool:
+        """Heuristic check if an unrecognized document likely requires response."""
+        doc_lower = (document_type or "").lower()
+        response_keywords = [
+            "motion", "complaint", "petition", "demand", "notice of",
+            "interrogator", "request for", "subpoena", "summons"
+        ]
+        non_response_keywords = [
+            "response", "reply", "answer", "opposition", "notice of filing",
+            "certificate", "acknowledgment", "receipt"
+        ]
+
+        # If it looks like a response itself, it doesn't require a response
+        if any(kw in doc_lower for kw in non_response_keywords):
+            return False
+
+        return any(kw in doc_lower for kw in response_keywords)
+
+    def _assess_trigger_likelihood(
+        self,
+        document_type: str,
+        ai_analysis: Optional[Dict[str, Any]] = None
+    ) -> float:
+        """
+        Assess how likely an unrecognized document is to trigger deadlines.
+
+        Returns a confidence score 0.0-1.0.
+        """
+        doc_lower = (document_type or "").lower()
+
+        # High likelihood keywords (0.8+)
+        high_likelihood = [
+            "motion", "complaint", "petition", "order", "judgment",
+            "notice of trial", "scheduling order", "discovery"
+        ]
+
+        # Medium likelihood keywords (0.5-0.7)
+        medium_likelihood = [
+            "notice", "demand", "request", "subpoena", "deposition notice"
+        ]
+
+        # Low likelihood keywords (0.1-0.3)
+        low_likelihood = [
+            "certificate", "acknowledgment", "receipt", "cover letter",
+            "correspondence", "memo", "email"
+        ]
+
+        # Check high likelihood first
+        for kw in high_likelihood:
+            if kw in doc_lower:
+                return 0.85
+
+        # Check medium likelihood
+        for kw in medium_likelihood:
+            if kw in doc_lower:
+                return 0.55
+
+        # Check low likelihood
+        for kw in low_likelihood:
+            if kw in doc_lower:
+                return 0.15
+
+        # If AI analysis provided hints, use those
+        if ai_analysis:
+            if ai_analysis.get("response_required"):
+                return 0.75
+            if ai_analysis.get("deadlines_mentioned"):
+                return 0.70
+            if ai_analysis.get("relief_sought"):
+                return 0.60
+
+        # Default: moderate uncertainty
+        return 0.40
+
+    def _guess_potential_trigger(self, document_type: str) -> Optional[str]:
+        """
+        Make an educated guess about what trigger event an unrecognized
+        document might represent.
+        """
+        doc_lower = (document_type or "").lower()
+
+        # Map keywords to potential trigger events
+        trigger_guesses = [
+            (["motion for sanction", "rule 11"], "Receipt of Rule 11 Motion"),
+            (["motion to strike"], "Receipt of Motion to Strike"),
+            (["motion for reconsideration"], "Receipt of Motion for Reconsideration"),
+            (["motion to amend"], "Receipt of Motion to Amend"),
+            (["motion for extension", "motion to extend"], "Receipt of Motion for Extension of Time"),
+            (["motion for protective order"], "Receipt of Motion for Protective Order"),
+            (["motion to quash"], "Receipt of Motion to Quash"),
+            (["motion to stay"], "Receipt of Motion to Stay"),
+            (["motion for default"], "Receipt of Motion for Default"),
+            (["deposition notice"], "Receipt of Deposition Notice"),
+            (["subpoena duces tecum", "subpoena"], "Receipt of Subpoena"),
+            (["demand for jury"], "Jury Demand Filed"),
+            (["notice of appeal"], "Notice of Appeal Filed"),
+            (["motion in limine"], "Receipt of Motion in Limine"),
+            (["motion for new trial"], "Receipt of Motion for New Trial"),
+        ]
+
+        for keywords, trigger_event in trigger_guesses:
+            if any(kw in doc_lower for kw in keywords):
+                return trigger_event
+
+        # Generic fallback based on document category
+        if "motion" in doc_lower:
+            return f"Receipt of {document_type}"
+        if "notice" in doc_lower:
+            return f"Receipt of {document_type}"
+        if "order" in doc_lower:
+            return f"Entry of {document_type}"
+
+        return None
 
     def calculate_dependent_deadlines(
         self,

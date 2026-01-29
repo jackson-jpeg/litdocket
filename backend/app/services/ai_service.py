@@ -26,12 +26,17 @@ class AIService:
         """
         Comprehensive legal document analysis using Claude.
 
+        Enhanced in Phase 1 to support "soft ingestion" - extracts additional
+        context for documents that don't match standard trigger patterns.
+
         Args:
             text: Extracted text from the legal document
             document_type: Optional hint about document type
 
         Returns:
-            Dictionary with extracted case information
+            Dictionary with extracted case information including:
+            - Standard fields (case_number, court, parties, etc.)
+            - Phase 1 fields (procedural_posture, potential_trigger_event, response_required)
         """
 
         system_prompt = """You are an expert Florida legal assistant with deep knowledge of:
@@ -41,7 +46,13 @@ class AIService:
 - Federal Rules of Civil Procedure
 - All Florida judicial circuit rules
 
-Analyze legal documents with precision and extract all relevant case information."""
+Analyze legal documents with precision and extract all relevant case information.
+
+You are particularly skilled at:
+1. Identifying what procedural stage a case is in
+2. Determining whether a document requires a response from opposing parties
+3. Recognizing unusual or specialized motions and their deadline implications
+4. Detecting urgency indicators that may affect deadline priority"""
 
         user_prompt = f"""Analyze this legal document and extract structured information.
 
@@ -64,12 +75,13 @@ Extract and return as valid JSON (no markdown formatting):
   "case_number": "string or null",
   "court": "string or null",
   "judge": "string or null",
-  "document_type": "string (motion, order, notice, complaint, answer, interrogatories, request for production, request for admissions, notice of hearing, order setting hearing, etc.)",
+  "document_type": "string - Be very specific (e.g., 'Motion for Sanctions Under Rule 11', 'Motion to Strike Affirmative Defenses', 'Motion for Protective Order', not just 'motion')",
+  "document_category": "motion|order|notice|pleading|discovery|subpoena|correspondence|other",
   "filing_date": "YYYY-MM-DD (CRITICAL: Extract from document text - look for 'filed', date at top, or certificate of service)",
   "service_date": "YYYY-MM-DD or null (from certificate of service)",
   "service_method": "email|mail|personal|electronic|null (from certificate of service)",
   "parties": [
-    {{"name": "string", "role": "plaintiff|defendant|appellant|appellee|etc"}}
+    {{"name": "string", "role": "plaintiff|defendant|appellant|appellee|movant|respondent|petitioner|etc"}}
   ],
   "jurisdiction": "state|federal|null",
   "district": "Northern|Middle|Southern|null",
@@ -78,19 +90,36 @@ Extract and return as valid JSON (no markdown formatting):
   "key_dates": [
     {{"date": "YYYY-MM-DD", "description": "CRITICAL: Be specific - use phrases like 'Hearing scheduled', 'Trial date set', 'Mediation conference', 'Deposition of John Doe', etc."}}
   ],
-  "relief_sought": "string or null",
+  "relief_sought": "string or null - What is the filing party asking the court to do?",
   "deadlines_mentioned": [
     {{"deadline_type": "string", "date": "YYYY-MM-DD or null", "description": "string"}}
-  ]
+  ],
+
+  "procedural_posture": "string - What stage is the case in? (e.g., 'Pre-Answer', 'Discovery Phase', 'Post-Discovery/Pre-Trial', 'Trial Pending', 'Post-Judgment', 'On Appeal')",
+  "potential_trigger_event": "string or null - If this document is NOT a standard pleading (Complaint, Answer, Motion to Dismiss), what deadline event might it trigger? (e.g., 'Receipt of Rule 11 Motion', 'Service of Subpoena Duces Tecum', 'Entry of Sanctions Order')",
+  "response_required": true/false,
+  "response_party": "plaintiff|defendant|both|third_party|null - Who must respond to this document?",
+  "response_deadline_days": "number or null - If you can determine the standard response deadline from the document type, provide the number of days",
+  "urgency_indicators": ["array of strings - Any keywords suggesting urgency: 'emergency', 'expedited', 'shortened time', 'ex parte', 'TRO', 'immediate', 'time-sensitive'"],
+  "rule_references": ["array of strings - Any rule citations mentioned in the document (e.g., 'Fla. R. Civ. P. 1.380', 'FRCP 37', 'Local Rule 7.1')"]
 }}
 
 IMPORTANT:
 - If you see ANY date in the document, try to determine if it's the filing date or service date
 - Look in the certificate of service section for service date and method
 - Extract the service method (email, mail, personal delivery, electronic filing, etc.)
-- Be specific about document type (e.g., "Plaintiff's First Request for Production" not just "motion")
+- Be VERY specific about document type - this helps the system find applicable rules
 - **CRITICAL**: If the document mentions a hearing date, trial date, mediation date, or any scheduled event,
-  you MUST include it in the "key_dates" array with a clear description (e.g., "Hearing scheduled", "Trial date set", "Mediation conference")
+  you MUST include it in the "key_dates" array with a clear description
+
+**PHASE 1 FIELDS - CRITICAL FOR UNRECOGNIZED DOCUMENTS:**
+- If the document is NOT a standard Complaint, Answer, or Motion to Dismiss, you MUST fill in:
+  - "procedural_posture": What stage is the case in?
+  - "potential_trigger_event": What deadline event might this trigger?
+  - "response_required": Does this require a response?
+  - "response_party": Who must respond?
+  - "urgency_indicators": Any urgency keywords found
+  - "rule_references": Any rules cited in the document
 
 Return ONLY the JSON object, no additional text."""
 
