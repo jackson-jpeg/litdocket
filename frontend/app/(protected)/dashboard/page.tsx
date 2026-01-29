@@ -7,7 +7,7 @@ import {
   Upload, FileText, AlertTriangle, Clock, CheckCircle, TrendingUp,
   Calendar, Folder, Scale, Loader2, AlertCircle, ChevronRight, Search, BarChart3, RefreshCw, LogOut, Settings
 } from 'lucide-react';
-import apiClient from '@/lib/api-client';
+import apiClient, { extractApiError, ApiError } from '@/lib/api-client';
 import MorningReport from '@/features/dashboard/components/MorningReport';
 import DeadlineHeatMap from '@/shared/components/ui/DeadlineHeatMap';
 import MatterHealthCards from '@/features/dashboard/components/MatterHealthCards';
@@ -109,11 +109,38 @@ export default function DashboardPage() {
 
     try {
       const response = await apiClient.get('/api/v1/dashboard');
-      setDashboardData(response.data);
+
+      // Validate response data structure
+      const data = response.data;
+      if (data) {
+        // Ensure required nested structures exist with defaults
+        const validatedData: DashboardData = {
+          case_statistics: data.case_statistics || {
+            total_cases: 0,
+            total_documents: 0,
+            total_pending_deadlines: 0,
+            by_jurisdiction: { state: 0, federal: 0, unknown: 0 },
+            by_case_type: { civil: 0, criminal: 0, appellate: 0, other: 0 }
+          },
+          deadline_alerts: data.deadline_alerts || {
+            overdue: { count: 0, deadlines: [] },
+            urgent: { count: 0, deadlines: [] },
+            upcoming_week: { count: 0, deadlines: [] },
+            upcoming_month: { count: 0, deadlines: [] }
+          },
+          recent_activity: data.recent_activity || [],
+          critical_cases: data.critical_cases || [],
+          upcoming_deadlines: data.upcoming_deadlines || [],
+          heat_map: data.heat_map,
+          matter_health_cards: data.matter_health_cards || []
+        };
+        setDashboardData(validatedData);
+      }
       setError(null);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load dashboard:', err);
-      setError('Failed to load dashboard data');
+      const apiError = extractApiError(err);
+      setError(apiError.message);
     } finally {
       setLoading(false);
       if (isManualRefresh) {

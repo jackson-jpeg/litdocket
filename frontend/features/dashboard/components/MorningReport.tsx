@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { AlertTriangle, Clock, ChevronRight, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import apiClient from '@/lib/api-client';
+import apiClient, { extractApiError } from '@/lib/api-client';
 
 interface MorningReportData {
   greeting: string;
@@ -89,16 +89,45 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
   }, []);
 
   const fetchMorningReport = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
       const response = await apiClient.get('/api/v1/dashboard/morning-report');
-      setReport(response.data);
+      const data = response.data;
+
+      // Validate and provide defaults for required fields
+      if (data) {
+        const validatedReport: MorningReportData = {
+          greeting: data.greeting || 'Good morning',
+          summary: data.summary || 'Welcome to LitDocket.',
+          high_risk_alerts: data.high_risk_alerts || [],
+          new_filings: data.new_filings || [],
+          upcoming_deadlines: data.upcoming_deadlines || [],
+          actionable_insights: data.actionable_insights || [],
+          case_overview: data.case_overview || {
+            total_cases: 0,
+            cases_needing_attention: 0,
+            total_pending_deadlines: 0
+          },
+          week_stats: data.week_stats,
+          milestones: data.milestones || [],
+          workload_level: data.workload_level || 'clear',
+          generated_at: data.generated_at || new Date().toISOString()
+        };
+        setReport(validatedReport);
+      }
     } catch (err: unknown) {
       console.error('Failed to load morning report:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load briefing';
-      setError(errorMessage);
+      const apiError = extractApiError(err);
+      setError(apiError.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    fetchMorningReport();
   };
 
   const formatDate = (dateStr: string) => {
@@ -149,7 +178,19 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
   if (error || !report) {
     return (
       <div className="card p-6">
-        <p className="text-slate-600 text-sm text-center">Unable to load briefing data</p>
+        <div className="flex flex-col items-center justify-center gap-3">
+          <AlertTriangle className="w-8 h-8 text-amber-500" />
+          <p className="text-slate-700 text-sm font-medium">Unable to load briefing data</p>
+          {error && (
+            <p className="text-slate-500 text-xs text-center max-w-md">{error}</p>
+          )}
+          <button
+            onClick={handleRetry}
+            className="mt-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
