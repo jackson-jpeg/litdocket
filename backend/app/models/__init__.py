@@ -28,6 +28,9 @@ from app.models.document_tag import Tag, DocumentTag
 # Case Templates
 from app.models.case_template import CaseTemplate
 
+# Phase 2: Rule Proposals (AI-discovered rules pending attorney review)
+from app.models.rule_proposal import RuleProposal
+
 # User-Created Rules System
 from app.models.user_rule import (
     UserRuleTemplate,
@@ -79,6 +82,8 @@ __all__ = [
     "DocumentTag",
     # Case Templates
     "CaseTemplate",
+    # Phase 2: Rule Proposals
+    "RuleProposal",
     # User-Created Rules System
     "UserRuleTemplate",
     "UserRuleTemplateVersion",
