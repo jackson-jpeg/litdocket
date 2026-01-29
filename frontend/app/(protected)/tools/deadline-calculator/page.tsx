@@ -12,7 +12,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SovereignTreeGrid, SelectionState } from '@/components/sovereign';
+import { SovereignTreeGrid, SelectionState } from '@/shared/components/ui/SovereignTreeGrid';
 import {
   SovereignCalculator,
   calculateFederalDeadline,

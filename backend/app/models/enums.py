@@ -118,3 +118,49 @@ class RuleProposalStatus(enum.Enum):
     APPROVED = "approved"   # Accepted and converted to active rule
     REJECTED = "rejected"   # Rejected by attorney
     MODIFIED = "modified"   # Approved with modifications
+
+
+class ScrapedRuleStatus(enum.Enum):
+    """
+    Status of a rule in the scraping pipeline.
+
+    Tracks the rule's journey from extraction to production deployment.
+    """
+    SCRAPED = "scraped"              # Raw extraction complete (Haiku)
+    QUEUED = "queued"                # Waiting for validation
+    VALIDATING = "validating"        # Being validated (Opus 4.5)
+    VALIDATED = "validated"          # Passed validation
+    REJECTED = "rejected"            # Failed validation
+    PENDING_APPROVAL = "pending_approval"  # Waiting for admin review
+    APPROVED = "approved"            # Ready for production
+    DEPLOYED = "deployed"            # Live in production
+
+
+class ScraperCourtType(enum.Enum):
+    """
+    Court types for rules scraping coverage tracking.
+
+    More granular than CourtType for tracking scraping progress.
+    """
+    STATE_TRIAL = "state_trial"
+    STATE_APPELLATE = "state_appellate"
+    STATE_SUPREME = "state_supreme"
+    FEDERAL_DISTRICT = "federal_district"
+    FEDERAL_CIRCUIT = "federal_circuit"
+    FEDERAL_SUPREME = "federal_supreme"
+    BANKRUPTCY = "bankruptcy"
+    TAX = "tax"
+    ADMINISTRATIVE = "administrative"
+
+
+class AIModelType(enum.Enum):
+    """
+    AI model types for task routing.
+
+    Opus 4.5: Quality-critical tasks (document analysis, legal research)
+    Haiku: High-volume tasks (scraping, batch processing)
+    Sonnet: Balanced tasks (general queries)
+    """
+    OPUS = "opus"
+    HAIKU = "haiku"
+    SONNET = "sonnet"

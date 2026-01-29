@@ -19,6 +19,7 @@ export type AppEvent =
   | 'chat:message-sent'
   | 'chat:action-taken'
   | 'trigger:created'
+  | 'trigger:updated'
   | 'trigger:deleted'
   | 'calendar:refresh'
   | 'insights:refresh'
@@ -130,6 +131,13 @@ class EventBus {
 
 // Singleton instance
 export const eventBus = new EventBus();
+
+/**
+ * Convenience function for emitting events
+ */
+export function emitEvent(event: AppEvent, data?: any): void {
+  eventBus.emit(event, data);
+}
 
 /**
  * React hook for subscribing to events

@@ -463,69 +463,6 @@ def simulate_trigger_deadlines(
     }
 
 
-@router.get("/event-types")
-def get_event_types(
-    jurisdiction: Optional[str] = None,
-    court_type: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get all available event types for SmartEventEntry.
-    Returns event types with categories, deadline counts, and descriptions.
-    """
-    templates = rules_engine.get_all_templates()
-
-    # Filter if requested
-    if jurisdiction:
-        templates = [t for t in templates if t.jurisdiction == jurisdiction]
-    if court_type:
-        templates = [t for t in templates if t.court_type == court_type]
-
-    # Build event types with categories
-    event_types = []
-    seen_types = set()
-
-    # Category mapping based on trigger type
-    category_map = {
-        'trial_date': 'trial',
-        'complaint_served': 'pleading',
-        'summons_served': 'pleading',
-        'answer_filed': 'pleading',
-        'discovery_cutoff': 'discovery',
-        'deposition_notice': 'discovery',
-        'motion_filed': 'motion',
-        'motion_hearing': 'motion',
-        'appeal_filed': 'appellate',
-        'notice_of_appeal': 'appellate',
-    }
-
-    for template in templates:
-        trigger_type = template.trigger_type.value
-        if trigger_type in seen_types:
-            continue
-        seen_types.add(trigger_type)
-
-        # Determine category
-        category = category_map.get(trigger_type, 'other')
-
-        event_types.append({
-            'id': trigger_type,
-            'name': template.name,
-            'description': template.description,
-            'category': category,
-            'deadline_count': len(template.dependent_deadlines),
-            'jurisdiction': template.jurisdiction,
-            'court_type': template.court_type,
-            'citation': template.citation
-        })
-
-    # Sort by category then name
-    category_order = ['trial', 'pleading', 'discovery', 'motion', 'appellate', 'other']
-    event_types.sort(key=lambda e: (category_order.index(e['category']) if e['category'] in category_order else 99, e['name']))
-
-    return event_types
-
-
 @router.post("/preview")
 def preview_trigger_deadlines(
     request: PreviewTriggerRequest,

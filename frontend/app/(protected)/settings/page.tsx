@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useNotifications } from '@/hooks/useNotifications';
-import { Download, User, Bell, Settings as SettingsIcon, Plug } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { Download, User, Bell, Settings as SettingsIcon, Plug, Scale, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
-type TabType = 'notifications' | 'preferences' | 'account' | 'integrations';
+type TabType = 'notifications' | 'preferences' | 'account' | 'integrations' | 'rules';
 
 interface NotificationPreferences {
   in_app_enabled: boolean;
@@ -25,11 +27,15 @@ interface NotificationPreferences {
 }
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const { preferences, fetchPreferences, updatePreferences } = useNotifications();
   const [localPrefs, setLocalPrefs] = useState<NotificationPreferences | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('notifications');
+
+  // Check URL for tab parameter (for /rules redirect)
+  const tabFromUrl = searchParams.get('tab') as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'notifications');
 
   useEffect(() => {
     fetchPreferences();
@@ -97,6 +103,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'notifications' as TabType, label: 'Notifications', icon: Bell },
     { id: 'preferences' as TabType, label: 'Preferences', icon: SettingsIcon },
+    { id: 'rules' as TabType, label: 'Rules', icon: Scale },
     { id: 'account' as TabType, label: 'Account', icon: User },
     { id: 'integrations' as TabType, label: 'Integrations', icon: Plug },
   ];
@@ -307,6 +314,111 @@ export default function SettingsPage() {
               <p className="text-slate-600">
                 Connect LitDocket with your favorite tools like Outlook, Slack, and more
               </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'rules' && (
+          <div className="space-y-6">
+            {/* Rules Overview */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-slate-200">
+                <h2 className="text-lg font-semibold text-slate-900">Deadline Rules</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Manage jurisdiction-specific rules for automatic deadline calculation
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Florida State Rules */}
+                  <div className="border border-slate-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Scale className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-800">Florida State</h3>
+                        <p className="text-xs text-slate-500">FL R. Civ. P.</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-3">
+                      47+ rule templates for civil litigation including trial, discovery, and motion deadlines.
+                    </p>
+                    <span className="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                      Active
+                    </span>
+                  </div>
+
+                  {/* Federal Rules */}
+                  <div className="border border-slate-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <Scale className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-800">Federal Rules</h3>
+                        <p className="text-xs text-slate-500">FRCP / FRAP</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-3">
+                      40+ rule templates for federal civil procedure including FRCP and appellate rules.
+                    </p>
+                    <span className="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                      Active
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Rules */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-slate-200">
+                <h2 className="text-lg font-semibold text-slate-900">Custom Rules</h2>
+                <p className="text-sm text-slate-500 mt-1">Create your own deadline rules for specific workflows</p>
+              </div>
+              <div className="p-6">
+                <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg">
+                  <Scale className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-600 mb-4">No custom rules yet</p>
+                  <p className="text-sm text-slate-500 mb-4">
+                    Custom rules allow you to define deadline chains for your firm's specific workflows.
+                  </p>
+                  <button className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm font-medium">
+                    Create Custom Rule
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Dashboard */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-4 flex items-center justify-between text-white">
+              <div>
+                <p className="font-medium">Rules Administration Dashboard</p>
+                <p className="text-sm text-blue-100">Manage the automated rules scraping pipeline with AI-powered extraction.</p>
+              </div>
+              <Link
+                href="/settings/rules-admin"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm font-semibold"
+              >
+                <span>Open Admin</span>
+                <ExternalLink className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {/* Advanced Link */}
+            <div className="bg-slate-100 rounded-lg p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-slate-800">Need advanced rule configuration?</p>
+                <p className="text-sm text-slate-600">Access the full Rules Builder with timeline visualization.</p>
+              </div>
+              <Link
+                href="/rules"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-sm font-medium"
+              >
+                <span>Open Rules Builder</span>
+                <ExternalLink className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         )}

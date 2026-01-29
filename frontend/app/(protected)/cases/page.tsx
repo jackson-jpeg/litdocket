@@ -20,9 +20,9 @@ import {
   FileDown, Users, Archive, User, Building
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import GlobalSearch from '@/components/GlobalSearch';
-import CaseQuickView from '@/components/cases/CaseQuickView';
-import ContextMenu from '@/components/cases/ContextMenu';
+import GlobalSearch from '@/shared/components/ui/GlobalSearch';
+import CaseQuickView from '@/features/cases/components/CaseQuickView';
+import ContextMenu from '@/features/cases/components/ContextMenu';
 
 interface Case {
   id: string;
