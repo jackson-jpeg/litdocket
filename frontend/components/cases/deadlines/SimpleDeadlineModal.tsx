@@ -5,13 +5,16 @@
  *
  * A streamlined modal for adding simple deadlines without the full wizard.
  * Only asks for: Title, Date, Priority (optional), Description (optional)
+ * Optionally apply an Authority Core rule for proper citation tracking.
  */
 
 import { useState } from 'react';
-import { X, Calendar, AlertCircle } from 'lucide-react';
+import { X, Calendar, AlertCircle, Scale, ChevronDown, ChevronUp } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
+import RuleSelector from '@/components/authority-core/RuleSelector';
+import type { AuthorityRule } from '@/types';
 
 interface SimpleDeadlineModalProps {
   caseId: string;
@@ -39,6 +42,8 @@ export default function SimpleDeadlineModal({
   const [priority, setPriority] = useState('standard');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRuleSelector, setShowRuleSelector] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<AuthorityRule | null>(null);
 
   const { showSuccess, showError } = useToast();
 
@@ -65,6 +70,10 @@ export default function SimpleDeadlineModal({
         party_role: 'both',
         action_required: 'Manual deadline',
         status: 'pending',
+        // Authority Core fields
+        applicable_rule: selectedRule?.citation || selectedRule?.rule_code || undefined,
+        rule_citation: selectedRule?.source_text || undefined,
+        source_rule_id: selectedRule?.id || undefined,
       });
 
       showSuccess('Deadline created successfully');
@@ -75,6 +84,8 @@ export default function SimpleDeadlineModal({
       setDate('');
       setPriority('standard');
       setDescription('');
+      setSelectedRule(null);
+      setShowRuleSelector(false);
 
       onSuccess?.();
       onClose();
@@ -92,7 +103,18 @@ export default function SimpleDeadlineModal({
       setDate('');
       setPriority('standard');
       setDescription('');
+      setSelectedRule(null);
+      setShowRuleSelector(false);
       onClose();
+    }
+  };
+
+  const handleRuleSelect = (rule: AuthorityRule) => {
+    setSelectedRule(rule);
+    setShowRuleSelector(false);
+    // Optionally auto-fill title if empty
+    if (!title.trim() && rule.deadlines?.[0]?.title) {
+      setTitle(rule.deadlines[0].title);
     }
   };
 
@@ -189,6 +211,52 @@ export default function SimpleDeadlineModal({
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
               disabled={isSubmitting}
             />
+          </div>
+
+          {/* Authority Core Rule */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowRuleSelector(!showRuleSelector)}
+              disabled={isSubmitting}
+              className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors"
+            >
+              <Scale className="w-4 h-4" />
+              <span>Apply Rule from Database</span>
+              {showRuleSelector ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+
+            {selectedRule && !showRuleSelector && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">{selectedRule.rule_name}</p>
+                    <p className="text-xs text-blue-700">{selectedRule.citation || selectedRule.rule_code}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRule(null)}
+                    className="p-1 text-blue-400 hover:text-blue-600 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showRuleSelector && (
+              <div className="mt-2">
+                <RuleSelector
+                  onSelect={handleRuleSelect}
+                  onCancel={() => setShowRuleSelector(false)}
+                  selectedRuleId={selectedRule?.id}
+                />
+              </div>
+            )}
           </div>
 
           {/* Info */}

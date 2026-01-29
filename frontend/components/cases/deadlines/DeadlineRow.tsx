@@ -23,6 +23,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   FileCheck,
+  Scale,
+  BookOpen,
 } from 'lucide-react';
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
 import { formatDeadlineDate } from '@/lib/formatters';
@@ -51,6 +53,14 @@ const PRIORITY_COLORS: Record<string, { border: string; bg: string; text: string
   standard: { border: 'border-l-blue-500', bg: 'bg-blue-50', text: 'text-blue-700' },
   low: { border: 'border-l-slate-400', bg: 'bg-slate-50', text: 'text-slate-600' },
   informational: { border: 'border-l-gray-400', bg: 'bg-gray-50', text: 'text-gray-600' },
+};
+
+const AUTHORITY_TIER_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
+  federal: { bg: 'bg-purple-100', text: 'text-purple-700', icon: 'text-purple-600' },
+  state: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'text-blue-600' },
+  local: { bg: 'bg-green-100', text: 'text-green-700', icon: 'text-green-600' },
+  standing_order: { bg: 'bg-amber-100', text: 'text-amber-700', icon: 'text-amber-600' },
+  firm: { bg: 'bg-slate-100', text: 'text-slate-700', icon: 'text-slate-600' },
 };
 
 export default function DeadlineRow({
@@ -260,8 +270,20 @@ export default function DeadlineRow({
                 </span>
               )}
               {deadline.applicable_rule && (
-                <span className="text-xs text-slate-500 truncate max-w-[150px]" title={deadline.applicable_rule}>
-                  {deadline.applicable_rule}
+                <span
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded cursor-help ${
+                    deadline.authority_tier && AUTHORITY_TIER_COLORS[deadline.authority_tier]
+                      ? `${AUTHORITY_TIER_COLORS[deadline.authority_tier].bg} ${AUTHORITY_TIER_COLORS[deadline.authority_tier].text}`
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                  title={deadline.rule_citation || deadline.calculation_basis || deadline.applicable_rule}
+                >
+                  {deadline.source_rule_id ? (
+                    <Scale className="w-3 h-3" />
+                  ) : (
+                    <BookOpen className="w-3 h-3" />
+                  )}
+                  <span className="truncate max-w-[120px]">{deadline.applicable_rule}</span>
                 </span>
               )}
             </div>
@@ -412,7 +434,21 @@ export default function DeadlineRow({
           {(deadline.applicable_rule || parentTrigger) && (
             <div className="mt-2 ml-8 flex flex-wrap items-center gap-2">
               {deadline.applicable_rule && (
-                <span className="text-xs text-slate-500">{deadline.applicable_rule}</span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded cursor-help ${
+                    deadline.authority_tier && AUTHORITY_TIER_COLORS[deadline.authority_tier]
+                      ? `${AUTHORITY_TIER_COLORS[deadline.authority_tier].bg} ${AUTHORITY_TIER_COLORS[deadline.authority_tier].text}`
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                  title={deadline.rule_citation || deadline.calculation_basis || deadline.applicable_rule}
+                >
+                  {deadline.source_rule_id ? (
+                    <Scale className="w-3 h-3" />
+                  ) : (
+                    <BookOpen className="w-3 h-3" />
+                  )}
+                  {deadline.applicable_rule}
+                </span>
               )}
               {parentTrigger && (
                 <button

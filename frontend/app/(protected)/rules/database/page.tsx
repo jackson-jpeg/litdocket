@@ -27,7 +27,9 @@ import {
   Calendar,
   BookOpen,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
+import Link from 'next/link';
 import apiClient from '@/lib/api-client';
 import { AuthorityRule, DeadlineSpec } from '@/types';
 
@@ -390,6 +392,13 @@ export default function RulesDatabasePage() {
                 <p className="text-slate-500">{rules.length} verified rules</p>
               </div>
             </div>
+            <Link
+              href="/rules/conflicts"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-sm font-medium">View Conflicts</span>
+            </Link>
           </div>
         </div>
       </div>

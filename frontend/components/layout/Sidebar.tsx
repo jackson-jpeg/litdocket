@@ -39,10 +39,17 @@ const IconSettings = () => (
   </svg>
 );
 
+const IconTools = () => (
+  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+    <path d="M1 0L0 1l2.2 3.081a1 1 0 00.815.419h.07a1 1 0 01.708.293l2.675 2.675-2.617 2.654A3.003 3.003 0 000 13a3 3 0 105.878-.851l2.654-2.617.968.968-.305.914a1 1 0 00.242 1.023l3.356 3.356a1 1 0 001.414 0l1.586-1.586a1 1 0 000-1.414l-3.356-3.356a1 1 0 00-1.023-.242l-.914.305-.697-.697a1 1 0 00-.293-.708l-2.675-2.675a1 1 0 01-.293-.708v-.07a1 1 0 00-.419-.815L1 0zm9.646 10.646a.5.5 0 01.708 0l2.914 2.915a.5.5 0 01-.707.707l-2.915-2.914a.5.5 0 010-.708zM3 11l.471.242.529.026.287.445.445.287.026.529L5 13l-.242.471-.026.529-.445.287-.287.445-.529.026L3 15l-.471-.242L2 14.732l-.287-.445L1.268 14l-.026-.529L1 13l.242-.471.026-.529.445-.287.287-.445.529-.026L3 11z"/>
+  </svg>
+);
+
 const mainNavItems = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
   { label: 'Cases', href: '/cases', icon: <IconCases /> },
   { label: 'Docket', href: '/calendar', icon: <IconDocket /> },
+  { label: 'Tools', href: '/tools', icon: <IconTools /> },
   { label: 'Settings', href: '/settings', icon: <IconSettings /> },
 ];
 

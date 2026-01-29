@@ -42,6 +42,7 @@ export interface Deadline {
   action_required?: string;
   applicable_rule?: string;
   calculation_basis?: string;
+  rule_citation?: string;  // Full rule text
   is_estimated: boolean;
   is_calculated?: boolean;
   is_dependent?: boolean;
@@ -54,6 +55,9 @@ export interface Deadline {
   confidence_level?: 'high' | 'medium' | 'low';
   extraction_method?: 'rule-based' | 'ai' | 'manual';
   verification_status?: 'pending' | 'verified' | 'disputed';
+  // Authority Core fields
+  source_rule_id?: string;  // Link to authority_rules table
+  authority_tier?: 'federal' | 'state' | 'local' | 'standing_order' | 'firm';
 }
 
 // Status summary for frontend badges (pre-calculated by backend)

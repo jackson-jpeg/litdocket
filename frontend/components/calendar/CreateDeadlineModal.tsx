@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Plus, AlertCircle } from 'lucide-react';
+import { X, Calendar, Plus, AlertCircle, Scale, ChevronDown, ChevronUp } from 'lucide-react';
 import { CaseInfo, CreateDeadlineData } from '@/hooks/useCalendarDeadlines';
+import RuleSelector from '@/components/authority-core/RuleSelector';
+import type { AuthorityRule } from '@/types';
 
 interface CreateDeadlineModalProps {
   isOpen: boolean;
@@ -30,6 +32,8 @@ export default function CreateDeadlineModal({
   const [applicableRule, setApplicableRule] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [showRuleSelector, setShowRuleSelector] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<AuthorityRule | null>(null);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -42,6 +46,8 @@ export default function CreateDeadlineModal({
       setPartyRole('');
       setApplicableRule('');
       setError('');
+      setShowRuleSelector(false);
+      setSelectedRule(null);
 
       if (initialDate) {
         setDeadlineDate(initialDate.toISOString().split('T')[0]);
@@ -50,6 +56,16 @@ export default function CreateDeadlineModal({
       }
     }
   }, [isOpen, initialDate, cases]);
+
+  const handleRuleSelect = (rule: AuthorityRule) => {
+    setSelectedRule(rule);
+    setShowRuleSelector(false);
+    setApplicableRule(rule.citation || rule.rule_code);
+    // Auto-fill title if empty and rule has deadlines
+    if (!title.trim() && rule.deadlines?.[0]?.title) {
+      setTitle(rule.deadlines[0].title);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -73,7 +89,7 @@ export default function CreateDeadlineModal({
 
     setCreating(true);
     try {
-      const data: CreateDeadlineData = {
+      const data: CreateDeadlineData & { source_rule_id?: string; rule_citation?: string } = {
         case_id: caseId,
         title: title.trim(),
         deadline_date: deadlineDate,
@@ -82,6 +98,9 @@ export default function CreateDeadlineModal({
         deadline_type: deadlineType || undefined,
         party_role: partyRole.trim() || undefined,
         applicable_rule: applicableRule.trim() || undefined,
+        // Authority Core fields
+        source_rule_id: selectedRule?.id || undefined,
+        rule_citation: selectedRule?.source_text || undefined,
       };
 
       const result = await onCreate(data);
@@ -258,13 +277,66 @@ export default function CreateDeadlineModal({
           {/* Applicable Rule */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Applicable Rule</label>
-            <input
-              type="text"
-              value={applicableRule}
-              onChange={(e) => setApplicableRule(e.target.value)}
-              placeholder="e.g., Fla. R. Civ. P. 1.140(a)"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+
+            {/* Selected Rule Display */}
+            {selectedRule ? (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">{selectedRule.rule_name}</p>
+                    <p className="text-xs text-blue-700">{selectedRule.citation || selectedRule.rule_code}</p>
+                    <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${
+                      selectedRule.authority_tier === 'federal' ? 'bg-purple-100 text-purple-700' :
+                      selectedRule.authority_tier === 'state' ? 'bg-blue-100 text-blue-700' :
+                      selectedRule.authority_tier === 'local' ? 'bg-green-100 text-green-700' :
+                      'bg-slate-100 text-slate-600'
+                    }`}>
+                      {selectedRule.authority_tier}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRule(null);
+                      setApplicableRule('');
+                    }}
+                    className="p-1 text-blue-400 hover:text-blue-600 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={applicableRule}
+                onChange={(e) => setApplicableRule(e.target.value)}
+                placeholder="e.g., Fla. R. Civ. P. 1.140(a)"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            )}
+
+            {/* Rule Selector Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowRuleSelector(!showRuleSelector)}
+              className="flex items-center gap-2 mt-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <Scale className="w-4 h-4" />
+              <span>{selectedRule ? 'Change rule' : 'Select from database'}</span>
+              {showRuleSelector ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {/* Rule Selector Component */}
+            {showRuleSelector && (
+              <div className="mt-2">
+                <RuleSelector
+                  onSelect={handleRuleSelect}
+                  onCancel={() => setShowRuleSelector(false)}
+                  selectedRuleId={selectedRule?.id}
+                />
+              </div>
+            )}
           </div>
         </form>
 
