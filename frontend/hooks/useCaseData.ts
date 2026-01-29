@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import apiClient from '@/lib/api-client';
+import type { Deadline, Document, TriggerChildDeadline } from '@/types';
 
 export interface CaseData {
   id: string;
@@ -20,37 +21,6 @@ export interface CaseData {
   created_at: string;
 }
 
-export interface Document {
-  id: string;
-  file_name: string;
-  document_type?: string;
-  filing_date?: string;
-  ai_summary?: string;
-  storage_url?: string;
-  created_at: string;
-}
-
-export interface Deadline {
-  id: string;
-  title: string;
-  description: string;
-  deadline_date?: string;
-  deadline_type: string;
-  priority: string;
-  status: string;
-  party_role?: string;
-  action_required?: string;
-  applicable_rule?: string;
-  calculation_basis?: string;
-  is_estimated: boolean;
-  is_calculated?: boolean;
-  is_dependent?: boolean;
-  trigger_event?: string;
-  source_document?: string;
-  service_method?: string;  // 'electronic' | 'mail' | 'personal'
-  created_at: string;
-}
-
 // Status summary for frontend badges (pre-calculated by backend)
 export interface TriggerStatusSummary {
   overdue: number;
@@ -60,30 +30,13 @@ export interface TriggerStatusSummary {
   total: number;
 }
 
-// Child deadline in nested trigger response
-export interface TriggerChildDeadline {
-  id: string;
-  title: string;
-  description?: string;
-  deadline_date: string | null;
-  priority: string;
-  status: string;
-  is_overdue: boolean;
-  applicable_rule?: string;
-  calculation_basis?: string;
-  party_role?: string;
-  action_required?: string;
-  is_manually_overridden: boolean;
-  auto_recalculate: boolean;
-}
-
 export interface Trigger {
   id: string;
   trigger_type: string;
   trigger_date: string;
   title: string;
   status?: string;
-  notes?: string;
+  description?: string;
   created_at: string;
   // V2 Nested Structure for Sovereign UI
   status_summary: TriggerStatusSummary;
@@ -91,6 +44,9 @@ export interface Trigger {
   // Legacy field for backwards compatibility
   dependent_deadlines_count: number;
 }
+
+// Re-export types that were previously defined here for backwards compatibility
+export type { Deadline, Document, TriggerChildDeadline };
 
 export interface CaseSummary {
   overview: string;

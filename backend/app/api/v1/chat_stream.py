@@ -25,32 +25,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/stream-test")
-async def stream_test():
-    """
-    Simple SSE test endpoint to verify streaming works.
-    Visit this endpoint in a browser to see a countdown.
-    """
-    import asyncio
-
-    async def test_generator():
-        for i in range(5, 0, -1):
-            yield f"data: Countdown: {i}\n\n"
-            await asyncio.sleep(1)
-        yield f"data: Done!\n\n"
-
-    return EventSourceResponse(
-        test_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-            "Content-Encoding": "none",
-        }
-    )
-
-
 class ApprovalRequest(BaseModel):
     """Request body for tool approval."""
     approved: bool
@@ -270,37 +244,4 @@ async def reject_tool_use(
         "success": True,
         "approved": False,
         "approval_id": approval_id
-    }
-
-
-@router.get("/approvals/pending")
-async def get_pending_approvals(
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get all pending approvals (for debugging/monitoring).
-
-    Returns:
-        {
-            "pending_count": 2,
-            "approvals": [
-                {"approval_id": "...", "tool_name": "delete_deadline", "timestamp": "..."},
-                ...
-            ]
-        }
-    """
-    pending = approval_manager.get_pending_approvals()
-
-    approvals_list = [
-        {
-            "approval_id": approval_id,
-            "tool_name": tool_call.name,
-            "tool_input": tool_call.input
-        }
-        for approval_id, tool_call in pending.items()
-    ]
-
-    return {
-        "pending_count": len(approvals_list),
-        "approvals": approvals_list
     }

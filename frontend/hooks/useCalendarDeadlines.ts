@@ -2,28 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import apiClient from '@/lib/api-client';
-import { eventBus, useEventBus } from '@/lib/eventBus';
+import { useEventBus } from '@/lib/eventBus';
+import type { CalendarDeadline } from '@/types';
 
-export interface CalendarDeadline {
-  id: string;
-  case_id: string;
-  case_number: string;
-  case_title: string;
-  title: string;
-  description?: string;
-  deadline_date: string | null;
-  deadline_type?: string;
-  priority: string;
-  status: string;
-  party_role?: string;
-  action_required?: string;
-  applicable_rule?: string;
-  is_calculated: boolean;
-  is_manually_overridden: boolean;
-  is_estimated: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// Re-export CalendarDeadline for backwards compatibility
+export type { CalendarDeadline };
 
 export interface CaseInfo {
   id: string;
@@ -111,9 +94,10 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
       });
       setCases(Array.from(caseMap.values()));
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch deadlines:', err);
-      setError(err.response?.data?.detail || 'Failed to load deadlines');
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      setError(axiosError.response?.data?.detail || 'Failed to load deadlines');
     } finally {
       setLoading(false);
     }
@@ -151,7 +135,7 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
       });
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to reschedule deadline:', err);
       // Revert on error
       fetchDeadlines();
@@ -173,7 +157,7 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
       }));
 
       return newDeadline;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create deadline:', err);
       return null;
     }
@@ -192,7 +176,7 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
 
       await apiClient.patch(`/api/v1/deadlines/${deadlineId}/status?status=${status}`);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to update deadline status:', err);
       fetchDeadlines();
       return false;

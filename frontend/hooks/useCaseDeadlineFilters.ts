@@ -107,7 +107,7 @@ export function useCaseDeadlineFilters(deadlines: Deadline[], triggers: Trigger[
       }
 
       // Type filter
-      if (selectedTypes.length > 0 && !selectedTypes.includes(deadline.deadline_type)) {
+      if (selectedTypes.length > 0 && (!deadline.deadline_type || !selectedTypes.includes(deadline.deadline_type))) {
         return false;
       }
 
@@ -143,7 +143,9 @@ export function useCaseDeadlineFilters(deadlines: Deadline[], triggers: Trigger[
           comparison = (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
           break;
         case 'created_at':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          comparison = createdA - createdB;
           break;
         case 'title':
           comparison = a.title.localeCompare(b.title);

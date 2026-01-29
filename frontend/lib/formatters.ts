@@ -43,7 +43,7 @@ export function parseLocalDate(dateString: string | Date): Date {
 /**
  * Format date for deadline display (MM/DD/YYYY)
  */
-export function formatDeadlineDate(dateString: string | undefined): string {
+export function formatDeadlineDate(dateString: string | null | undefined): string {
   if (!dateString) return 'TBD';
 
   const date = parseLocalDate(dateString);
@@ -58,7 +58,8 @@ export function formatDeadlineDate(dateString: string | undefined): string {
  * Format date with time
  * Note: If dateString has time component, it will be preserved
  */
-export function formatDateTime(dateString: string): string {
+export function formatDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return 'N/A';
   const date = parseLocalDate(dateString);
   return date.toLocaleDateString('en-US', {
     month: 'short',
