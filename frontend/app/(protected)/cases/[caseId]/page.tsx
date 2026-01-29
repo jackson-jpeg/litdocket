@@ -6,7 +6,7 @@
  * Refactored to use:
  * - useCasePageModals hook for modal state management
  * - UnifiedAddEventModal for all event creation
- * - Removed separate Triggers section (triggers visible through chain badges)
+ * - Removed separate Rules section (rules visible through chain badges on deadlines)
  */
 
 import { useParams } from 'next/navigation';
@@ -84,7 +84,7 @@ export default function CaseRoomPage() {
     refetch.deadlines();
     refetch.triggers();
     refetch.caseSummary();
-    showSuccess('Trigger created successfully');
+    showSuccess('Rule applied successfully');
   };
 
   const handleDocumentClick = (doc: Document) => {
@@ -300,7 +300,7 @@ export default function CaseRoomPage() {
 
   return (
     <div className="h-full overflow-auto">
-      {/* Trigger Alert Bar */}
+      {/* Rule Alert Bar */}
       <TriggerAlertBar
         triggers={triggers}
         deadlines={deadlines}

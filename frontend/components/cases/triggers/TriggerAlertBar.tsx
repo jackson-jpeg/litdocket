@@ -3,7 +3,7 @@
 /**
  * TriggerAlertBar - Alert-only status bar
  *
- * Shows trigger status and deadline alerts with urgency-based color coding.
+ * Shows rule status and deadline alerts with urgency-based color coding.
  * Removed Add button - all adding now goes through UnifiedAddEventModal.
  */
 
@@ -46,14 +46,14 @@ export default function TriggerAlertBar({
     return isActive && isOverdue;
   }).length;
 
-  // If no triggers at all, show setup prompt (no button - use main Add Event)
+  // If no rules configured, show setup prompt (no button - use main Add Event)
   if (triggers.length === 0) {
     return (
       <div className="panel-glass border-accent-info px-4 py-3 mb-4">
         <div className="flex items-center gap-3">
           <Clock className="w-5 h-5 text-accent-info" />
           <span className="text-text-primary font-medium">
-            No triggers configured. Use &quot;Add Event&quot; to set a trigger and generate calculated deadlines.
+            No rules configured. Use &quot;Add Event&quot; to apply a rule and generate calculated deadlines.
           </span>
         </div>
       </div>
@@ -73,14 +73,14 @@ export default function TriggerAlertBar({
             <strong className="text-accent-critical">{overdueDeadlines}</strong> overdue deadline{overdueDeadlines > 1 ? 's' : ''} require immediate attention
           </span>
           <span className="text-text-muted text-sm font-mono">
-            ({totalPendingDeadlines} pending from {totalTriggers} trigger{totalTriggers > 1 ? 's' : ''})
+            ({totalPendingDeadlines} pending from {totalTriggers} rule{totalTriggers > 1 ? 's' : ''})
           </span>
         </div>
       </div>
     );
   }
 
-  // If pending triggers need attention
+  // If pending rules need attention
   if (pendingTriggers.length > 0) {
     const firstPending = pendingTriggers[0];
     return (
@@ -88,7 +88,7 @@ export default function TriggerAlertBar({
         <div className="flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 text-accent-warning" />
           <span className="text-text-primary font-medium">
-            {pendingTriggers.length} trigger{pendingTriggers.length > 1 ? 's' : ''} require{pendingTriggers.length === 1 ? 's' : ''} attention:
+            {pendingTriggers.length} rule{pendingTriggers.length > 1 ? 's' : ''} require{pendingTriggers.length === 1 ? 's' : ''} attention:
           </span>
           <button
             onClick={() => onEditTrigger?.(firstPending)}
