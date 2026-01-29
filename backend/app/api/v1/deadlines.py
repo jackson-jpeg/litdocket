@@ -538,6 +538,97 @@ async def reschedule_deadline(
     }
 
 
+from pydantic import BaseModel
+from datetime import timedelta
+
+class SnoozeRequest(BaseModel):
+    days: int
+    reason: Optional[str] = None
+
+
+@router.post("/{deadline_id}/snooze")
+async def snooze_deadline(
+    deadline_id: str,
+    snooze_data: SnoozeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Snooze a deadline by a specified number of days.
+
+    This extends the deadline date while tracking the snooze as a manual override.
+    Useful for quick postponements without fully rescheduling.
+    """
+    deadline = db.query(Deadline).filter(
+        Deadline.id == deadline_id,
+        Deadline.user_id == str(current_user.id)
+    ).first()
+
+    if not deadline:
+        raise HTTPException(status_code=404, detail="Deadline not found")
+
+    if not deadline.deadline_date:
+        raise HTTPException(status_code=400, detail="Cannot snooze deadline without a date")
+
+    if snooze_data.days < 1 or snooze_data.days > 365:
+        raise HTTPException(status_code=400, detail="Snooze days must be between 1 and 365")
+
+    # Store original date if this is the first override
+    if not deadline.original_deadline_date:
+        deadline.original_deadline_date = deadline.deadline_date
+
+    old_date = deadline.deadline_date
+
+    # Calculate new date
+    new_date = old_date + timedelta(days=snooze_data.days)
+    deadline.deadline_date = new_date
+
+    # Mark as manually overridden
+    deadline.is_manually_overridden = True
+    deadline.auto_recalculate = False
+    deadline.override_timestamp = datetime.utcnow()
+    deadline.override_user_id = str(current_user.id)
+    deadline.override_reason = snooze_data.reason or f"Snoozed by {snooze_data.days} days"
+
+    # Update modification tracking
+    deadline.modified_by = current_user.email
+    deadline.modification_reason = snooze_data.reason or f"Snoozed by {snooze_data.days} days"
+
+    db.commit()
+    db.refresh(deadline)
+
+    logger.info(f"Deadline {deadline_id} snoozed by {snooze_data.days} days (from {old_date} to {new_date}) by user {current_user.id}")
+
+    # Update case summary
+    try:
+        summary_service = CaseSummaryService()
+        await summary_service.update_summary_on_event(
+            case_id=str(deadline.case_id),
+            event_type="deadline_snoozed",
+            event_details={
+                "deadline_id": str(deadline.id),
+                "title": deadline.title,
+                "old_date": old_date.isoformat(),
+                "new_date": new_date.isoformat(),
+                "days_snoozed": snooze_data.days,
+                "reason": snooze_data.reason
+            },
+            db=db
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update case summary: {e}")
+
+    return {
+        'success': True,
+        'deadline_id': str(deadline.id),
+        'old_date': old_date.isoformat(),
+        'new_date': new_date.isoformat(),
+        'days_snoozed': snooze_data.days,
+        'is_manually_overridden': True,
+        'message': f"Deadline snoozed to {new_date.strftime('%B %d, %Y')}"
+    }
+
+
 @router.patch("/{deadline_id}")
 async def update_deadline(
     deadline_id: str,

@@ -128,7 +128,6 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       eventSource.addEventListener('status', (e) => {
         receivedDataRef.current = true;  // Mark that we received data
         const data = JSON.parse(e.data);
-        console.log('[SSE] Status:', data);
         if (onStatus) {
           onStatus(data.status, data.message);
         }
@@ -177,9 +176,7 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
       });
 
       // Handle tool rejected events
-      eventSource.addEventListener('tool_rejected', (e) => {
-        const data = JSON.parse(e.data);
-        console.log('Tool rejected:', data.tool_id, data.reason);
+      eventSource.addEventListener('tool_rejected', (_e) => {
         // Continue streaming (AI will get rejection result)
         setStreamState({ type: 'streaming', sessionId, eventSource });
       });
@@ -201,7 +198,6 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         // Only process if this is a real error event with data from the server
         // Native EventSource errors don't have .data
         if (!e.data) {
-          console.log('[SSE] Ignoring native error event (will be handled by onerror)');
           return;
         }
 
@@ -253,23 +249,18 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
 
       // Handle connection open
       eventSource.onopen = () => {
-        console.log('[SSE] Connection opened successfully');
         receivedDataRef.current = true;  // Connection is working
       };
 
       // Handle connection errors (EventSource standard error event)
-      eventSource.onerror = (e) => {
+      eventSource.onerror = () => {
         // CRITICAL: Check completion flag FIRST - this is synchronous and reliable
         if (streamCompletedRef.current) {
-          console.log('[SSE] Ignoring onerror - stream completed successfully');
           return;
         }
 
-        console.log('[SSE] onerror fired. ReadyState:', eventSource.readyState);
-
         // If we received any data, this is likely normal connection close
         if (receivedDataRef.current) {
-          console.log('[SSE] Connection closed after receiving data - ignoring');
           eventSource.close();
           eventSourceRef.current = null;
           setStreamState({ type: 'idle' });
@@ -278,12 +269,9 @@ export function useStreamingChat(options: UseStreamingChatOptions) {
         }
 
         // If we NEVER received data, this is a real connection failure
-        console.error('[SSE] Real connection failure - no data received');
-
         // Only retry if we haven't exceeded max attempts
         if (reconnectAttempts < maxReconnectAttempts) {
           const delay = 2000 * (reconnectAttempts + 1);
-          console.log(`[SSE] Retrying in ${delay}ms... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
           eventSource.close();
           eventSourceRef.current = null;
 

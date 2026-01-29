@@ -1941,8 +1941,8 @@ class RulesEngine:
                 if dependent.add_service_method_days:
                     try:
                         service_ext = get_service_extension_days(rule_template.jurisdiction, service_method)
-                    except:
-                        pass
+                    except (ValueError, KeyError, TypeError) as e:
+                        logger.warning(f"Could not get service extension days: {e}")
 
                 if service_ext > 0:
                     trigger_formula = f"triggered {base_days} {day_type} plus {service_ext} Days ({service_method}) after {trigger_code}"

@@ -17,6 +17,19 @@ logger = logging.getLogger(__name__)
 # Initialize Firebase Admin SDK
 _firebase_initialized = False
 
+# Security: Dev bypass requires BOTH flags to be explicitly set
+_dev_auth_bypass_enabled = (
+    os.getenv("DEV_AUTH_BYPASS", "false").lower() == "true" and
+    os.getenv("DEBUG", "false").lower() == "true"
+)
+
+if _dev_auth_bypass_enabled:
+    logger.warning("=" * 60)
+    logger.warning("WARNING: DEV_AUTH_BYPASS is ENABLED!")
+    logger.warning("This should NEVER be enabled in production.")
+    logger.warning("Authentication will return mock user data.")
+    logger.warning("=" * 60)
+
 def initialize_firebase():
     """Initialize Firebase Admin SDK with service account credentials."""
     global _firebase_initialized
@@ -66,12 +79,21 @@ async def verify_firebase_token(id_token: str) -> Dict:
         HTTPException: If token is invalid
     """
     if not _firebase_initialized:
-        # Development mode - return mock user
-        return {
-            'uid': 'dev-user-123',
-            'email': 'dev@docketassist.com',
-            'name': 'Development User'
-        }
+        if _dev_auth_bypass_enabled:
+            # Development mode with explicit bypass - return mock user
+            logger.debug("Using dev auth bypass - returning mock user")
+            return {
+                'uid': 'dev-user-123',
+                'email': 'dev@docketassist.com',
+                'name': 'Development User'
+            }
+        else:
+            # Production mode without Firebase - reject authentication
+            logger.error("Firebase not initialized and DEV_AUTH_BYPASS not enabled")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service unavailable"
+            )
 
     try:
         # Verify the ID token
@@ -106,13 +128,19 @@ async def get_user_from_firebase(uid: str) -> Optional[Dict]:
         Dict containing user information or None if not found
     """
     if not _firebase_initialized:
-        # Development mode
-        return {
-            'uid': uid,
-            'email': 'dev@docketassist.com',
-            'display_name': 'Development User',
-            'email_verified': True
-        }
+        if _dev_auth_bypass_enabled:
+            # Development mode with explicit bypass
+            logger.debug("Using dev auth bypass - returning mock user info")
+            return {
+                'uid': uid,
+                'email': 'dev@docketassist.com',
+                'display_name': 'Development User',
+                'email_verified': True
+            }
+        else:
+            # Production mode without Firebase
+            logger.error("Firebase not initialized and DEV_AUTH_BYPASS not enabled")
+            return None
 
     try:
         user = auth.get_user(uid)

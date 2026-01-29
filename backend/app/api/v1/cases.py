@@ -585,6 +585,85 @@ def delete_case(
 
 
 # ===================
+# CASE EXPORT
+# ===================
+
+@router.get("/{case_id}/export")
+def export_case(
+    case_id: str,
+    format: str = Query("json", description="Export format: json"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Export case data including documents and deadlines.
+
+    Returns a JSON object with all case information for backup/transfer.
+    """
+    case = get_case_by_id_or_number(db, case_id, str(current_user.id))
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Build export data
+    export_data = {
+        "case": {
+            "id": case.id,
+            "case_number": case.case_number,
+            "title": case.title,
+            "court": case.court,
+            "judge": case.judge,
+            "status": case.status,
+            "case_type": case.case_type,
+            "jurisdiction": case.jurisdiction,
+            "district": case.district,
+            "circuit": case.circuit,
+            "filing_date": case.filing_date.isoformat() if case.filing_date else None,
+            "parties": case.parties,
+            "case_metadata": case.case_metadata,
+            "created_at": case.created_at.isoformat() if case.created_at else None,
+            "updated_at": case.updated_at.isoformat() if case.updated_at else None,
+        },
+        "documents": [
+            {
+                "id": doc.id,
+                "file_name": doc.file_name,
+                "document_type": doc.document_type,
+                "filing_date": doc.filing_date.isoformat() if doc.filing_date else None,
+                "description": doc.description,
+                "extracted_text": doc.extracted_text[:1000] if doc.extracted_text else None,  # Truncate for export
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            }
+            for doc in case.documents
+        ],
+        "deadlines": [
+            {
+                "id": deadline.id,
+                "title": deadline.title,
+                "deadline_date": deadline.deadline_date.isoformat() if deadline.deadline_date else None,
+                "priority": deadline.priority,
+                "status": deadline.status,
+                "description": deadline.description,
+                "rule_citation": deadline.rule_citation,
+                "calculation_basis": deadline.calculation_basis,
+                "trigger_event": deadline.trigger_event,
+                "created_at": deadline.created_at.isoformat() if deadline.created_at else None,
+            }
+            for deadline in case.deadlines
+        ],
+        "export_metadata": {
+            "exported_at": db.execute(func.now()).scalar().isoformat(),
+            "exported_by": current_user.email,
+            "format_version": "1.0",
+            "document_count": len(case.documents),
+            "deadline_count": len(case.deadlines),
+        }
+    }
+
+    return export_data
+
+
+# ===================
 # CASE TEMPLATES
 # ===================
 

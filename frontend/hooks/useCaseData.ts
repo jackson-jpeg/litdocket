@@ -49,6 +49,11 @@ export interface Deadline {
   source_document?: string;
   service_method?: string;  // 'electronic' | 'mail' | 'personal'
   created_at: string;
+  // Confidence scoring
+  confidence_score?: number;  // 0-100
+  confidence_level?: 'high' | 'medium' | 'low';
+  extraction_method?: 'rule-based' | 'ai' | 'manual';
+  verification_status?: 'pending' | 'verified' | 'disputed';
 }
 
 // Status summary for frontend badges (pre-calculated by backend)

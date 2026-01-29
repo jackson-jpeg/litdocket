@@ -71,7 +71,7 @@ litdocket/
 │
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/            # API route handlers (13 routers)
+│   │   ├── api/v1/            # API route handlers (15 routers)
 │   │   │   ├── auth.py        # Login/signup/token
 │   │   │   ├── cases.py       # Case CRUD
 │   │   │   ├── documents.py   # Document upload/viewing
@@ -85,7 +85,9 @@ litdocket/
 │   │   │   ├── verification.py # Deadline verification gate
 │   │   │   ├── jurisdictions.py # Jurisdiction & rules
 │   │   │   ├── rag_search.py  # Semantic search
-│   │   │   └── workload.py    # Workload optimization
+│   │   │   ├── workload.py    # Workload optimization
+│   │   │   ├── notifications.py # Notification management
+│   │   │   └── rules.py       # User rule templates
 │   │   ├── models/            # SQLAlchemy models (20+)
 │   │   │   ├── enums.py       # Centralized enums (TriggerType, DeadlinePriority, etc.)
 │   │   │   ├── user.py        # User model
@@ -110,7 +112,7 @@ litdocket/
 │   │   ├── config.py          # Settings and configuration
 │   │   ├── database.py        # Database connection
 │   │   └── main.py            # FastAPI app entry
-│   ├── supabase/migrations/   # SQL migrations (009 versions)
+│   ├── supabase/migrations/   # SQL migrations (010 versions)
 │   ├── scripts/               # Utility scripts
 │   ├── tests/                 # Test suite
 │   └── requirements.txt       # Python dependencies

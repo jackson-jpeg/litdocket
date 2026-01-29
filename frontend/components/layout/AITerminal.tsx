@@ -103,14 +103,14 @@ export function AITerminal() {
     onToken: (token: string) => {
       // Tokens are accumulated in currentMessage state by the hook
     },
-    onStatus: (status: string, message: string) => {
-      console.log(`[AI] Status: ${status} - ${message}`);
+    onStatus: (_status: string, _message: string) => {
+      // Status updates handled silently
     },
-    onToolUse: (toolCall: any) => {
-      console.log(`[AI] Tool use: ${toolCall.tool_name}`, toolCall);
+    onToolUse: (_toolCall: any) => {
+      // Tool use handled silently
     },
-    onToolResult: (toolId: string, result: any) => {
-      console.log(`[AI] Tool result:`, result);
+    onToolResult: (_toolId: string, _result: any) => {
+      // Tool result handled silently
     },
     onError: (error: string, code?: string) => {
       const errorMsg: Message = {
@@ -122,9 +122,7 @@ export function AITerminal() {
       setMessages(prev => [...prev, errorMsg]);
       setCurrentAIMessageId(null);
     },
-    onDone: (data: { message_id: string; tokens_used: number }) => {
-      console.log(`[AI] Done. Tokens: ${data.tokens_used}`);
-
+    onDone: (_data: { message_id: string; tokens_used: number }) => {
       // Add complete AI message to messages array
       if (currentMessage.trim()) {
         const aiMsg: Message = {

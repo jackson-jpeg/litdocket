@@ -12,7 +12,7 @@
 
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { FileText, Upload, Eye, Trash2, Calendar, Clock, AlertTriangle, Building, User, Scale, ChevronRight } from 'lucide-react';
+import { FileText, Upload, Eye, Trash2, Calendar, Clock, AlertTriangle, Building, User, Scale, ChevronRight, Search, Sparkles } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -25,7 +25,9 @@ import TriggerAlertBar from '@/components/cases/triggers/TriggerAlertBar';
 import DeadlineListPanel from '@/components/cases/deadlines/DeadlineListPanel';
 import DeadlineDetailModal from '@/components/cases/deadlines/DeadlineDetailModal';
 import DeadlineChainView from '@/components/cases/deadlines/DeadlineChainView';
+import CaseInsights from '@/components/CaseInsights';
 import { useCaseSync } from '@/hooks/useCaseSync';
+import { useRAG } from '@/hooks/useRAG';
 import { deadlineEvents } from '@/lib/eventBus';
 import type { Document } from '@/types';
 
@@ -56,6 +58,17 @@ export default function CaseRoomPage() {
   // Document upload state
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Document search state
+  const [documentSearchQuery, setDocumentSearchQuery] = useState('');
+  const [smartSearchEnabled, setSmartSearchEnabled] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+
+  // RAG (semantic search) hook
+  const { search: ragSearch, loading: ragLoading, error: ragError } = useRAG({
+    caseId,
+    onError: (err) => showError(err.message),
+  });
 
   // Handlers
   const handleTriggerSuccess = () => {
@@ -164,6 +177,38 @@ export default function CaseRoomPage() {
       showError('Failed to export calendar');
     }
   };
+
+  const handleDocumentSearch = async () => {
+    if (!documentSearchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+
+    if (smartSearchEnabled) {
+      // Use RAG semantic search
+      const results = await ragSearch(documentSearchQuery, 10);
+      if (results) {
+        setSearchResults(results.results || []);
+      }
+    } else {
+      // Basic text filter on document names
+      const filtered = documents.filter(doc =>
+        doc.file_name.toLowerCase().includes(documentSearchQuery.toLowerCase()) ||
+        doc.document_type?.toLowerCase().includes(documentSearchQuery.toLowerCase())
+      );
+      setSearchResults(filtered.map(doc => ({ document_id: doc.id, document_name: doc.file_name, similarity: 1 })));
+    }
+  };
+
+  const clearDocumentSearch = () => {
+    setDocumentSearchQuery('');
+    setSearchResults(null);
+  };
+
+  // Get documents to display (filtered or all)
+  const displayedDocuments = searchResults
+    ? documents.filter(doc => searchResults.some(r => r.document_id === doc.id))
+    : documents;
 
   // Loading state
   if (loading) {
@@ -309,6 +354,9 @@ export default function CaseRoomPage() {
             <div className="text-sm text-slate-600">Documents</div>
           </div>
         </div>
+
+        {/* Case Insights - AI-powered analytics */}
+        <CaseInsights caseId={caseId} />
 
         {/* Actions Row */}
         <div className="flex gap-2">
@@ -466,6 +514,11 @@ export default function CaseRoomPage() {
             <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-purple-600" />
               Documents
+              {searchResults && (
+                <span className="text-sm font-normal text-slate-500">
+                  ({searchResults.length} result{searchResults.length !== 1 ? 's' : ''})
+                </span>
+              )}
             </h2>
             <button
               onClick={() => setShowUploadDialog(true)}
@@ -475,6 +528,62 @@ export default function CaseRoomPage() {
               Upload
             </button>
           </div>
+
+          {/* Document Search Bar */}
+          {documents.length > 0 && (
+            <div className="mb-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={documentSearchQuery}
+                    onChange={(e) => setDocumentSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleDocumentSearch()}
+                    placeholder={smartSearchEnabled ? "Search document content with AI..." : "Filter by filename..."}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <button
+                  onClick={handleDocumentSearch}
+                  disabled={ragLoading}
+                  className="btn-primary btn-sm"
+                >
+                  {ragLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Search'
+                  )}
+                </button>
+                {searchResults && (
+                  <button
+                    onClick={clearDocumentSearch}
+                    className="btn-ghost btn-sm"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => setSmartSearchEnabled(!smartSearchEnabled)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    smartSearchEnabled
+                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${smartSearchEnabled ? 'text-purple-600' : 'text-slate-400'}`} />
+                  Smart Search
+                </button>
+                {smartSearchEnabled && (
+                  <span className="text-xs text-slate-500">
+                    AI-powered semantic search across document content
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {documents.length === 0 ? (
             <div className="text-center py-12">
@@ -487,44 +596,77 @@ export default function CaseRoomPage() {
                 Upload your first document
               </button>
             </div>
+          ) : displayedDocuments.length === 0 ? (
+            <div className="text-center py-8">
+              <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-600 mb-2">No documents match your search</p>
+              <button
+                onClick={clearDocumentSearch}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                Clear search
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {documents.map(doc => (
-                <div
-                  key={doc.id}
-                  className={`group relative border border-slate-200 rounded-lg p-4 transition-all ${
-                    doc.storage_url
-                      ? 'hover:border-blue-300 hover:shadow-md cursor-pointer'
-                      : 'bg-slate-50'
-                  }`}
-                  onClick={() => doc.storage_url && handleDocumentClick(doc)}
-                >
-                  <div className="flex items-start gap-3">
-                    <FileText className={`w-5 h-5 flex-shrink-0 ${doc.storage_url ? 'text-purple-600' : 'text-slate-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{doc.file_name}</p>
-                      {doc.document_type && (
-                        <span className="inline-block mt-1 text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-                          {doc.document_type}
-                        </span>
-                      )}
-                      {!doc.storage_url && (
-                        <p className="text-xs text-red-600 mt-1">⚠ File unavailable</p>
-                      )}
-                      <p className="text-xs text-slate-500 mt-1">
-                        {formatDateTime(doc.created_at)}
-                      </p>
+              {displayedDocuments.map(doc => {
+                const searchResult = searchResults?.find(r => r.document_id === doc.id);
+                const relevanceScore = searchResult?.similarity;
+
+                return (
+                  <div
+                    key={doc.id}
+                    className={`group relative border border-slate-200 rounded-lg p-4 transition-all ${
+                      doc.storage_url
+                        ? 'hover:border-blue-300 hover:shadow-md cursor-pointer'
+                        : 'bg-slate-50'
+                    }`}
+                    onClick={() => doc.storage_url && handleDocumentClick(doc)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileText className={`w-5 h-5 flex-shrink-0 ${doc.storage_url ? 'text-purple-600' : 'text-slate-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{doc.file_name}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {doc.document_type && (
+                            <span className="inline-block text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                              {doc.document_type}
+                            </span>
+                          )}
+                          {smartSearchEnabled && relevanceScore !== undefined && relevanceScore < 1 && (
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${
+                                relevanceScore >= 0.8
+                                  ? 'bg-green-100 text-green-700'
+                                  : relevanceScore >= 0.6
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                              title="Semantic relevance score"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              {Math.round(relevanceScore * 100)}% match
+                            </span>
+                          )}
+                        </div>
+                        {!doc.storage_url && (
+                          <p className="text-xs text-red-600 mt-1">⚠ File unavailable</p>
+                        )}
+                        <p className="text-xs text-slate-500 mt-1">
+                          {formatDateTime(doc.created_at)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => handleDocumentDelete(doc, e)}
+                        className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        title="Delete document"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      onClick={(e) => handleDocumentDelete(doc, e)}
-                      className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                      title="Delete document"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

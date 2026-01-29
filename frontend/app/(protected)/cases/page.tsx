@@ -368,26 +368,59 @@ export default function CasesListPage() {
 
   const handleArchiveCase = async () => {
     if (!contextMenu) return;
-    // TODO: Implement archive API call
-    alert(`Archive case: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+    try {
+      await apiClient.post(`/api/v1/cases/${contextMenu.caseItem.id}/archive`);
+      // Refresh the cases list
+      const response = await apiClient.get('/api/v1/cases');
+      setCases(response.data.cases || []);
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to archive case:', err);
+      alert('Failed to archive case. Please try again.');
+    }
   };
 
   const handleExportDetails = async () => {
     if (!contextMenu) return;
-    // TODO: Implement export API call
-    alert(`Export details: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+    try {
+      const response = await apiClient.get(`/api/v1/cases/${contextMenu.caseItem.id}/export`);
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${contextMenu.caseItem.case_number.replace(/[^a-zA-Z0-9]/g, '_')}_export.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to export case:', err);
+      alert('Failed to export case. Please try again.');
+    }
   };
 
   const handleGenerateReport = async () => {
     if (!contextMenu) return;
-    // TODO: Implement generate report API call
-    alert(`Generate report: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+    // Generate report uses the case summary service
+    try {
+      const response = await apiClient.get(`/api/v1/cases/${contextMenu.caseItem.id}/summary`);
+      const summary = response.data;
+      // Display summary in an alert for now (could be a modal)
+      alert(`Case Report: ${contextMenu.caseItem.case_number}\n\n${summary.summary || 'No summary available.'}`);
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to generate report:', err);
+      alert('Failed to generate report. Please try again.');
+    }
   };
 
   const handleAssignAttorney = async () => {
     if (!contextMenu) return;
-    // TODO: Implement assign attorney modal
-    alert(`Assign attorney: ${contextMenu.caseItem.case_number}\n\nThis feature will be implemented with backend support.`);
+    // Multi-user feature - show placeholder for now
+    alert(`Assign Attorney: ${contextMenu.caseItem.case_number}\n\nThis feature requires multi-user collaboration (Phase 3).`);
+    setContextMenu(null);
   };
 
   if (loading) {

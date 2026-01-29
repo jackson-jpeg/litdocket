@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Scale, ArrowLeft, Loader2, Filter, RefreshCw } from 'lucide-react';
+import { Scale, ArrowLeft, Loader2, Filter, RefreshCw, Sparkles, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useCalendarDeadlines, CalendarDeadline } from '@/hooks/useCalendarDeadlines';
 import { useToast } from '@/components/Toast';
@@ -11,6 +11,7 @@ import apiClient from '@/lib/api-client';
 
 import DeadlineSidebar from '@/components/calendar/DeadlineSidebar';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
+import IntelligentCalendar from '@/components/calendar/IntelligentCalendar';
 import DeadlineDetailModal from '@/components/calendar/DeadlineDetailModal';
 import CreateDeadlineModal from '@/components/calendar/CreateDeadlineModal';
 
@@ -22,6 +23,9 @@ export default function CalendarPage() {
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCaseId, setSelectedCaseId] = useState('all');
+
+  // Calendar view mode (basic vs intelligent with AI suggestions)
+  const [viewMode, setViewMode] = useState<'basic' | 'intelligent'>('basic');
 
   // Modal state
   const [selectedDeadline, setSelectedDeadline] = useState<CalendarDeadline | null>(null);
@@ -229,6 +233,34 @@ export default function CalendarPage() {
                 </select>
               </div>
 
+              {/* View Mode Toggle */}
+              <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode('basic')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
+                    viewMode === 'basic'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                  title="Basic Calendar"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  Basic
+                </button>
+                <button
+                  onClick={() => setViewMode('intelligent')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors ${
+                    viewMode === 'intelligent'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                  title="AI-Powered Calendar with Workload Analysis"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  AI Mode
+                </button>
+              </div>
+
               {/* Refresh */}
               <button
                 onClick={refetch}
@@ -265,18 +297,22 @@ export default function CalendarPage() {
           onNavigateToDate={setCalendarNavigateDate}
         />
 
-        {/* Calendar Grid */}
+        {/* Calendar - Basic or Intelligent */}
         <div className="flex-1 overflow-hidden">
-          <CalendarGrid
-            deadlines={deadlines}
-            onEventClick={handleDeadlineClick}
-            onEventDrop={handleEventDrop}
-            onSelectSlot={handleSelectSlot}
-            selectedPriority={selectedPriority}
-            selectedStatus={selectedStatus}
-            selectedCaseId={selectedCaseId}
-            navigateToDate={calendarNavigateDate}
-          />
+          {viewMode === 'basic' ? (
+            <CalendarGrid
+              deadlines={deadlines}
+              onEventClick={handleDeadlineClick}
+              onEventDrop={handleEventDrop}
+              onSelectSlot={handleSelectSlot}
+              selectedPriority={selectedPriority}
+              selectedStatus={selectedStatus}
+              selectedCaseId={selectedCaseId}
+              navigateToDate={calendarNavigateDate}
+            />
+          ) : (
+            <IntelligentCalendar showAISuggestions={true} />
+          )}
         </div>
       </div>
 

@@ -132,25 +132,21 @@ export default function DeadlineActions({ deadlines, onDeadlinesUpdated }: Deadl
 
     setLoading(true);
     try {
-      // This would require a snooze endpoint in the backend
-      // For demonstration, we'll show the concept
-      await Promise.all(
+      // Call snooze endpoint for each selected deadline
+      const results = await Promise.all(
         Array.from(selectedIds).map(async (id) => {
           const deadline = deadlines.find(d => d.id === id);
-          if (!deadline?.deadline_date) return;
+          if (!deadline?.deadline_date) return null;
 
-          const currentDate = new Date(deadline.deadline_date);
-          const newDate = new Date(currentDate);
-          newDate.setDate(newDate.getDate() + snoozeDays);
-
-          // Note: Backend would need a PATCH endpoint for deadline dates
-          // This is a conceptual implementation
-          console.log(`Snoozing ${id} by ${snoozeDays} days to ${newDate.toISOString()}`);
-          console.log(`Reason: ${snoozeReason}`);
+          const response = await apiClient.post(`/api/v1/deadlines/${id}/snooze`, {
+            days: snoozeDays,
+            reason: snoozeReason || undefined
+          });
+          return response.data;
         })
       );
 
-      alert(`Successfully snoozed ${selectedIds.size} deadline(s) by ${snoozeDays} days`);
+      const successCount = results.filter(r => r !== null).length;
       onDeadlinesUpdated();
       clearSelection();
       setSnoozeOpen(false);
@@ -158,7 +154,7 @@ export default function DeadlineActions({ deadlines, onDeadlinesUpdated }: Deadl
       setSnoozeReason('');
     } catch (err) {
       console.error('Failed to snooze deadlines:', err);
-      alert('Failed to snooze deadlines');
+      alert('Failed to snooze deadlines. Please try again.');
     } finally {
       setLoading(false);
     }

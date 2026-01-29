@@ -19,6 +19,9 @@ import {
   History,
   Sparkles,
   AlertTriangle,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react';
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
 import { formatDeadlineDate } from '@/lib/formatters';
@@ -226,6 +229,28 @@ export default function DeadlineRow({
                   Auto
                 </span>
               )}
+              {/* Confidence Badge */}
+              {deadline.confidence_level && (
+                <span
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded ${
+                    deadline.confidence_level === 'high'
+                      ? 'bg-green-100 text-green-700'
+                      : deadline.confidence_level === 'medium'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                  title={`Confidence: ${deadline.confidence_score || 0}%`}
+                >
+                  {deadline.confidence_level === 'high' ? (
+                    <ShieldCheck className="w-3 h-3" />
+                  ) : deadline.confidence_level === 'medium' ? (
+                    <Shield className="w-3 h-3" />
+                  ) : (
+                    <ShieldAlert className="w-3 h-3" />
+                  )}
+                  {deadline.confidence_score || 0}%
+                </span>
+              )}
               {isOverdue && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">
                   <AlertTriangle className="w-3 h-3" />
@@ -354,6 +379,29 @@ export default function DeadlineRow({
               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700">
                 <Sparkles className="w-3 h-3" />
                 Auto
+              </span>
+            )}
+
+            {/* Confidence Badge (Mobile) */}
+            {deadline.confidence_level && (
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded ${
+                  deadline.confidence_level === 'high'
+                    ? 'bg-green-100 text-green-700'
+                    : deadline.confidence_level === 'medium'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+                title={`Confidence: ${deadline.confidence_score || 0}%`}
+              >
+                {deadline.confidence_level === 'high' ? (
+                  <ShieldCheck className="w-3 h-3" />
+                ) : deadline.confidence_level === 'medium' ? (
+                  <Shield className="w-3 h-3" />
+                ) : (
+                  <ShieldAlert className="w-3 h-3" />
+                )}
+                {deadline.confidence_score || 0}%
               </span>
             )}
           </div>

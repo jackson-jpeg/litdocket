@@ -43,7 +43,6 @@ export default function DocumentViewer({
 
     const fetchPdf = async () => {
       try {
-        console.log('[DocumentViewer] Fetching PDF with authentication:', documentUrl);
         setLoading(true);
         setError(null);
 
@@ -53,13 +52,9 @@ export default function DocumentViewer({
           responseType: 'blob',
         });
 
-        console.log('[DocumentViewer] PDF fetched successfully, creating blob URL');
-
         // Create blob URL for PDF.js to load
         blobUrl = URL.createObjectURL(response.data);
         setPdfBlob(blobUrl);
-
-        console.log('[DocumentViewer] Blob URL created:', blobUrl);
       } catch (err: any) {
         console.error('[DocumentViewer] Failed to fetch PDF:', err);
         const errorMessage = err.response?.status === 401
@@ -79,14 +74,12 @@ export default function DocumentViewer({
     // Cleanup: revoke blob URL when component unmounts or URL changes
     return () => {
       if (blobUrl) {
-        console.log('[DocumentViewer] Cleaning up blob URL:', blobUrl);
         URL.revokeObjectURL(blobUrl);
       }
     };
   }, [documentUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log('[DocumentViewer] PDF loaded successfully:', { numPages, documentUrl });
     setNumPages(numPages);
     setLoading(false);
     setError(null);
@@ -115,8 +108,6 @@ export default function DocumentViewer({
 
   const handleDownload = async () => {
     try {
-      console.log('[DocumentViewer] Initiating download for:', documentName);
-
       // Use pdfBlob if available (already fetched with auth)
       if (pdfBlob) {
         // Create a temporary anchor element to trigger download

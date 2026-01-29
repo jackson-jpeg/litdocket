@@ -4,6 +4,7 @@ import { useState } from 'react';
 import * as React from 'react';
 import { useRules } from '@/hooks/useRules';
 import TimelineRuleBuilder from '@/components/rules/TimelineRuleBuilder';
+import RuleExecutionPreview from '@/components/rules/RuleExecutionPreview';
 import {
   Settings,
   Sparkles,
@@ -14,13 +15,16 @@ import {
   Play,
   FileText,
   Save,
-  Eye
+  Eye,
+  X
 } from 'lucide-react';
 
 type TabType = 'my-rules' | 'marketplace' | 'create' | 'history';
 
 export default function RulesBuilderDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('my-rules');
+  const [testingRule, setTestingRule] = useState<any | null>(null);
+
   // Lift the hook to parent so all tabs share the same state
   const {
     rules,
@@ -106,7 +110,7 @@ export default function RulesBuilderDashboard() {
           </div>
         )}
 
-        {activeTab === 'my-rules' && <MyRulesTab rules={rules} loading={loading} />}
+        {activeTab === 'my-rules' && <MyRulesTab rules={rules} loading={loading} onTestRule={setTestingRule} />}
         {activeTab === 'marketplace' && <MarketplaceTab />}
         {activeTab === 'create' && (
           <CreateRuleTab
@@ -117,6 +121,31 @@ export default function RulesBuilderDashboard() {
         )}
         {activeTab === 'history' && <ExecutionHistoryTab />}
       </div>
+
+      {/* Test Rule Modal */}
+      {testingRule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Test Rule: {testingRule.rule_name}
+              </h2>
+              <button
+                onClick={() => setTestingRule(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4">
+              <RuleExecutionPreview
+                ruleTemplateId={testingRule.id}
+                caseId=""
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -125,7 +154,7 @@ export default function RulesBuilderDashboard() {
 // MY RULES TAB
 // ============================================
 
-function MyRulesTab({ rules, loading }: { rules: any[]; loading: boolean }) {
+function MyRulesTab({ rules, loading, onTestRule }: { rules: any[]; loading: boolean; onTestRule: (rule: any) => void }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -152,13 +181,13 @@ function MyRulesTab({ rules, loading }: { rules: any[]; loading: boolean }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {rules.map((rule) => (
-        <RuleCard key={rule.id} rule={rule} />
+        <RuleCard key={rule.id} rule={rule} onTest={() => onTestRule(rule)} />
       ))}
     </div>
   );
 }
 
-function RuleCard({ rule }: { rule: any }) {
+function RuleCard({ rule, onTest }: { rule: any; onTest: () => void }) {
   const statusColors = {
     draft: 'bg-gray-100 text-gray-700',
     active: 'bg-green-100 text-green-700',
@@ -212,7 +241,11 @@ function RuleCard({ rule }: { rule: any }) {
         <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
           Edit
         </button>
-        <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+        <button
+          onClick={onTest}
+          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+          title="Test Rule"
+        >
           <Play className="h-4 w-4" />
         </button>
       </div>
