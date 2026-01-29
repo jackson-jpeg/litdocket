@@ -1,41 +1,49 @@
 'use client';
 
 /**
- * Case Detail - Paper & Steel Design
+ * Case Detail - Simplified with Unified Add Event
  *
- * Single Column Layout:
- * - Top: Case Header (Title, Number, Court)
- * - Middle: Stats Row (Simple numbers)
- * - Main: Deadlines List (grouped by timeframe)
- * - Documents: Integrated inline section
+ * Refactored to use:
+ * - useCasePageModals hook for modal state management
+ * - UnifiedAddEventModal for all event creation
+ * - Removed separate Triggers section (triggers visible through chain badges)
  */
 
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { FileText, Upload, Eye, Trash2, Calendar, Clock, AlertTriangle, Building, User, Scale, ChevronRight, Search, Sparkles } from 'lucide-react';
+import { FileText, Upload, Calendar, Clock, AlertTriangle, Building, User, Search, Sparkles, Trash2, Plus } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
+import { useCaseData, Trigger } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
 import { formatDateTime, formatDeadlineDate } from '@/lib/formatters';
 import DocumentViewerWrapper from '@/components/DocumentViewerWrapper';
-import TriggerModal from './triggers/TriggerModal';
 import EditTriggerModal from '@/components/cases/triggers/EditTriggerModal';
-import AddTriggerModal from '@/components/cases/triggers/AddTriggerModal';
 import TriggerAlertBar from '@/components/cases/triggers/TriggerAlertBar';
-import DeadlineListPanel from '@/components/cases/deadlines/DeadlineListPanel';
 import DeadlineDetailModal from '@/components/cases/deadlines/DeadlineDetailModal';
 import DeadlineChainView from '@/components/cases/deadlines/DeadlineChainView';
+import UnifiedAddEventModal from '@/components/cases/UnifiedAddEventModal';
 import CaseInsights from '@/components/CaseInsights';
 import { useCaseSync } from '@/hooks/useCaseSync';
 import { useRAG } from '@/hooks/useRAG';
 import { deadlineEvents } from '@/lib/eventBus';
+import {
+  useCasePageModals,
+  getViewingDeadline,
+  getViewingChainTrigger,
+  getEditingTrigger,
+  getViewingDocument,
+  getAddEventTab,
+} from '@/hooks/useCasePageModals';
 import type { Document } from '@/types';
 
 export default function CaseRoomPage() {
   const params = useParams();
   const caseId = params.caseId as string;
-  const { caseData, documents, deadlines, triggers, caseSummary, loading, error, refetch, optimistic } = useCaseData(caseId);
+  const { caseData, documents, deadlines, triggers, loading, error, refetch, optimistic } = useCaseData(caseId);
   const { showSuccess, showError } = useToast();
+
+  // Modal state management
+  const modals = useCasePageModals();
 
   // Setup case synchronization
   useCaseSync({
@@ -47,25 +55,16 @@ export default function CaseRoomPage() {
     onInsightsUpdate: () => {},
   });
 
-  // UI state
-  const [triggerModalOpen, setTriggerModalOpen] = useState(false);
-  const [addTriggerModalOpen, setAddTriggerModalOpen] = useState(false);
-  const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
-  const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
-  const [viewingDeadline, setViewingDeadline] = useState<Deadline | null>(null);
-  const [viewingChainTrigger, setViewingChainTrigger] = useState<Trigger | null>(null);
-
   // Document upload state
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   // Document search state
   const [documentSearchQuery, setDocumentSearchQuery] = useState('');
   const [smartSearchEnabled, setSmartSearchEnabled] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [searchResults, setSearchResults] = useState<Array<{ document_id: string; similarity: number }> | null>(null);
 
   // RAG (semantic search) hook
-  const { search: ragSearch, loading: ragLoading, error: ragError } = useRAG({
+  const { search: ragSearch, loading: ragLoading } = useRAG({
     caseId,
     onError: (err) => showError(err.message),
   });
@@ -83,7 +82,7 @@ export default function CaseRoomPage() {
       showError('This document cannot be opened. The file may not be available on the server.');
       return;
     }
-    setViewingDocument(doc);
+    modals.viewDocument(doc);
   };
 
   const handleDocumentDelete = async (doc: Document, e: React.MouseEvent) => {
@@ -97,11 +96,12 @@ export default function CaseRoomPage() {
       await apiClient.delete(`/api/v1/documents/${doc.id}`);
       showSuccess('Document deleted');
       refetch.documents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       refetch.documents();
-      if (err.response?.status === 404) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
         showError('Document not found. It may have already been deleted.');
-      } else if (err.response?.status === 403) {
+      } else if (status === 403) {
         showError('You do not have permission to delete this document.');
       } else {
         showError('Failed to delete document. Please try again.');
@@ -126,10 +126,11 @@ export default function CaseRoomPage() {
         refetch.caseSummary()
       ]);
 
-      setShowUploadDialog(false);
+      modals.close();
       showSuccess(`Document uploaded. ${response.data.deadlines_extracted || 0} deadline(s) extracted.`);
-    } catch (err: any) {
-      showError(err.response?.data?.detail || 'Failed to upload document');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showError(detail || 'Failed to upload document');
     } finally {
       setUploading(false);
     }
@@ -185,24 +186,27 @@ export default function CaseRoomPage() {
     }
 
     if (smartSearchEnabled) {
-      // Use RAG semantic search
       const results = await ragSearch(documentSearchQuery, 10);
       if (results) {
         setSearchResults(results.results || []);
       }
     } else {
-      // Basic text filter on document names
       const filtered = documents.filter(doc =>
         doc.file_name.toLowerCase().includes(documentSearchQuery.toLowerCase()) ||
         doc.document_type?.toLowerCase().includes(documentSearchQuery.toLowerCase())
       );
-      setSearchResults(filtered.map(doc => ({ document_id: doc.id, document_name: doc.file_name, similarity: 1 })));
+      setSearchResults(filtered.map(doc => ({ document_id: doc.id, similarity: 1 })));
     }
   };
 
   const clearDocumentSearch = () => {
     setDocumentSearchQuery('');
     setSearchResults(null);
+  };
+
+  // Find trigger by ID for chain view
+  const findTriggerById = (triggerId: string): Trigger | undefined => {
+    return triggers.find(t => t.id === triggerId);
   };
 
   // Get documents to display (filtered or all)
@@ -277,14 +281,20 @@ export default function CaseRoomPage() {
     return deadlineDate >= monthFromNow;
   });
 
+  // Extract data from modal state for rendering
+  const viewingDeadline = getViewingDeadline(modals.modal);
+  const viewingChainTrigger = getViewingChainTrigger(modals.modal);
+  const editingTrigger = getEditingTrigger(modals.modal);
+  const viewingDocument = getViewingDocument(modals.modal);
+  const addEventTab = getAddEventTab(modals.modal);
+
   return (
     <div className="h-full overflow-auto">
       {/* Trigger Alert Bar */}
       <TriggerAlertBar
         triggers={triggers}
         deadlines={deadlines}
-        onAddTrigger={() => setAddTriggerModalOpen(true)}
-        onEditTrigger={(trigger) => setEditingTrigger(trigger)}
+        onEditTrigger={(trigger) => modals.editTrigger(trigger)}
       />
 
       <div className="max-w-5xl mx-auto p-8 space-y-6">
@@ -358,16 +368,17 @@ export default function CaseRoomPage() {
         {/* Case Insights - AI-powered analytics */}
         <CaseInsights caseId={caseId} />
 
-        {/* Actions Row */}
+        {/* Actions Row - Single Add Event button */}
         <div className="flex gap-2">
           <button
-            onClick={() => setAddTriggerModalOpen(true)}
+            onClick={() => modals.openAddEvent()}
             className="btn-primary"
           >
-            Add Trigger
+            <Plus className="w-4 h-4 mr-2" />
+            Add Event
           </button>
           <button
-            onClick={() => setShowUploadDialog(true)}
+            onClick={() => modals.openUploadDocument()}
             className="btn-secondary"
           >
             <Upload className="w-4 h-4 mr-2" />
@@ -396,7 +407,7 @@ export default function CaseRoomPage() {
                   <div
                     key={deadline.id}
                     className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => setViewingDeadline(deadline)}
+                    onClick={() => modals.viewDeadline(deadline)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -434,7 +445,7 @@ export default function CaseRoomPage() {
                   <div
                     key={deadline.id}
                     className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => setViewingDeadline(deadline)}
+                    onClick={() => modals.viewDeadline(deadline)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -469,7 +480,7 @@ export default function CaseRoomPage() {
                   <div
                     key={deadline.id}
                     className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => setViewingDeadline(deadline)}
+                    onClick={() => modals.viewDeadline(deadline)}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -497,12 +508,13 @@ export default function CaseRoomPage() {
             <div className="card text-center py-16">
               <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-lg font-medium text-slate-900 mb-2">No Active Deadlines</p>
-              <p className="text-sm text-slate-600 mb-6">Add a trigger to generate deadlines automatically</p>
+              <p className="text-sm text-slate-600 mb-6">Add an event to create deadlines</p>
               <button
-                onClick={() => setAddTriggerModalOpen(true)}
+                onClick={() => modals.openAddEvent('trigger')}
                 className="btn-primary"
               >
-                Add Trigger
+                <Plus className="w-4 h-4 mr-2" />
+                Add Event
               </button>
             </div>
           )}
@@ -521,7 +533,7 @@ export default function CaseRoomPage() {
               )}
             </h2>
             <button
-              onClick={() => setShowUploadDialog(true)}
+              onClick={() => modals.openUploadDocument()}
               className="btn-secondary btn-sm"
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -590,7 +602,7 @@ export default function CaseRoomPage() {
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-600 mb-4">No documents uploaded yet</p>
               <button
-                onClick={() => setShowUploadDialog(true)}
+                onClick={() => modals.openUploadDocument()}
                 className="btn-secondary"
               >
                 Upload your first document
@@ -650,7 +662,7 @@ export default function CaseRoomPage() {
                           )}
                         </div>
                         {!doc.storage_url && (
-                          <p className="text-xs text-red-600 mt-1">⚠ File unavailable</p>
+                          <p className="text-xs text-red-600 mt-1">File unavailable</p>
                         )}
                         <p className="text-xs text-slate-500 mt-1">
                           {formatDateTime(doc.created_at)}
@@ -670,62 +682,27 @@ export default function CaseRoomPage() {
             </div>
           )}
         </div>
-
-        {/* Triggers Section */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-slate-900">Triggers</h2>
-            <button
-              onClick={() => setAddTriggerModalOpen(true)}
-              className="btn-secondary btn-sm"
-            >
-              Add Trigger
-            </button>
-          </div>
-
-          {triggers.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-600">No triggers set</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {triggers.map(trigger => (
-                <button
-                  key={trigger.id}
-                  onClick={() => setEditingTrigger(trigger)}
-                  className="w-full border border-slate-200 rounded-lg p-4 text-left hover:border-blue-300 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">{trigger.title}</p>
-                      <p className="text-sm text-slate-600 mt-1">
-                        {trigger.trigger_date ? formatDeadlineDate(trigger.trigger_date) : 'No date'}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Modals */}
-      <TriggerModal
-        isOpen={triggerModalOpen}
-        onClose={() => setTriggerModalOpen(false)}
+      <UnifiedAddEventModal
+        isOpen={modals.isAddEventOpen}
         caseId={caseId}
         jurisdiction={caseData?.jurisdiction || 'florida_state'}
         courtType={caseData?.case_type || 'civil'}
-        onSuccess={handleTriggerSuccess}
+        onClose={modals.close}
+        onSuccess={() => {
+          refetch.deadlines();
+          refetch.triggers();
+          refetch.caseSummary();
+        }}
+        initialTab={addEventTab || 'quick'}
       />
 
       {viewingDocument && (
         <DocumentViewerWrapper
           isOpen={true}
-          onClose={() => setViewingDocument(null)}
+          onClose={modals.close}
           documentUrl={`/api/v1/documents/${viewingDocument.id}/download`}
           documentName={viewingDocument.file_name}
         />
@@ -735,24 +712,11 @@ export default function CaseRoomPage() {
         isOpen={!!editingTrigger}
         trigger={editingTrigger}
         deadlines={deadlines}
-        onClose={() => setEditingTrigger(null)}
+        onClose={modals.close}
         onSuccess={() => {
           refetch.deadlines();
           refetch.triggers();
-          setEditingTrigger(null);
-        }}
-      />
-
-      <AddTriggerModal
-        isOpen={addTriggerModalOpen}
-        caseId={caseId}
-        jurisdiction={caseData?.jurisdiction || 'florida_state'}
-        courtType={caseData?.case_type || 'civil'}
-        onClose={() => setAddTriggerModalOpen(false)}
-        onSuccess={() => {
-          refetch.deadlines();
-          refetch.triggers();
-          refetch.caseSummary();
+          modals.close();
         }}
       />
 
@@ -760,18 +724,18 @@ export default function CaseRoomPage() {
         isOpen={!!viewingDeadline}
         deadline={viewingDeadline}
         triggers={triggers}
-        onClose={() => setViewingDeadline(null)}
+        onClose={modals.close}
         onUpdate={() => {
           refetch.deadlines();
-          setViewingDeadline(null);
+          modals.close();
         }}
         onComplete={(id) => {
           handleComplete(id);
-          setViewingDeadline(null);
+          modals.close();
         }}
         onDelete={(id) => {
           handleDelete(id);
-          setViewingDeadline(null);
+          modals.close();
         }}
       />
 
@@ -780,21 +744,20 @@ export default function CaseRoomPage() {
           trigger={viewingChainTrigger}
           deadlines={deadlines}
           onSelectDeadline={(deadline) => {
-            setViewingChainTrigger(null);
-            setViewingDeadline(deadline);
+            modals.viewDeadline(deadline);
           }}
-          onClose={() => setViewingChainTrigger(null)}
+          onClose={modals.close}
         />
       )}
 
       {/* Upload Dialog */}
-      {showUploadDialog && (
+      {modals.isUploadDocumentOpen && (
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
               <h3 className="text-lg font-semibold text-slate-900">Upload Document</h3>
               <button
-                onClick={() => setShowUploadDialog(false)}
+                onClick={modals.close}
                 className="text-slate-400 hover:text-slate-600"
                 disabled={uploading}
               >

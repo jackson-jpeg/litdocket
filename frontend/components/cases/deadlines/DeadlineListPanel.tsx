@@ -21,7 +21,6 @@ import {
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
 import { useCaseDeadlineFilters, GroupBy, SortBy } from '@/hooks/useCaseDeadlineFilters';
 import DeadlineRow from './DeadlineRow';
-import SimpleDeadlineModal from './SimpleDeadlineModal';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
@@ -36,22 +35,28 @@ interface DeadlineListPanelProps {
   deadlines: Deadline[];
   triggers: Trigger[];
   caseId: string;
-  onAddDeadline?: () => void;
+  onAddEvent?: () => void;
   onExportCalendar?: () => void;
   onRefresh?: () => void;
   onOptimisticUpdate?: OptimisticUpdateFns;
+  onViewDeadline?: (deadline: Deadline) => void;
+  onViewChain?: (triggerId: string) => void;
+  defaultGroupBy?: GroupBy;
 }
 
 export default function DeadlineListPanel({
   deadlines,
   triggers,
   caseId,
-  onAddDeadline,
+  onAddEvent,
   onExportCalendar,
   onRefresh,
   onOptimisticUpdate,
+  onViewDeadline,
+  onViewChain,
+  defaultGroupBy,
 }: DeadlineListPanelProps) {
-  const { showSuccess, showError, showWarning } = useToast();
+  const { showSuccess, showError } = useToast();
 
   // Filter/sort/group state
   const {
@@ -73,14 +78,13 @@ export default function DeadlineListPanel({
     filterOptions,
     groupedDeadlines,
     filteredDeadlines,
-  } = useCaseDeadlineFilters(deadlines, triggers);
+  } = useCaseDeadlineFilters(deadlines, triggers, defaultGroupBy);
 
   // UI state
   const [showFilters, setShowFilters] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
-  const [showSimpleModal, setShowSimpleModal] = useState(false);
 
   // Selection handlers
   const toggleSelection = useCallback((id: string) => {
@@ -251,22 +255,15 @@ export default function DeadlineListPanel({
           <div className="flex items-center gap-2">
             {!selectionMode ? (
               <>
-                {onAddDeadline && (
+                {onAddEvent && (
                   <button
-                    onClick={onAddDeadline}
+                    onClick={onAddEvent}
                     className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
-                    <span className="hidden sm:inline">Add Trigger</span>
+                    <span className="hidden sm:inline">Add Event</span>
                   </button>
                 )}
-                <button
-                  onClick={() => setShowSimpleModal(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-white text-blue-600 text-sm font-medium rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Simple Deadline</span>
-                </button>
                 {onExportCalendar && (
                   <button
                     onClick={onExportCalendar}
@@ -565,6 +562,8 @@ export default function DeadlineListPanel({
                         onComplete={handleComplete}
                         onDelete={handleDelete}
                         onReschedule={handleReschedule}
+                        onClick={onViewDeadline ? () => onViewDeadline(deadline) : undefined}
+                        onViewChain={onViewChain}
                       />
                     ))}
                   </div>
@@ -575,13 +574,6 @@ export default function DeadlineListPanel({
         )}
       </div>
 
-      {/* Simple Deadline Modal */}
-      <SimpleDeadlineModal
-        caseId={caseId}
-        isOpen={showSimpleModal}
-        onClose={() => setShowSimpleModal(false)}
-        onSuccess={onRefresh}
-      />
     </div>
   );
 }

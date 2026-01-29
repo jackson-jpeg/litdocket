@@ -34,7 +34,11 @@ const PRIORITY_ORDER: Record<string, number> = {
   informational: 7,
 };
 
-export function useCaseDeadlineFilters(deadlines: Deadline[], triggers: Trigger[]) {
+export function useCaseDeadlineFilters(
+  deadlines: Deadline[],
+  triggers: Trigger[],
+  defaultGroupBy: GroupBy = 'date_range'
+) {
   // Filter state
   const [search, setSearch] = useState('');
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
@@ -43,7 +47,7 @@ export function useCaseDeadlineFilters(deadlines: Deadline[], triggers: Trigger[
   const [selectedTriggerId, setSelectedTriggerId] = useState<string | null>(null);
 
   // Group/sort state
-  const [groupBy, setGroupBy] = useState<GroupBy>('date_range');
+  const [groupBy, setGroupBy] = useState<GroupBy>(defaultGroupBy);
   const [sortBy, setSortBy] = useState<SortBy>('deadline_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
