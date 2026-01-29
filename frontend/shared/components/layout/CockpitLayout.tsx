@@ -1,10 +1,12 @@
 'use client';
 
 /**
- * Cockpit Layout - Paper & Steel Application Shell
+ * Cockpit Layout - Clean Application Shell
  *
- * Fixed Sidebar (dark slate) + Header + Centered Content Area (light)
- * Standard dashboard layout with max-w-7xl content container
+ * BULLETPROOF layout using fixed positioning for sidebar:
+ * - Fixed sidebar (256px) on left
+ * - Main content offset with margin-left
+ * - No complex nested flex containers
  */
 
 import React from 'react';
@@ -18,27 +20,28 @@ interface CockpitLayoutProps {
 
 export function CockpitLayout({ children }: CockpitLayoutProps) {
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-app-bg">
-      {/* Top Header Bar */}
-      <CockpitHeader />
-
-      {/* Main Body: Sidebar + Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Dark Slate */}
+    <div className="min-h-screen bg-slate-100">
+      {/* Fixed Sidebar - Always visible on left */}
+      <div className="fixed inset-y-0 left-0 w-64 z-40">
         <Sidebar />
+      </div>
 
-        {/* Main Content Area - Light Background */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-app-bg">
-          {/* Scrollable Content with max-width and centered */}
-          <div className="flex-1 overflow-auto scrollbar-light">
-            <div className="max-w-7xl mx-auto p-8">
-              {children}
-            </div>
+      {/* Main Area - Offset by sidebar width */}
+      <div className="pl-64">
+        {/* Top Header */}
+        <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
+          <CockpitHeader />
+        </header>
+
+        {/* Page Content */}
+        <main className="min-h-[calc(100vh-48px)]">
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            {children}
           </div>
         </main>
       </div>
 
-      {/* AI Command Bar - Floating overlay, independent of layout */}
+      {/* AI Command Bar - Floating overlay */}
       <AITerminal />
     </div>
   );
