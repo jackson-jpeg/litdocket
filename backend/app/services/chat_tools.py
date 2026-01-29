@@ -2,7 +2,7 @@
 Chat Tools - Tool definitions for Claude to interact with the docketing system
 Enables Claude to create, modify, and query case information
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import date, datetime
 from sqlalchemy.orm import Session
 import csv
