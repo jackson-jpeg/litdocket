@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth, documents, cases, deadlines, chat, chat_stream, dashboard, triggers,
     search, insights, verification, notifications, jurisdictions,
-    rag_search, workload, rules
+    rag_search, workload, rules, rule_proposals
 )
 
 api_router = APIRouter()
@@ -33,3 +33,6 @@ api_router.include_router(workload.router, prefix="/workload", tags=["workload-o
 
 # User-Created Rules System
 api_router.include_router(rules.router, prefix="/rules", tags=["rules"])
+
+# Phase 2: Rule Proposals (AI-discovered rules pending attorney review)
+api_router.include_router(rule_proposals.router, prefix="/rule-proposals", tags=["rule-proposals"])

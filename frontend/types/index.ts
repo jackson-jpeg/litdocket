@@ -207,3 +207,104 @@ export interface CalendarEvent {
     case_title?: string;
   };
 }
+
+// =========================================================================
+// Phase 1: Document Classification Types
+// =========================================================================
+
+export interface DocumentClassification {
+  status: 'pending' | 'matched' | 'unrecognized' | 'needs_research' | 'researched' | 'manual';
+  document_category?: string;
+  matched_trigger_type?: string;
+  matched_pattern?: string;
+  confidence?: number;
+  potential_trigger_event?: string;
+  response_required?: boolean;
+  response_party?: string;
+  response_deadline_days?: number;
+  procedural_posture?: string;
+  relief_sought?: string;
+  urgency_indicators?: string[];
+  rule_references?: string[];
+  suggested_action?: 'apply_rules' | 'research_deadlines' | 'manual_review' | 'review_proposal' | 'none';
+}
+
+export interface ClassifiedDocument extends Document {
+  classification?: DocumentClassification;
+}
+
+// =========================================================================
+// Phase 2: Rule Proposal Types
+// =========================================================================
+
+export interface RuleProposalConflict {
+  type: 'STANDARD_DEVIATION' | 'LOCAL_RULE_OVERRIDE' | 'FEDERAL_STATE_CONFLICT' | 'CITATION_MISMATCH';
+  message: string;
+  existing_days?: number;
+  proposed_days?: number;
+  severity: 'warning' | 'error';
+}
+
+export interface RuleProposal {
+  id: string;
+  case_id?: string;
+  document_id?: string;
+  user_id: string;
+  proposed_trigger: string;
+  proposed_trigger_type?: string;
+  proposed_days: number;
+  proposed_priority: 'informational' | 'standard' | 'important' | 'critical' | 'fatal';
+  proposed_calculation_method?: 'calendar_days' | 'business_days' | 'court_days';
+  citation?: string;
+  citation_url?: string;
+  source_text?: string;
+  reasoning?: string;
+  confidence_score?: number;
+  conflicts?: RuleProposalConflict[];
+  warnings?: string[];
+  status: 'pending' | 'approved' | 'rejected' | 'modified';
+  reviewed_by?: string;
+  reviewed_at?: string;
+  user_notes?: string;
+  created_rule_template_id?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface RuleProposalListResponse {
+  success: boolean;
+  total: number;
+  skip: number;
+  limit: number;
+  proposals: RuleProposal[];
+  pending_count: number;
+}
+
+export interface ResearchResult {
+  success: boolean;
+  document_id?: string;
+  proposal_id?: string;
+  proposal?: {
+    proposed_trigger: string;
+    proposed_days: number;
+    proposed_priority: string;
+    citation?: string;
+    confidence_score?: number;
+    conflicts?: RuleProposalConflict[];
+  };
+  research_summary: string;
+  error?: string;
+}
+
+// Extended upload response with classification
+export interface ClassifiedUploadResponse extends UploadResponse {
+  classification?: {
+    classification_status: string;
+    detected_document_type: string;
+    classification_confidence?: number;
+    suggested_action?: string;
+    potential_trigger_event?: string;
+    response_required?: boolean;
+    matched_trigger_type?: string;
+  };
+}

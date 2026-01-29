@@ -19,9 +19,13 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
+import type { RuleProposal } from '@/types';
 import { useCaseDeadlineFilters, GroupBy, SortBy } from '@/hooks/useCaseDeadlineFilters';
+import { useRuleProposals } from '@/hooks/useRuleProposals';
 import DeadlineRow from './DeadlineRow';
 import SimpleDeadlineModal from './SimpleDeadlineModal';
+import PendingProposalsBanner from '@/components/proposals/PendingProposalsBanner';
+import RuleContextDrawer from '@/components/proposals/RuleContextDrawer';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
@@ -75,12 +79,26 @@ export default function DeadlineListPanel({
     filteredDeadlines,
   } = useCaseDeadlineFilters(deadlines, triggers);
 
+  // Rule proposals hook for AI-discovered rules
+  const {
+    proposals,
+    pendingCount: proposalPendingCount,
+    loading: proposalsLoading,
+    processing: proposalProcessing,
+    approveProposal,
+    rejectProposal,
+    modifyProposal,
+    refetch: refetchProposals,
+  } = useRuleProposals({ caseId });
+
   // UI state
   const [showFilters, setShowFilters] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<RuleProposal | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Selection handlers
   const toggleSelection = useCallback((id: string) => {
@@ -222,6 +240,56 @@ export default function DeadlineListPanel({
     }
   }, [selectedIds, showSuccess, showError, clearSelection, onRefresh, onOptimisticUpdate]);
 
+  // Proposal handlers
+  const handleViewProposal = useCallback((proposal: RuleProposal) => {
+    setSelectedProposal(proposal);
+    setIsDrawerOpen(true);
+  }, []);
+
+  const handleApproveProposal = useCallback(async (proposalId: string, notes?: string) => {
+    const success = await approveProposal({ proposalId, notes, createDeadline: true, caseId });
+    if (success) {
+      showSuccess('Rule approved and saved');
+      setIsDrawerOpen(false);
+      setSelectedProposal(null);
+      onRefresh?.(); // Refresh deadlines to show any new ones created
+    } else {
+      showError('Failed to approve rule proposal');
+    }
+  }, [approveProposal, caseId, showSuccess, showError, onRefresh]);
+
+  const handleRejectProposal = useCallback(async (proposalId: string, reason?: string) => {
+    const success = await rejectProposal(proposalId, reason);
+    if (success) {
+      showSuccess('Rule proposal dismissed');
+      setIsDrawerOpen(false);
+      setSelectedProposal(null);
+    } else {
+      showError('Failed to reject rule proposal');
+    }
+  }, [rejectProposal, showSuccess, showError]);
+
+  const handleModifyProposal = useCallback(async (
+    proposalId: string,
+    modifications: { proposed_trigger?: string; proposed_days?: number; proposed_priority?: string; proposed_calculation_method?: string },
+    notes?: string
+  ) => {
+    const success = await modifyProposal({ proposalId, modifications, notes });
+    if (success) {
+      showSuccess('Rule modified and saved');
+      setIsDrawerOpen(false);
+      setSelectedProposal(null);
+      onRefresh?.();
+    } else {
+      showError('Failed to modify rule proposal');
+    }
+  }, [modifyProposal, showSuccess, showError, onRefresh]);
+
+  const handleCloseDrawer = useCallback(() => {
+    setIsDrawerOpen(false);
+    setSelectedProposal(null);
+  }, []);
+
   // Stats
   const activeCount = deadlines.filter(d => d.status === 'pending' || d.status === 'in_progress').length;
   const overdueCount = deadlines.filter(d =>
@@ -229,6 +297,9 @@ export default function DeadlineListPanel({
     d.deadline_date &&
     new Date(d.deadline_date) < new Date(new Date().setHours(0, 0, 0, 0))
   ).length;
+
+  // Filter to only pending proposals
+  const pendingProposals = proposals.filter(p => p.status === 'pending');
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
@@ -512,6 +583,17 @@ export default function DeadlineListPanel({
 
       {/* Deadline List */}
       <div className="flex-1 overflow-y-auto p-4">
+        {/* AI Rule Proposals Banner */}
+        {pendingProposals.length > 0 && (
+          <div className="mb-4">
+            <PendingProposalsBanner
+              proposals={pendingProposals}
+              onViewProposal={handleViewProposal}
+              onViewAll={() => pendingProposals.length > 0 && handleViewProposal(pendingProposals[0])}
+            />
+          </div>
+        )}
+
         {filteredDeadlines.length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-slate-200 mx-auto mb-3" />
@@ -581,6 +663,17 @@ export default function DeadlineListPanel({
         isOpen={showSimpleModal}
         onClose={() => setShowSimpleModal(false)}
         onSuccess={onRefresh}
+      />
+
+      {/* Rule Proposal Review Drawer */}
+      <RuleContextDrawer
+        proposal={selectedProposal}
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+        onApprove={handleApproveProposal}
+        onReject={handleRejectProposal}
+        onModify={handleModifyProposal}
+        isProcessing={proposalProcessing === selectedProposal?.id}
       />
     </div>
   );

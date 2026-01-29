@@ -242,6 +242,30 @@ class RuleTemplate(Base):
 
     is_active = Column(Boolean, default=True)
 
+    # =========================================================================
+    # Phase 2: AI-Created Rules Support
+    # These fields enable tracking of AI-discovered rules pending review
+    # =========================================================================
+
+    # Rule status: active, draft, rejected, archived
+    status = Column(String(20), default="active")
+
+    # True for official court rules, False for AI-discovered or user-created
+    is_official = Column(Boolean, default=True)
+
+    # Who created: SYSTEM, AI_AGENT, or user_id
+    created_by = Column(String(100), default="SYSTEM")
+
+    # JSON array of sources used to create this rule (for AI-created rules)
+    research_sources = Column(JSON, default=list)
+
+    # Notes about any conflicts detected with existing rules
+    conflict_notes = Column(Text)
+
+    # If approved from a proposal, who approved and when
+    approved_by = Column(String(36))
+    approved_at = Column(DateTime(timezone=True))
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

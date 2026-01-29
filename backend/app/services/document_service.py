@@ -546,7 +546,12 @@ class DocumentService:
         file_size_bytes: int,
         needs_ocr: bool = False
     ) -> Document:
-        """Create database record for uploaded document"""
+        """
+        Create database record for uploaded document.
+
+        Phase 1 Enhancement: Now also populates document classification fields
+        from the AI analysis, enabling "soft ingestion" for unrecognized documents.
+        """
 
         document = Document(
             case_id=case_id,
@@ -560,7 +565,20 @@ class DocumentService:
             ai_summary=analysis.get('summary'),
             extracted_metadata=analysis,
             needs_ocr=needs_ocr,
-            analysis_status='needs_ocr' if needs_ocr else 'completed'
+            analysis_status='needs_ocr' if needs_ocr else 'completed',
+
+            # Phase 1: Document Classification Fields
+            # These are populated from the enhanced AI analysis
+            classification_status='pending',  # Will be updated after trigger matching
+            document_category=analysis.get('document_category'),
+            procedural_posture=analysis.get('procedural_posture'),
+            potential_trigger_event=analysis.get('potential_trigger_event'),
+            response_required=analysis.get('response_required', False),
+            response_party=analysis.get('response_party'),
+            response_deadline_days=analysis.get('response_deadline_days'),
+            relief_sought=analysis.get('relief_sought'),
+            urgency_indicators=analysis.get('urgency_indicators', []),
+            rule_references=analysis.get('rule_references', []),
         )
 
         # Parse filing date
@@ -581,6 +599,61 @@ class DocumentService:
             self._safe_rollback()
             logger.error(f"Failed to create document record: {e}")
             raise
+
+        return document
+
+    def update_document_classification(
+        self,
+        document: Document,
+        classification_result: Dict[str, Any]
+    ) -> Document:
+        """
+        Update document with classification results.
+
+        Phase 1 Enhancement: Called after trigger matching to update the document
+        with full classification details, enabling the UI to show rich context
+        for both matched and unrecognized documents.
+
+        Args:
+            document: The document to update
+            classification_result: Result from match_document_to_trigger or
+                                   DocumentClassificationService
+
+        Returns:
+            Updated document
+        """
+        try:
+            # Update classification status based on trigger matching result
+            document.classification_status = classification_result.get(
+                'trigger_status_str',
+                classification_result.get('classification_status', 'pending')
+            )
+
+            # Matched trigger info (if found)
+            if classification_result.get('matches_trigger'):
+                document.matched_trigger_type = classification_result.get('trigger_type_str')
+                document.matched_pattern = classification_result.get('matched_pattern')
+                document.classification_confidence = classification_result.get('classification_confidence', 0.95)
+                document.suggested_action = 'apply_rules'
+            else:
+                # Unrecognized document - populate enhanced fields
+                document.classification_confidence = classification_result.get('classification_confidence', 0.5)
+                document.suggested_action = classification_result.get('suggested_action', 'manual_review')
+                document.potential_trigger_event = classification_result.get('potential_trigger_event')
+                document.response_required = classification_result.get('response_required', False)
+
+            self._safe_commit()
+            self.db.refresh(document)
+            logger.info(
+                f"Updated document {document.id} classification: "
+                f"status={document.classification_status}, "
+                f"action={document.suggested_action}"
+            )
+
+        except SQLAlchemyError as e:
+            self._safe_rollback()
+            logger.error(f"Failed to update document classification: {e}")
+            # Non-critical - don't raise, just log
 
         return document
 
@@ -636,10 +709,15 @@ class DocumentService:
         rule_check = self.deadline_service.check_rules_for_trigger(
             document_type=document.document_type or "",
             jurisdiction=jurisdiction,
-            court_type=court_type
+            court_type=court_type,
+            ai_analysis=analysis  # Phase 1: Pass AI analysis for enhanced matching
         )
 
         logger.info(f"Trigger-First Check: document_type='{document.document_type}' → matches_trigger={rule_check['matches_trigger']}")
+
+        # Phase 1: Update document with classification results
+        # This enables the UI to show rich context for both matched and unrecognized documents
+        self.update_document_classification(document, rule_check)
 
         if rule_check['matches_trigger']:
             # ═══════════════════════════════════════════════════════════════════════

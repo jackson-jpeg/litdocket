@@ -208,6 +208,17 @@ async def upload_document(
         else:
             status_message = "Document attached"
 
+        # Build classification info for the response
+        classification_info = {
+            'classification_status': document.classification_status,
+            'detected_document_type': document.document_type,
+            'classification_confidence': float(document.classification_confidence) if document.classification_confidence else None,
+            'suggested_action': document.suggested_action,
+            'potential_trigger_event': document.potential_trigger_event,
+            'response_required': document.response_required,
+            'matched_trigger_type': document.matched_trigger_type,
+        }
+
         return {
             'success': True,
             'document_id': str(document.id),
@@ -219,6 +230,7 @@ async def upload_document(
             'extraction_method': extraction_method,  # "trigger" or "manual"
             'docketing_message': docketing_message,  # Message for chatbot
             'trigger_info': extraction_result.get('trigger_info'),  # Trigger details if PATH A
+            'classification': classification_info,  # Phase 1: Document classification details
             'redirect_url': f"/cases/{analysis_result['case_id']}",
             'message': docketing_message or f'{status_message}. {len(deadlines)} deadline(s) extracted.'
         }
@@ -267,7 +279,24 @@ async def get_document(
         'ai_summary': document.ai_summary,
         'extracted_metadata': document.extracted_metadata,
         'created_at': document.created_at.isoformat(),
-        'tags': [{'id': t.id, 'name': t.name, 'color': t.color} for t in doc_tags]
+        'tags': [{'id': t.id, 'name': t.name, 'color': t.color} for t in doc_tags],
+        # Phase 1: Document classification fields
+        'classification': {
+            'status': document.classification_status,
+            'document_category': document.document_category,
+            'matched_trigger_type': document.matched_trigger_type,
+            'matched_pattern': document.matched_pattern,
+            'confidence': float(document.classification_confidence) if document.classification_confidence else None,
+            'potential_trigger_event': document.potential_trigger_event,
+            'response_required': document.response_required,
+            'response_party': document.response_party,
+            'response_deadline_days': document.response_deadline_days,
+            'procedural_posture': document.procedural_posture,
+            'relief_sought': document.relief_sought,
+            'urgency_indicators': document.urgency_indicators or [],
+            'rule_references': document.rule_references or [],
+            'suggested_action': document.suggested_action,
+        }
     }
 
 
@@ -760,3 +789,93 @@ async def delete_document(
         # Catch any other errors (database errors, etc.)
         logger.error(f"Failed to delete document {document_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
+
+
+# ===================
+# PHASE 2: RESEARCH DEADLINES
+# ===================
+
+@router.post("/{document_id}/research-deadlines")
+async def research_document_deadlines(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger deadline research for a specific document.
+
+    Phase 2 Feature: When a document is classified as 'needs_research' or
+    'unrecognized', this endpoint can be called to:
+    1. Search for applicable rules
+    2. Synthesize a deadline proposal using AI
+    3. Check for conflicts with existing rules
+    4. Save the proposal for attorney review
+
+    Returns the research result and proposal ID for tracking.
+    """
+    from app.services.rule_discovery_service import get_rule_discovery_service
+
+    # Verify document exists and belongs to user
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Check if research is needed/appropriate
+    if document.classification_status == "matched":
+        return {
+            "success": False,
+            "message": "This document already matches a known rule. No research needed.",
+            "classification_status": document.classification_status,
+        }
+
+    # Get the rule discovery service
+    service = get_rule_discovery_service(db)
+
+    # Determine jurisdiction from document metadata
+    jurisdiction = "florida_state"  # Default
+    if document.extracted_metadata:
+        meta_jurisdiction = document.extracted_metadata.get("jurisdiction")
+        if meta_jurisdiction == "federal":
+            jurisdiction = "federal"
+
+    # Get court from metadata
+    court = None
+    if document.extracted_metadata:
+        court = document.extracted_metadata.get("court")
+
+    # Run research
+    result = await service.research_deadline_rule(
+        document_type=document.document_type or "Unknown Document",
+        jurisdiction=jurisdiction,
+        court=court,
+        document_text=document.extracted_text[:5000] if document.extracted_text else None,
+        case_id=document.case_id,
+        document_id=document.id,
+        user_id=str(current_user.id),
+    )
+
+    # Update document classification status if research was successful
+    if result.success:
+        document.classification_status = "researched"
+        document.suggested_action = "review_proposal"
+        db.commit()
+
+    return {
+        "success": result.success,
+        "document_id": document_id,
+        "proposal_id": result.proposal_id,
+        "proposal": {
+            "proposed_trigger": result.proposed_trigger,
+            "proposed_days": result.proposed_days,
+            "proposed_priority": result.proposed_priority,
+            "citation": result.citation,
+            "confidence_score": result.confidence_score,
+            "conflicts": result.conflicts,
+        } if result.success else None,
+        "research_summary": result.research_summary,
+        "error": result.error,
+    }

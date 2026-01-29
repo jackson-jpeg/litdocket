@@ -789,7 +789,8 @@ LOCAL RULES: Always check district-specific local rules for variations!
         self,
         document_type: str,
         jurisdiction: str = "florida_state",
-        court_type: str = "civil"
+        court_type: str = "civil",
+        ai_analysis: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         TRIGGER-FIRST ARCHITECTURE: Check if a document type matches a known trigger event.
@@ -797,10 +798,14 @@ LOCAL RULES: Always check district-specific local rules for variations!
         This is a COORDINATOR method - it delegates to rules_engine.match_document_to_trigger()
         which is the SINGLE SOURCE OF TRUTH for document-to-trigger mapping.
 
+        Phase 1 Enhancement: Now accepts ai_analysis to enable enhanced matching
+        and returns additional fields for unrecognized documents.
+
         Args:
             document_type: Type of document (e.g., "Complaint", "Motion to Dismiss")
             jurisdiction: "florida_state" or "federal"
             court_type: "civil", "criminal", or "appellate"
+            ai_analysis: Optional AI analysis for enhanced matching
 
         Returns:
             Dict with:
@@ -809,22 +814,35 @@ LOCAL RULES: Always check district-specific local rules for variations!
                 - rule_set_code: str (e.g., "FL:RCP")
                 - expected_deadlines: int (count of deadlines that would be generated)
                 - trigger_description: str (human-readable explanation)
+                - Phase 1 fields: trigger_status_str, classification_confidence, suggested_action, etc.
         """
         # SINGLE BRAIN: Delegate to rules_engine (the authoritative source)
         result = rules_engine.match_document_to_trigger(
             document_type=document_type,
             jurisdiction=jurisdiction,
-            court_type=court_type
+            court_type=court_type,
+            ai_analysis=ai_analysis  # Phase 1: Pass AI analysis for enhanced matching
         )
 
         # Transform for backwards compatibility (use trigger_type_str instead of TriggerType enum)
+        # Include Phase 1 fields for document classification
         return {
+            # Original fields (backward compat)
             "matches_trigger": result["matches_trigger"],
             "trigger_type": result["trigger_type_str"],
             "rule_set_code": result["rule_set_code"],
             "expected_deadlines": result["expected_deadlines"],
             "trigger_description": result["trigger_description"],
             "matched_document_type": result["matched_pattern"],
+
+            # Phase 1: Enhanced classification fields
+            "trigger_status_str": result.get("trigger_status_str"),
+            "detected_document_type": result.get("detected_document_type"),
+            "classification_confidence": result.get("classification_confidence"),
+            "suggested_action": result.get("suggested_action"),
+            "potential_trigger_event": result.get("potential_trigger_event"),
+            "response_required": result.get("response_required", False),
+            "relief_sought": result.get("relief_sought"),
         }
 
     def detect_trigger_from_document(
