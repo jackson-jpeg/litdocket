@@ -45,24 +45,32 @@ const IconSettings = () => (
   </svg>
 );
 
-const IconTools = () => (
+// Docket icon (clipboard with list)
+const IconDocket = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M1 0L0 1l2.2 3.081a1 1 0 00.815.419h.07a1 1 0 01.708.293l2.675 2.675-2.617 2.654A3.003 3.003 0 004 13a3 3 0 103.88-2.866l2.656-2.617 2.675 2.675a1 1 0 01.293.708v.07a1 1 0 00.419.815L15 16l1-1-2.775-3.565-5.447-5.447L12.344 1.422l-1.414-1.414L6.363 4.574 1.776.987 1 0zM4 15a2 2 0 110-4 2 2 0 010 4z"/>
+    <path d="M4 1.5H3a2 2 0 00-2 2V14a2 2 0 002 2h10a2 2 0 002-2V3.5a2 2 0 00-2-2h-1v1h1a1 1 0 011 1V14a1 1 0 01-1 1H3a1 1 0 01-1-1V3.5a1 1 0 011-1h1v-1z"/>
+    <path d="M9.5 1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-3a.5.5 0 01-.5-.5v-1a.5.5 0 01.5-.5h3zm-3-1A1.5 1.5 0 005 1.5v1A1.5 1.5 0 006.5 4h3A1.5 1.5 0 0011 2.5v-1A1.5 1.5 0 009.5 0h-3z"/>
+    <path d="M4.5 6a.5.5 0 000 1h7a.5.5 0 000-1h-7zm0 3a.5.5 0 000 1h7a.5.5 0 000-1h-7zm0 3a.5.5 0 000 1h4a.5.5 0 000-1h-4z"/>
   </svg>
 );
 
-const IconRules = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <path d="M5.5 0a.5.5 0 01.5.5V2h4V.5a.5.5 0 011 0V2h1.5A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9A1.5 1.5 0 013.5 2H5V.5a.5.5 0 01.5-.5zM3 5v7.5a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V5H3zm2.354 1.854a.5.5 0 00-.708.708l1.5 1.5a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L7 7.793 5.354 6.146z"/>
-  </svg>
-);
-
+/**
+ * Navigation Items
+ *
+ * Streamlined from 6 to 4 items:
+ * - Dashboard: Morning report
+ * - Cases: Case management + triggers
+ * - Docket: Cross-case deadline management (replaces Calendar)
+ * - Settings: User preferences + Rules management
+ *
+ * Tools and Rules Builder are now accessible through:
+ * - Tools -> Case Detail / Trigger Entry
+ * - Rules -> Settings/Rules tab
+ */
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard /> },
   { label: 'Cases', href: '/cases', icon: <IconFolder /> },
-  { label: 'Calendar', href: '/calendar', icon: <IconCalendar /> },
-  { label: 'Rules Builder', href: '/rules', icon: <IconRules /> },
-  { label: 'Tools', href: '/tools', icon: <IconTools /> },
+  { label: 'Docket', href: '/docket', icon: <IconDocket /> },
   { label: 'Settings', href: '/settings', icon: <IconSettings /> },
 ];
 
@@ -109,7 +117,7 @@ export function Sidebar() {
 
       {/* System Info Footer */}
       <div className="p-4 border-t border-slate-800">
-        <div className="text-xs text-slate-500 font-mono">v3.0.0-alpha</div>
+        <div className="text-xs text-slate-500 font-mono">v4.0.0</div>
       </div>
     </aside>
   );
