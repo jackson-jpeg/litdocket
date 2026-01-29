@@ -83,7 +83,14 @@ class Settings(BaseSettings):
 
     # AI Services - REQUIRED from environment
     ANTHROPIC_API_KEY: str = Field(..., env="ANTHROPIC_API_KEY")  # Required - NEVER hardcode
-    DEFAULT_AI_MODEL: str = "claude-sonnet-4-20250514"
+
+    # AI Model Configuration - Task-based routing
+    # Opus 4.5: Primary model for quality-critical tasks (document analysis, chat, validation)
+    # Haiku: High-volume, low-latency tasks (rules scraping, embeddings prep)
+    AI_MODEL_OPUS: str = "claude-opus-4-5-20251101"
+    AI_MODEL_HAIKU: str = "claude-3-5-haiku-20241022"
+    AI_MODEL_SONNET: str = "claude-sonnet-4-20250514"  # Fallback
+    DEFAULT_AI_MODEL: str = "claude-opus-4-5-20251101"  # Primary model is now Opus 4.5
 
     # OpenAI (for embeddings)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")

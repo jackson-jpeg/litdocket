@@ -8,10 +8,13 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+import logging
 
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, should_be_admin
 from .jwt_handler import decode_access_token
+
+logger = logging.getLogger(__name__)
 
 # Bearer token security scheme
 security = HTTPBearer()
@@ -55,6 +58,12 @@ async def get_current_user(
             detail="User not found"
         )
 
+    # Auto-promote whitelisted admin emails
+    if user.email and should_be_admin(user.email) and user.role != "litdocket_admin":
+        user.role = "litdocket_admin"
+        db.commit()
+        logger.info(f"Auto-promoted user {user.email} to admin")
+
     return user
 
 
@@ -81,3 +90,64 @@ async def get_current_user_optional(
         return await get_current_user(credentials, db)
     except HTTPException:
         return None
+
+
+async def get_current_admin(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Get the current authenticated admin user.
+
+    Raises 403 Forbidden if user is not an admin.
+
+    Args:
+        credentials: HTTP Bearer token
+        db: Database session
+
+    Returns:
+        User object for authenticated admin
+
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    user = await get_current_user(credentials, db)
+
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    return user
+
+
+def require_admin(user: User) -> User:
+    """
+    Synchronous check that user is admin.
+
+    Use with Depends(get_current_user) when you need conditional admin check.
+
+    Example:
+        @router.post("/admin-only")
+        async def admin_endpoint(
+            current_user: User = Depends(get_current_user)
+        ):
+            require_admin(current_user)
+            # ... admin logic
+
+    Args:
+        user: User object to check
+
+    Returns:
+        The same user if admin
+
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return user

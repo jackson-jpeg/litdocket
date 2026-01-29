@@ -391,6 +391,21 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Admin Dashboard */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-4 flex items-center justify-between text-white">
+              <div>
+                <p className="font-medium">Rules Administration Dashboard</p>
+                <p className="text-sm text-blue-100">Manage the automated rules scraping pipeline with AI-powered extraction.</p>
+              </div>
+              <Link
+                href="/settings/rules-admin"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm font-semibold"
+              >
+                <span>Open Admin</span>
+                <ExternalLink className="w-4 h-4" />
+              </Link>
+            </div>
+
             {/* Advanced Link */}
             <div className="bg-slate-100 rounded-lg p-4 flex items-center justify-between">
               <div>
