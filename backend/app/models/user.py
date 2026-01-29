@@ -57,3 +57,25 @@ class User(Base):
     # NOTE: created_rules relationship removed - migration 009 (dynamic_rules_engine)
     # was never fully integrated. Current RuleTemplate model (migration 001) doesn't
     # have created_by column. User-created rules feature is not currently active.
+
+    @property
+    def is_admin(self) -> bool:
+        """Check if user has admin privileges"""
+        return self.role == "litdocket_admin"
+
+    @property
+    def is_staff(self) -> bool:
+        """Check if user has staff/elevated privileges"""
+        return self.role in ["litdocket_admin", "staff"]
+
+
+# Admin email whitelist - these users get admin access
+ADMIN_EMAILS = [
+    "realjacksons@gmail.com",
+    "jmsanger@me.com",
+]
+
+
+def should_be_admin(email: str) -> bool:
+    """Check if an email should have admin privileges"""
+    return email.lower() in [e.lower() for e in ADMIN_EMAILS]

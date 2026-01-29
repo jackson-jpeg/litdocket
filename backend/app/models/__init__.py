@@ -53,7 +53,21 @@ from app.models.jurisdiction import (
     DependencyType,
 )
 # Centralized enums (SINGLE SOURCE OF TRUTH)
-from app.models.enums import TriggerType, DeadlinePriority, CalculationMethod
+from app.models.enums import (
+    TriggerType,
+    DeadlinePriority,
+    CalculationMethod,
+    ScrapedRuleStatus,
+    ScraperCourtType,
+    AIModelType,
+)
+
+# Rules Scraping Pipeline Models
+from app.models.scraped_rule import (
+    ScrapedRule,
+    JurisdictionCoverage,
+    ScrapingJob,
+)
 
 __all__ = [
     "Base",
@@ -103,4 +117,11 @@ __all__ = [
     "TriggerType",
     "DeadlinePriority",
     "CalculationMethod",
+    "ScrapedRuleStatus",
+    "ScraperCourtType",
+    "AIModelType",
+    # Rules Scraping Pipeline
+    "ScrapedRule",
+    "JurisdictionCoverage",
+    "ScrapingJob",
 ]

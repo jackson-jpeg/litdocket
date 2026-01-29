@@ -4,14 +4,30 @@ import json
 import re
 import logging
 from app.config import settings
+from app.services.ai_models import AITask, get_model_id, model_router
 
 logger = logging.getLogger(__name__)
 
 
 class AIService:
-    """Service for Claude AI integration"""
+    """
+    Service for Claude AI integration with intelligent model routing.
 
-    def __init__(self, model: Optional[str] = None):
+    Model Selection Strategy:
+    - Opus 4.5: Document analysis, chat, deadline calculation, legal research
+    - Haiku: Rules scraping, batch processing, simple extraction
+    - Sonnet: Fallback for balanced tasks
+
+    Usage:
+        # Default (uses task-based routing)
+        ai = AIService()
+        result = await ai.analyze_legal_document(text)  # Uses Opus 4.5
+
+        # Override for specific use case
+        ai = AIService(model="haiku")  # Force Haiku for all calls
+    """
+
+    def __init__(self, model: Optional[str] = None, task: Optional[AITask] = None):
         # RESILIENCE FIX: Sanitize API key to remove accidental whitespace/newlines
         api_key = settings.ANTHROPIC_API_KEY.strip()
 
@@ -20,7 +36,28 @@ class AIService:
 
         # RESILIENCE FIX: Add retry logic to handle minor network blips
         self.anthropic = Anthropic(api_key=api_key, max_retries=3)
-        self.model = model or settings.DEFAULT_AI_MODEL
+
+        # Model selection: explicit override > task-based routing > default
+        if model:
+            # Direct model override (e.g., "haiku", "opus", or full model ID)
+            if model in ["opus", "haiku", "sonnet"]:
+                from app.services.ai_models import MODELS
+                self.model = MODELS[model].model_id
+            else:
+                self.model = model
+            logger.info(f"AI Service using override model: {self.model}")
+        elif task:
+            # Task-based routing
+            self.model = get_model_id(task)
+            logger.info(f"AI Service using task-based model for {task.value}: {self.model}")
+        else:
+            # Default to Opus 4.5 (highest quality for legal work)
+            self.model = settings.DEFAULT_AI_MODEL
+            logger.info(f"AI Service using default model: {self.model}")
+
+    def _get_model_for_task(self, task: AITask) -> str:
+        """Get the appropriate model for a specific task (instance method)"""
+        return model_router.get_model(task)
 
     async def analyze_legal_document(self, text: str, document_type: Optional[str] = None) -> Dict:
         """

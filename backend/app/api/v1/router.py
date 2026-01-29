@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth, documents, cases, deadlines, chat, chat_stream, dashboard, triggers,
     search, insights, verification, notifications, jurisdictions,
-    rag_search, workload, rules, rule_proposals
+    rag_search, workload, rules, rule_proposals, rules_scraper
 )
 
 api_router = APIRouter()
@@ -36,3 +36,6 @@ api_router.include_router(rules.router, prefix="/rules", tags=["rules"])
 
 # Phase 2: Rule Proposals (AI-discovered rules pending attorney review)
 api_router.include_router(rule_proposals.router, prefix="/rule-proposals", tags=["rule-proposals"])
+
+# Phase 3: Automated Rules Scraping Pipeline (Haiku + Opus 4.5)
+api_router.include_router(rules_scraper.router, tags=["rules-scraper"])
