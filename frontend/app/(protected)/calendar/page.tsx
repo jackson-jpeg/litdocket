@@ -4,15 +4,15 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Scale, ArrowLeft, Loader2, Filter, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useCalendarDeadlines, CalendarDeadline } from '@/hooks/useCalendarDeadlines';
-import { useToast } from '@/components/Toast';
+import { useCalendarDeadlines, CalendarDeadline } from '@/features/calendar/hooks/useCalendarDeadlines';
+import { useToast } from '@/shared/components/ui/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
 import apiClient from '@/lib/api-client';
 
-import DeadlineSidebar from '@/components/calendar/DeadlineSidebar';
-import CalendarGrid from '@/components/calendar/CalendarGrid';
-import DeadlineDetailModal from '@/components/calendar/DeadlineDetailModal';
-import CreateDeadlineModal from '@/components/calendar/CreateDeadlineModal';
+import DeadlineSidebar from '@/features/calendar/components/DeadlineSidebar';
+import CalendarGrid from '@/features/calendar/components/CalendarGrid';
+import DeadlineDetailModal from '@/features/calendar/components/DeadlineDetailModal';
+import CreateDeadlineModal from '@/features/calendar/components/CreateDeadlineModal';
 
 export default function CalendarPage() {
   const router = useRouter();

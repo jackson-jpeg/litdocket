@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import * as React from 'react';
-import { useRules } from '@/hooks/useRules';
-import TimelineRuleBuilder from '@/components/rules/TimelineRuleBuilder';
-import { useToast } from '@/components/Toast';
+import { useRules } from '@/features/rules/hooks/useRules';
+import TimelineRuleBuilder from '@/features/rules/components/TimelineRuleBuilder';
+import { useToast } from '@/shared/components/ui/Toast';
 import {
   Settings,
   Sparkles,

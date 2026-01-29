@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Brain, TrendingUp, FileSearch, Calendar, AlertTriangle, CheckCircle, Clock, Target } from 'lucide-react';
-import SmartDocumentSearch from '@/components/SmartDocumentSearch';
-import WorkloadHeatmap from '@/components/WorkloadHeatmap';
-import { useWorkload } from '@/hooks/useWorkload';
+import SmartDocumentSearch from '@/shared/components/ui/SmartDocumentSearch';
+import WorkloadHeatmap from '@/shared/components/ui/WorkloadHeatmap';
+import { useWorkload } from '@/shared/hooks/useWorkload';
 
 type Tab = 'overview' | 'search' | 'workload';
 

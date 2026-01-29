@@ -8,14 +8,14 @@ import {
   Calendar, Folder, Scale, Loader2, AlertCircle, ChevronRight, Search, BarChart3, RefreshCw, LogOut, Settings
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import MorningReport from '@/components/MorningReport';
-import DeadlineHeatMap from '@/components/DeadlineHeatMap';
-import MatterHealthCards from '@/components/MatterHealthCards';
-import DashboardCharts from '@/components/DashboardCharts';
-import ActivityFeed from '@/components/ActivityFeed';
-import GlobalSearch from '@/components/GlobalSearch';
-import NotificationCenter from '@/components/NotificationCenter';
-import { HeatMapSkeleton, MatterHealthSkeleton } from '@/components/Skeleton';
+import MorningReport from '@/features/dashboard/components/MorningReport';
+import DeadlineHeatMap from '@/shared/components/ui/DeadlineHeatMap';
+import MatterHealthCards from '@/features/dashboard/components/MatterHealthCards';
+import DashboardCharts from '@/features/dashboard/components/DashboardCharts';
+import ActivityFeed from '@/features/dashboard/components/ActivityFeed';
+import GlobalSearch from '@/shared/components/ui/GlobalSearch';
+import NotificationCenter from '@/shared/components/ui/NotificationCenter';
+import { HeatMapSkeleton, MatterHealthSkeleton } from '@/shared/components/ui/Skeleton';
 import { useAuth } from '@/lib/auth/auth-context';
 
 interface DashboardData {

@@ -10,7 +10,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
-import { CockpitLayout } from '@/components/layout';
+import { CockpitLayout } from '@/shared/components/layout/CockpitLayout';
 
 export default function ProtectedLayout({
   children,

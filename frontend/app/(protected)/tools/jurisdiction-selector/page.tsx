@@ -12,7 +12,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { JurisdictionTreeSelector, JurisdictionSelection } from '@/components/jurisdiction';
+import { JurisdictionTreeSelector, JurisdictionSelection } from '@/features/jurisdiction/components/JurisdictionTreeSelector';
 import {
   GitBranch,
   ArrowLeft,
