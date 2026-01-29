@@ -71,7 +71,7 @@ litdocket/
 │
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/            # API route handlers (15 routers)
+│   │   ├── api/v1/            # API route handlers (16 routers)
 │   │   │   ├── auth.py        # Login/signup/token
 │   │   │   ├── cases.py       # Case CRUD
 │   │   │   ├── documents.py   # Document upload/viewing

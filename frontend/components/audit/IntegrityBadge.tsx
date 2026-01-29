@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import apiClient from '@/lib/api-client';
 
 interface AuditVerificationResult {
   is_valid: boolean;
@@ -75,36 +75,20 @@ export function IntegrityBadge({
     setError(null);
 
     try {
-      // Call the Supabase RPC function to verify the audit chain
-      const { data, error: rpcError } = await supabase
-        .rpc('verify_audit_chain', { p_record_id: recordId });
+      const response = await apiClient.get(`/api/v1/audit/verify/${recordId}`);
+      const verification = response.data as AuditVerificationResult;
 
-      if (rpcError) {
-        throw new Error(rpcError.message);
-      }
-
-      // The function returns a table, take the first row
-      const verification = Array.isArray(data) ? data[0] : data;
-
-      if (!verification) {
-        // No audit entries found - record might be new or not audited
-        setResult({
-          is_valid: true,
-          total_entries: 0,
-          broken_at_sequence: null,
-          error_message: null,
-        });
-        setState('verified');
-      } else {
-        setResult(verification);
-        setState(verification.is_valid ? 'verified' : 'failed');
-      }
-
+      setResult(verification);
+      setState(verification.is_valid ? 'verified' : 'failed');
       setVerifiedAt(new Date());
 
-    } catch (err) {
-      console.error('Integrity verification failed:', err);
-      setError(err instanceof Error ? err.message : 'Verification failed');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { status?: number; data?: { detail?: string } } };
+      if (axiosError.response?.status === 501) {
+        setError('Audit verification not available');
+      } else {
+        setError(axiosError.response?.data?.detail || 'Verification failed');
+      }
       setState('error');
     }
   }, [recordId]);
@@ -116,19 +100,19 @@ export function IntegrityBadge({
         return (
           <button
             onClick={verifyIntegrity}
-            className="btn-beveled flex items-center gap-2 text-xs"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs bg-slate-100 border border-slate-300 rounded hover:bg-slate-200 transition-colors"
             title="Click to verify the cryptographic integrity of this record's audit trail"
           >
-            <ShieldQuestion className="w-4 h-4 text-grey-500" />
+            <ShieldQuestion className="w-4 h-4 text-slate-500" />
             <span>Verify Integrity</span>
           </button>
         );
 
       case 'verifying':
         return (
-          <div className="flex items-center gap-2 px-3 py-1 bg-surface-dark border border-grey-300 text-xs">
-            <LoadingSpinner className="w-4 h-4 text-navy" />
-            <span className="text-grey-600">Verifying chain...</span>
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 border border-slate-300 text-xs rounded">
+            <LoadingSpinner className="w-4 h-4 text-blue-600" />
+            <span className="text-slate-600">Verifying chain...</span>
           </div>
         );
 
@@ -136,7 +120,7 @@ export function IntegrityBadge({
         return (
           <div className={`flex items-center gap-2 ${showDetails ? 'flex-col items-start' : ''}`}>
             <div
-              className="flex items-center gap-2 px-3 py-1 bg-filed/10 border border-filed text-filed text-xs"
+              className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-500 text-green-700 text-xs rounded"
               title={`Chain of custody verified at ${verifiedAt?.toLocaleTimeString()}`}
             >
               <ShieldCheck className="w-4 h-4" />
@@ -144,10 +128,10 @@ export function IntegrityBadge({
             </div>
 
             {showDetails && result && (
-              <div className="text-xs text-grey-600 mt-1">
+              <div className="text-xs text-slate-600 mt-1">
                 <p>Chain of Custody: Intact</p>
                 <p>{result.total_entries} audit entries verified</p>
-                <p className="text-grey-400">
+                <p className="text-slate-400">
                   Checked: {verifiedAt?.toLocaleString()}
                 </p>
               </div>
@@ -155,7 +139,7 @@ export function IntegrityBadge({
 
             <button
               onClick={verifyIntegrity}
-              className="text-xs text-navy underline ml-2"
+              className="text-xs text-blue-600 underline ml-2 hover:text-blue-700"
               title="Re-verify integrity"
             >
               Re-check
@@ -167,7 +151,7 @@ export function IntegrityBadge({
         return (
           <div className={`flex items-center gap-2 ${showDetails ? 'flex-col items-start' : ''}`}>
             <div
-              className="flex items-center gap-2 px-3 py-1 bg-overdue/10 border border-overdue text-overdue text-xs"
+              className="flex items-center gap-2 px-3 py-1 bg-red-50 border border-red-500 text-red-700 text-xs rounded"
               title="Integrity verification failed - possible tampering detected"
             >
               <ShieldAlert className="w-4 h-4" />
@@ -175,13 +159,13 @@ export function IntegrityBadge({
             </div>
 
             {showDetails && result && (
-              <div className="text-xs text-overdue mt-1">
+              <div className="text-xs text-red-600 mt-1">
                 <p>Chain of Custody: BROKEN</p>
                 {result.broken_at_sequence && (
                   <p>Break detected at entry #{result.broken_at_sequence}</p>
                 )}
                 {result.error_message && (
-                  <p className="text-grey-600">{result.error_message}</p>
+                  <p className="text-slate-600">{result.error_message}</p>
                 )}
               </div>
             )}
@@ -191,13 +175,13 @@ export function IntegrityBadge({
       case 'error':
         return (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-1 bg-warning/10 border border-warning text-warning text-xs">
+            <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-500 text-amber-700 text-xs rounded">
               <ShieldQuestion className="w-4 h-4" />
               <span>Check Failed</span>
             </div>
             <button
               onClick={verifyIntegrity}
-              className="text-xs text-navy underline"
+              className="text-xs text-blue-600 underline hover:text-blue-700"
             >
               Retry
             </button>
@@ -229,13 +213,8 @@ export function IntegrityIndicator({
   const checkIntegrity = async () => {
     setChecking(true);
     try {
-      const { data, error } = await supabase
-        .rpc('verify_audit_chain', { p_record_id: recordId });
-
-      if (error) throw error;
-
-      const result = Array.isArray(data) ? data[0] : data;
-      setVerified(result?.is_valid ?? true);
+      const response = await apiClient.get(`/api/v1/audit/verify/${recordId}`);
+      setVerified(response.data?.is_valid ?? true);
     } catch {
       setVerified(null);
     } finally {
@@ -246,7 +225,7 @@ export function IntegrityIndicator({
   const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
 
   if (checking) {
-    return <LoadingSpinner className={`${iconSize} text-grey-400`} />;
+    return <LoadingSpinner className={`${iconSize} text-slate-400`} />;
   }
 
   if (verified === null) {
@@ -256,19 +235,19 @@ export function IntegrityIndicator({
         className="hover:opacity-75"
         title="Verify integrity"
       >
-        <ShieldQuestion className={`${iconSize} text-grey-400`} />
+        <ShieldQuestion className={`${iconSize} text-slate-400`} />
       </button>
     );
   }
 
   return verified ? (
     <ShieldCheck
-      className={`${iconSize} text-filed`}
+      className={`${iconSize} text-green-600`}
       title="Integrity verified"
     />
   ) : (
     <ShieldAlert
-      className={`${iconSize} text-overdue`}
+      className={`${iconSize} text-red-600`}
       title="Integrity alert - check audit log"
     />
   );

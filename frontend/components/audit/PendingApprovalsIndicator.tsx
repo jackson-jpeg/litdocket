@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import apiClient from '@/lib/api-client';
 
 interface PendingAction {
   id: string;
@@ -36,43 +36,24 @@ export function PendingApprovalsIndicator({
 
   const fetchCount = useCallback(async () => {
     try {
-      const { data, error } = await supabase.rpc('get_pending_actions_count');
-
-      if (error) throw error;
-      setCount(data || 0);
+      const response = await apiClient.get('/api/v1/audit/pending/count');
+      setCount(response.data?.count || 0);
     } catch (err) {
-      console.error('Failed to fetch pending actions count:', err);
+      // Silently fail - this is a non-critical UI element
+      setCount(0);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Initial fetch
+  // Initial fetch and polling
   useEffect(() => {
     fetchCount();
-  }, [fetchCount]);
 
-  // Subscribe to real-time changes
-  useEffect(() => {
-    const channel = supabase
-      .channel('pending_actions_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pending_docket_actions',
-        },
-        () => {
-          // Refetch count on any change
-          fetchCount();
-        }
-      )
-      .subscribe();
+    // Poll every 30 seconds for updates
+    const interval = setInterval(fetchCount, 30000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, [fetchCount]);
 
   if (loading) {
@@ -87,18 +68,19 @@ export function PendingApprovalsIndicator({
     <button
       onClick={onViewAll}
       className={`
-        relative flex items-center gap-2 px-3 py-1
-        bg-warning/20 border border-warning
-        text-warning text-sm font-medium
-        animate-pulse hover:animate-none
+        relative flex items-center gap-2 px-3 py-1.5
+        bg-amber-50 border border-amber-400
+        text-amber-700 text-sm font-medium rounded-lg
+        animate-pulse hover:animate-none hover:bg-amber-100
+        transition-colors
         ${className}
       `}
       title={`${count} AI-proposed action${count > 1 ? 's' : ''} awaiting your approval`}
     >
       {/* Amber flashing dot */}
       <span className="relative flex h-3 w-3">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75" />
-        <span className="relative inline-flex rounded-full h-3 w-3 bg-warning" />
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
       </span>
 
       <span>
@@ -126,16 +108,10 @@ export function PendingApprovalsPanel({
 
   const fetchActions = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('pending_docket_actions')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setActions(data || []);
+      const response = await apiClient.get('/api/v1/audit/pending');
+      setActions(response.data || []);
     } catch (err) {
-      console.error('Failed to fetch pending actions:', err);
+      setActions([]);
     } finally {
       setLoading(false);
     }
@@ -148,16 +124,13 @@ export function PendingApprovalsPanel({
   const handleApprove = async (actionId: string) => {
     setProcessing(actionId);
     try {
-      const { error } = await supabase.rpc('approve_pending_action', {
-        action_id: actionId,
+      await apiClient.post(`/api/v1/audit/actions/${actionId}/approve`, {
         review_notes: 'Approved via UI',
       });
-
-      if (error) throw error;
       fetchActions();
-    } catch (err) {
-      console.error('Failed to approve action:', err);
-      alert('Failed to approve: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      alert('Failed to approve: ' + (axiosError.response?.data?.detail || 'Unknown error'));
     } finally {
       setProcessing(null);
     }
@@ -169,16 +142,13 @@ export function PendingApprovalsPanel({
 
     setProcessing(actionId);
     try {
-      const { error } = await supabase.rpc('reject_pending_action', {
-        action_id: actionId,
+      await apiClient.post(`/api/v1/audit/actions/${actionId}/reject`, {
         rejection_reason: reason,
       });
-
-      if (error) throw error;
       fetchActions();
-    } catch (err) {
-      console.error('Failed to reject action:', err);
-      alert('Failed to reject: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      alert('Failed to reject: ' + (axiosError.response?.data?.detail || 'Unknown error'));
     } finally {
       setProcessing(null);
     }
@@ -188,49 +158,51 @@ export function PendingApprovalsPanel({
     return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 0.9) return 'badge-success';
-    if (confidence >= 0.7) return 'badge-info';
-    if (confidence >= 0.5) return 'badge-warning';
-    return 'badge-critical';
+  const getConfidenceBadgeColor = (confidence: number) => {
+    if (confidence >= 0.9) return 'bg-green-100 text-green-700';
+    if (confidence >= 0.7) return 'bg-blue-100 text-blue-700';
+    if (confidence >= 0.5) return 'bg-amber-100 text-amber-700';
+    return 'bg-red-100 text-red-700';
   };
 
   return (
-    <div className={`window-frame ${className}`}>
-      <div className="window-titlebar flex items-center justify-between">
-        <span className="window-titlebar-text">AI Proposals Awaiting Approval</span>
+    <div className={`bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden ${className}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-800 text-white">
+        <span className="font-semibold">AI Proposals Awaiting Approval</span>
         {onClose && (
-          <button onClick={onClose} className="text-white hover:bg-white/20 px-2">
+          <button onClick={onClose} className="text-white hover:bg-white/20 px-2 py-1 rounded">
             ×
           </button>
         )}
       </div>
 
-      <div className="window-content max-h-96 overflow-y-auto classic-scrollbar">
+      {/* Content */}
+      <div className="max-h-96 overflow-y-auto p-4">
         {loading ? (
-          <div className="text-center py-8 text-grey-500">Loading...</div>
+          <div className="text-center py-8 text-slate-500">Loading...</div>
         ) : actions.length === 0 ? (
-          <div className="text-center py-8 text-grey-500">
+          <div className="text-center py-8 text-slate-500">
             No pending approvals
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {actions.map((action) => (
               <div
                 key={action.id}
-                className="panel-inset p-3"
+                className="border border-slate-200 rounded-lg p-4 bg-slate-50"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <span className="badge-info font-mono text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
                       {formatActionType(action.action_type)}
                     </span>
-                    <span className={`ml-2 ${getConfidenceBadge(action.confidence)}`}>
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded ${getConfidenceBadgeColor(action.confidence)}`}>
                       {Math.round(action.confidence * 100)}% confident
                     </span>
                   </div>
-                  <span className="text-xs text-grey-400">
+                  <span className="text-xs text-slate-400">
                     {new Date(action.created_at).toLocaleString()}
                   </span>
                 </div>
@@ -239,20 +211,20 @@ export function PendingApprovalsPanel({
                 <div className="mb-2">
                   {action.action_type === 'CREATE_DEADLINE' && (
                     <div className="text-sm">
-                      <p className="font-semibold">
+                      <p className="font-semibold text-slate-900">
                         {(action.payload as { title?: string }).title || 'Untitled'}
                       </p>
-                      <p className="text-grey-600">
+                      <p className="text-slate-600">
                         Due: {(action.payload as { deadline_date?: string }).deadline_date || 'Unknown'}
                       </p>
                     </div>
                   )}
                   {action.action_type === 'CREATE_TRIGGER' && (
                     <div className="text-sm">
-                      <p className="font-semibold">
+                      <p className="font-semibold text-slate-900">
                         {(action.payload as { trigger_type?: string }).trigger_type || 'Unknown trigger'}
                       </p>
-                      <p className="text-grey-600">
+                      <p className="text-slate-600">
                         Date: {(action.payload as { trigger_date?: string }).trigger_date || 'Unknown'}
                       </p>
                     </div>
@@ -261,17 +233,17 @@ export function PendingApprovalsPanel({
 
                 {/* AI Reasoning */}
                 {action.reasoning && (
-                  <div className="bg-surface p-2 mb-2 text-xs">
-                    <span className="font-semibold text-grey-600">AI Reasoning: </span>
-                    <span className="text-grey-700">{action.reasoning}</span>
+                  <div className="bg-white p-2 mb-2 text-xs rounded border border-slate-200">
+                    <span className="font-semibold text-slate-600">AI Reasoning: </span>
+                    <span className="text-slate-700">{action.reasoning}</span>
                   </div>
                 )}
 
                 {/* Source text excerpt */}
                 {action.source_text && (
-                  <div className="bg-surface p-2 mb-2 text-xs border-l-2 border-navy">
-                    <span className="font-semibold text-grey-600">Source: </span>
-                    <span className="text-grey-700 italic">
+                  <div className="bg-white p-2 mb-2 text-xs border-l-2 border-blue-500 rounded">
+                    <span className="font-semibold text-slate-600">Source: </span>
+                    <span className="text-slate-700 italic">
                       "{action.source_text.slice(0, 150)}
                       {action.source_text.length > 150 ? '...' : ''}"
                     </span>
@@ -283,22 +255,16 @@ export function PendingApprovalsPanel({
                   <button
                     onClick={() => handleApprove(action.id)}
                     disabled={processing === action.id}
-                    className="btn-beveled-primary text-xs px-3 py-1"
+                    className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
                   >
                     {processing === action.id ? 'Processing...' : 'Approve'}
                   </button>
                   <button
                     onClick={() => handleReject(action.id)}
                     disabled={processing === action.id}
-                    className="btn-beveled text-xs px-3 py-1"
+                    className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs font-medium rounded hover:bg-slate-300 disabled:opacity-50 transition-colors"
                   >
                     Reject
-                  </button>
-                  <button
-                    className="btn-beveled text-xs px-3 py-1"
-                    title="View full details"
-                  >
-                    Details
                   </button>
                 </div>
               </div>
@@ -308,7 +274,7 @@ export function PendingApprovalsPanel({
       </div>
 
       {/* Footer */}
-      <div className="border-t border-grey-300 bg-surface-dark px-3 py-2 text-xs text-grey-600">
+      <div className="border-t border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
         AI proposals require human approval before affecting the docket.
         The AI is the researcher; you are the signer.
       </div>

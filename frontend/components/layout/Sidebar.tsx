@@ -7,10 +7,11 @@
  * Settings subsections appear only on /settings route.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
+import { PendingApprovalsIndicator, PendingApprovalsPanel } from '@/components/audit/PendingApprovalsIndicator';
 
 // Icons
 const IconDashboard = () => (
@@ -57,6 +58,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const isSettingsPage = pathname?.startsWith('/settings');
+  const [showPendingPanel, setShowPendingPanel] = useState(false);
 
   const isActive = (href: string) => {
     if (href === '/dashboard') {
@@ -114,6 +116,14 @@ export function Sidebar() {
         )}
       </nav>
 
+      {/* AI Pending Approvals */}
+      <div className="px-4 py-3">
+        <PendingApprovalsIndicator
+          onViewAll={() => setShowPendingPanel(true)}
+          className="w-full justify-center"
+        />
+      </div>
+
       {/* User Info */}
       <div className="px-4 py-4 border-t border-white/10">
         <div className="text-sm text-slate-400 truncate mb-2">
@@ -126,6 +136,16 @@ export function Sidebar() {
           Logout
         </button>
       </div>
+
+      {/* Pending Approvals Panel (Modal) */}
+      {showPendingPanel && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <PendingApprovalsPanel
+            onClose={() => setShowPendingPanel(false)}
+            className="w-full max-w-lg"
+          />
+        </div>
+      )}
     </aside>
   );
 }

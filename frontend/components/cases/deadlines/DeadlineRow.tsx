@@ -22,9 +22,11 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  FileCheck,
 } from 'lucide-react';
 import type { Deadline, Trigger } from '@/hooks/useCaseData';
 import { formatDeadlineDate } from '@/lib/formatters';
+import { IntegrityIndicator } from '@/components/audit/IntegrityBadge';
 
 interface DeadlineRowProps {
   deadline: Deadline;
@@ -462,6 +464,11 @@ export default function DeadlineRow({
               <History className="w-4 h-4 text-slate-500" />
               History
             </button>
+            <div className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+              <FileCheck className="w-4 h-4 text-slate-500" />
+              <span>Verify Integrity</span>
+              <IntegrityIndicator recordId={deadline.id} size="sm" />
+            </div>
             {onDelete && (
               <>
                 <div className="border-t border-slate-100 my-1" />
