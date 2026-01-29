@@ -63,10 +63,10 @@ export default function TriggerEventsPanel({
         {onAddTrigger && (
           <button
             onClick={onAddTrigger}
-            className="bg-slate-900 text-white px-4 py-2 hover:bg-slate-800 transition-colors text-sm font-medium flex items-center gap-2 mx-auto"
+            className="bg-[#2C3E50] text-white px-4 py-2 hover:bg-[#1A1A1A] transition-colors text-sm font-medium flex items-center gap-2 mx-auto uppercase tracking-wide"
           >
             <Plus className="w-4 h-4" />
-            INITIALIZE TRIGGER
+            Initialize Trigger
           </button>
         )}
       </div>

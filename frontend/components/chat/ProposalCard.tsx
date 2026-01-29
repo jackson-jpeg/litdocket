@@ -3,15 +3,17 @@
  *
  * Displays tool information and provides approve/reject/modify options.
  * Shows impact preview for cascade operations and bulk updates.
+ *
+ * Design: Paper & Steel - Professional light mode, hard edges, editorial typography
  */
 
 import React, { useState } from 'react';
-import { AlertTriangle, Check, X, Edit } from 'lucide-react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 
 interface ToolCallProposal {
   tool_id: string;
   tool_name: string;
-  input: Record<string, any>;
+  input: Record<string, unknown>;
   requires_approval: boolean;
   rationale?: string;
 }
@@ -19,7 +21,7 @@ interface ToolCallProposal {
 interface ProposalCardProps {
   toolCall: ToolCallProposal;
   approvalId: string;
-  onApprove: (modifications?: Record<string, any>) => void;
+  onApprove: (modifications?: Record<string, unknown>) => void;
   onReject: (reason: string) => void;
 }
 
@@ -65,7 +67,7 @@ export function ProposalCard({
   onReject
 }: ProposalCardProps) {
   const [isModifying, setIsModifying] = useState(false);
-  const [modifications, setModifications] = useState<Record<string, any>>({});
+  const [modifications, setModifications] = useState<Record<string, unknown>>({});
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
 
@@ -84,52 +86,60 @@ export function ProposalCard({
   const warning = getToolWarning(toolCall.tool_name);
   const icon = getToolIcon(toolCall.tool_name);
 
+  // Type guard for preview data
+  const preview = toolCall.input.preview as { affected_count?: number; changes?: Array<{ title: string; old_date: string; new_date: string }> } | undefined;
+
   return (
-    <div className="proposal-card bg-amber-900/20 border-2 border-amber-500 rounded-lg p-4 my-3 animate-pulse-subtle">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <AlertTriangle className="w-6 h-6 text-amber-500 animate-pulse" />
+    <div className="bg-[#F5F2EB] border-2 border-[#C0392B] p-4 my-3">
+      {/* Header - Paper & Steel */}
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[#1A1A1A]">
+        <AlertTriangle className="w-6 h-6 text-[#C0392B]" />
         <div className="flex-1">
-          <h3 className="font-bold text-amber-500 text-lg">
+          <h3 className="font-bold text-[#C0392B] text-sm uppercase tracking-wide">
             APPROVAL REQUIRED
           </h3>
-          <p className="text-amber-300 text-sm">
+          <p className="text-[#4A4A4A] text-sm font-mono mt-1">
             {icon} {formatToolName(toolCall.tool_name)}
           </p>
         </div>
       </div>
 
-      {/* Warning */}
+      {/* Warning - Paper & Steel */}
       {warning && (
-        <div className="bg-red-900/30 border border-red-500/50 rounded p-3 mb-3 text-red-300 text-sm">
-          {warning}
+        <div className="bg-[#FDFBF7] border-l-4 border-[#C0392B] p-3 mb-4">
+          <p className="text-[#C0392B] text-sm font-medium flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            {warning}
+          </p>
         </div>
       )}
 
       {/* Rationale */}
       {toolCall.rationale && (
-        <div className="mb-3 text-slate-300 text-sm italic">
+        <div className="mb-4 text-[#4A4A4A] text-sm italic border-l-2 border-[#888888] pl-3">
           "{toolCall.rationale}"
         </div>
       )}
 
-      {/* Tool Parameters */}
-      <div className="mb-3">
-        <p className="text-white text-sm font-semibold mb-2">Parameters:</p>
-        <pre className="bg-slate-800 p-3 rounded text-xs overflow-auto max-h-48 text-slate-300">
+      {/* Tool Parameters - Paper & Steel */}
+      <div className="mb-4">
+        <p className="text-[#1A1A1A] text-xs font-bold uppercase tracking-wide mb-2">
+          Parameters
+        </p>
+        <pre className="bg-[#FDFBF7] border border-[#1A1A1A] p-3 text-xs overflow-auto max-h-48 text-[#1A1A1A] font-mono">
           {JSON.stringify(toolCall.input, null, 2)}
         </pre>
       </div>
 
       {/* Cascade Preview (if applicable) */}
-      {toolCall.tool_name === 'apply_cascade_update' && toolCall.input.preview && (
-        <div className="mb-3">
-          <p className="text-white text-sm font-semibold mb-2">
-            Affected Deadlines ({toolCall.input.preview.affected_count || 0}):
+      {toolCall.tool_name === 'apply_cascade_update' && preview && (
+        <div className="mb-4">
+          <p className="text-[#1A1A1A] text-xs font-bold uppercase tracking-wide mb-2">
+            Affected Deadlines ({preview.affected_count || 0})
           </p>
-          <div className="bg-slate-800 p-3 rounded max-h-32 overflow-auto">
-            <ul className="text-xs space-y-1 text-slate-300">
-              {toolCall.input.preview.changes?.map((change: any, i: number) => (
+          <div className="bg-[#FDFBF7] border border-[#1A1A1A] p-3 max-h-32 overflow-auto">
+            <ul className="text-xs space-y-1 text-[#4A4A4A] font-mono">
+              {preview.changes?.map((change, i: number) => (
                 <li key={i}>
                   • {change.title}: {change.old_date} → {change.new_date}
                 </li>
@@ -141,10 +151,12 @@ export function ProposalCard({
 
       {/* Modification Interface (optional feature) */}
       {isModifying && (
-        <div className="mb-3 bg-slate-800 p-3 rounded">
-          <p className="text-white text-sm font-semibold mb-2">Modify Parameters:</p>
+        <div className="mb-4 bg-[#FDFBF7] border border-[#1A1A1A] p-3">
+          <p className="text-[#1A1A1A] text-xs font-bold uppercase tracking-wide mb-2">
+            Modify Parameters
+          </p>
           <textarea
-            className="w-full bg-slate-700 text-white p-2 rounded text-sm font-mono"
+            className="w-full bg-white border border-[#1A1A1A] text-[#1A1A1A] p-2 text-sm font-mono focus:outline-none focus:border-[#2C3E50]"
             rows={4}
             placeholder="Enter JSON modifications..."
             value={JSON.stringify(modifications, null, 2)}
@@ -160,12 +172,12 @@ export function ProposalCard({
         </div>
       )}
 
-      {/* Rejection Reason Input */}
+      {/* Rejection Reason Input - Paper & Steel */}
       {showRejectInput && (
-        <div className="mb-3">
+        <div className="mb-4">
           <input
             type="text"
-            className="w-full bg-slate-700 text-white p-2 rounded text-sm"
+            className="w-full bg-white border border-[#1A1A1A] text-[#1A1A1A] p-2 text-sm focus:outline-none focus:border-[#C0392B]"
             placeholder="Reason for rejection (optional)"
             value={rejectionReason}
             onChange={(e) => setRejectionReason(e.target.value)}
@@ -178,24 +190,15 @@ export function ProposalCard({
         </div>
       )}
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Paper & Steel (hard edges, no rounded) */}
       <div className="flex gap-2">
         <button
           onClick={handleApprove}
-          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded transition-colors flex items-center justify-center gap-2"
+          className="flex-1 bg-[#2C3E50] hover:bg-[#1A1A1A] text-white font-semibold py-3 px-4 transition-colors flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
         >
           <Check className="w-5 h-5" />
           Approve
         </button>
-
-        {/* Optional: Modify button */}
-        {/* <button
-          onClick={() => setIsModifying(!isModifying)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded transition-colors flex items-center justify-center gap-2"
-        >
-          <Edit className="w-5 h-5" />
-          {isModifying ? 'Cancel' : 'Modify'}
-        </button> */}
 
         <button
           onClick={() => {
@@ -205,38 +208,38 @@ export function ProposalCard({
               setShowRejectInput(true);
             }
           }}
-          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded transition-colors flex items-center justify-center gap-2"
+          className="flex-1 bg-[#C0392B] hover:opacity-90 text-white font-semibold py-3 px-4 transition-opacity flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
         >
           <X className="w-5 h-5" />
-          {showRejectInput ? 'Confirm Reject' : 'Reject'}
+          {showRejectInput ? 'Confirm' : 'Reject'}
         </button>
       </div>
 
       {/* Additional Info */}
-      <div className="mt-3 text-xs text-slate-400 text-center">
+      <div className="mt-3 text-xs text-[#888888] text-center font-mono">
         Approval expires in 60 seconds if no action is taken
       </div>
     </div>
   );
 }
 
-// Simplified streaming indicator component
+// Simplified streaming indicator component - Paper & Steel styling
 export function StreamingIndicator({ status }: { status: string }) {
   const statusMessages: Record<string, { icon: string; text: string; color: string }> = {
-    loading_context: { icon: '📚', text: 'Loading case context...', color: 'text-blue-400' },
-    building_context: { icon: '🔍', text: 'Analyzing case...', color: 'text-blue-400' },
-    thinking: { icon: '🤔', text: 'AI is thinking...', color: 'text-cyan-400' },
-    executing_tool: { icon: '⚙️', text: 'Executing action...', color: 'text-green-400' },
+    loading_context: { icon: '📚', text: 'Loading case context...', color: 'text-[#2C3E50]' },
+    building_context: { icon: '🔍', text: 'Analyzing case...', color: 'text-[#2C3E50]' },
+    thinking: { icon: '🤔', text: 'AI is thinking...', color: 'text-[#1A1A1A]' },
+    executing_tool: { icon: '⚙️', text: 'Executing action...', color: 'text-[#2C3E50]' },
   };
 
   const statusInfo = statusMessages[status] || {
     icon: '⏳',
     text: status || 'Processing...',
-    color: 'text-slate-400'
+    color: 'text-[#888888]'
   };
 
   return (
-    <div className={`flex items-center gap-2 ${statusInfo.color} text-sm animate-pulse`}>
+    <div className={`flex items-center gap-2 ${statusInfo.color} text-sm font-mono`}>
       <span>{statusInfo.icon}</span>
       <span>{statusInfo.text}</span>
     </div>

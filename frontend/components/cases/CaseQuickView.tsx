@@ -140,15 +140,15 @@ export default function CaseQuickView({ isOpen, caseData, onClose }: CaseQuickVi
 
       {/* Drawer */}
       <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col transform transition-transform">
-        {/* Header */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+        {/* Header - Paper & Steel */}
+        <div className="bg-[#F5F2EB] border-b-2 border-[#1A1A1A] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Scale className="w-5 h-5 text-blue-400" />
-            <span className="font-semibold">Quick View</span>
+            <Scale className="w-5 h-5 text-[#2C3E50]" />
+            <span className="font-semibold text-[#1A1A1A] uppercase tracking-wide text-sm">Quick View</span>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-[#888888] hover:text-[#1A1A1A] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

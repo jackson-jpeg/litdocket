@@ -137,15 +137,15 @@ export default function DeadlineDetailModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl border border-gray-300">
-        {/* Header */}
-        <div className="bg-slate-800 text-white px-4 py-3 flex items-center justify-between">
+        {/* Header - Paper & Steel */}
+        <div className="bg-[#F5F2EB] border-b-2 border-[#1A1A1A] px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-cyan-400" />
-            <span className="font-mono text-sm uppercase tracking-wide">Deadline Details</span>
+            <Calendar className="w-5 h-5 text-[#2C3E50]" />
+            <span className="font-mono text-sm uppercase tracking-wide text-[#1A1A1A]">Deadline Details</span>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-[#888888] hover:text-[#1A1A1A] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
