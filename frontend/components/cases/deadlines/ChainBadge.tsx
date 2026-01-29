@@ -14,7 +14,7 @@ import type { Deadline, Trigger } from '@/hooks/useCaseData';
 interface ChainBadgeProps {
   trigger: Trigger;
   deadlines: Deadline[];
-  onViewChain?: () => void;
+  onViewChain?: (e?: React.MouseEvent) => void;
   compact?: boolean;
 }
 
@@ -47,7 +47,7 @@ export default function ChainBadge({
   if (compact) {
     return (
       <button
-        onClick={onViewChain}
+        onClick={(e) => onViewChain?.(e)}
         className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors ${
           hasOverdue
             ? 'bg-red-100 text-red-700 hover:bg-red-200'
@@ -64,7 +64,7 @@ export default function ChainBadge({
 
   return (
     <button
-      onClick={onViewChain}
+      onClick={(e) => onViewChain?.(e)}
       className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs rounded-lg border transition-colors ${
         hasOverdue
           ? 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'

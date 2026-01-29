@@ -11,9 +11,10 @@
 
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { FileText, Upload, Calendar, Clock, AlertTriangle, Building, User, Search, Sparkles, Trash2, Plus } from 'lucide-react';
+import { FileText, Upload, Calendar, Clock, AlertTriangle, Building, User, Search, Sparkles, Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import ChainBadge from '@/components/cases/deadlines/ChainBadge';
 import apiClient from '@/lib/api-client';
-import { useCaseData, Trigger } from '@/hooks/useCaseData';
+import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
 import { formatDateTime, formatDeadlineDate } from '@/lib/formatters';
 import DocumentViewerWrapper from '@/components/DocumentViewerWrapper';
@@ -218,6 +219,15 @@ export default function CaseRoomPage() {
     return triggers.find(t => t.id === triggerId);
   };
 
+  // Find trigger for a deadline (by trigger_event → trigger_type match)
+  const findTriggerForDeadline = (deadline: Deadline): Trigger | undefined => {
+    if (!deadline.trigger_event) return undefined;
+    return triggers.find(t => t.trigger_type === deadline.trigger_event);
+  };
+
+  // Insights collapsed state
+  const [insightsCollapsed, setInsightsCollapsed] = useState(true);
+
   // Get documents to display (filtered or all)
   const displayedDocuments = searchResults
     ? documents.filter(doc => searchResults.some(r => r.document_id === doc.id))
@@ -252,15 +262,6 @@ export default function CaseRoomPage() {
   }
 
   if (!caseData) return null;
-
-  // Stats
-  const overdueCount = deadlines.filter(d => {
-    const isActive = d.status !== 'completed' && d.status !== 'cancelled';
-    const isOverdue = d.deadline_date && new Date(d.deadline_date) < new Date(new Date().setHours(0, 0, 0, 0));
-    return isActive && isOverdue;
-  }).length;
-
-  const pendingCount = deadlines.filter(d => d.status !== 'completed' && d.status !== 'cancelled').length;
 
   // Group deadlines by timeframe
   const today = new Date();
@@ -352,30 +353,6 @@ export default function CaseRoomPage() {
           )}
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className={`text-3xl font-bold mb-1 ${overdueCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {overdueCount}
-            </div>
-            <div className="text-sm text-slate-600">Overdue</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-amber-600 mb-1">{pendingCount}</div>
-            <div className="text-sm text-slate-600">Pending</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-1">{triggers.length}</div>
-            <div className="text-sm text-slate-600">Triggers</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-purple-600 mb-1">{documents.length}</div>
-            <div className="text-sm text-slate-600">Documents</div>
-          </div>
-        </div>
-
-        {/* Case Insights - AI-powered analytics */}
-        <CaseInsights caseId={caseId} />
 
         {/* Actions Row - Single Add Event button */}
         <div className="flex gap-2">
@@ -412,32 +389,48 @@ export default function CaseRoomPage() {
                 <span className="badge badge-important">{thisWeekDeadlines.length}</span>
               </div>
               <div className="space-y-3">
-                {thisWeekDeadlines.map((deadline) => (
-                  <div
-                    key={deadline.id}
-                    className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => modals.viewDeadline(deadline)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">{deadline.title}</p>
-                        <p className="text-sm text-slate-600 mt-1">
-                          {formatDeadlineDate(deadline.deadline_date)}
-                        </p>
-                        {deadline.action_required && (
-                          <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
-                        )}
+                {thisWeekDeadlines.map((deadline) => {
+                  const parentTrigger = findTriggerForDeadline(deadline);
+                  return (
+                    <div
+                      key={deadline.id}
+                      className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => modals.viewDeadline(deadline)}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-slate-900">{deadline.title}</p>
+                            {parentTrigger && (
+                              <ChainBadge
+                                trigger={parentTrigger}
+                                deadlines={deadlines}
+                                compact
+                                onViewChain={(e) => {
+                                  e?.stopPropagation();
+                                  modals.viewChain(parentTrigger);
+                                }}
+                              />
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600 mt-1">
+                            {formatDeadlineDate(deadline.deadline_date)}
+                          </p>
+                          {deadline.action_required && (
+                            <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
+                          )}
+                        </div>
+                        <span className={`badge ${
+                          deadline.priority === 'fatal' ? 'badge-fatal' :
+                          deadline.priority === 'critical' ? 'badge-critical' :
+                          deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
+                        }`}>
+                          {deadline.priority?.toUpperCase()}
+                        </span>
                       </div>
-                      <span className={`badge ${
-                        deadline.priority === 'fatal' ? 'badge-fatal' :
-                        deadline.priority === 'critical' ? 'badge-critical' :
-                        deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
-                      }`}>
-                        {deadline.priority?.toUpperCase()}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -450,29 +443,45 @@ export default function CaseRoomPage() {
                 <span className="badge badge-standard">{next30DaysDeadlines.length}</span>
               </div>
               <div className="space-y-3">
-                {next30DaysDeadlines.map((deadline) => (
-                  <div
-                    key={deadline.id}
-                    className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => modals.viewDeadline(deadline)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">{deadline.title}</p>
-                        <p className="text-sm text-slate-600 mt-1">
-                          {formatDeadlineDate(deadline.deadline_date)}
-                        </p>
+                {next30DaysDeadlines.map((deadline) => {
+                  const parentTrigger = findTriggerForDeadline(deadline);
+                  return (
+                    <div
+                      key={deadline.id}
+                      className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => modals.viewDeadline(deadline)}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-slate-900">{deadline.title}</p>
+                            {parentTrigger && (
+                              <ChainBadge
+                                trigger={parentTrigger}
+                                deadlines={deadlines}
+                                compact
+                                onViewChain={(e) => {
+                                  e?.stopPropagation();
+                                  modals.viewChain(parentTrigger);
+                                }}
+                              />
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600 mt-1">
+                            {formatDeadlineDate(deadline.deadline_date)}
+                          </p>
+                        </div>
+                        <span className={`badge ${
+                          deadline.priority === 'fatal' ? 'badge-fatal' :
+                          deadline.priority === 'critical' ? 'badge-critical' :
+                          deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
+                        }`}>
+                          {deadline.priority?.toUpperCase()}
+                        </span>
                       </div>
-                      <span className={`badge ${
-                        deadline.priority === 'fatal' ? 'badge-fatal' :
-                        deadline.priority === 'critical' ? 'badge-critical' :
-                        deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
-                      }`}>
-                        {deadline.priority?.toUpperCase()}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -485,29 +494,45 @@ export default function CaseRoomPage() {
                 <span className="badge badge-info">{laterDeadlines.length}</span>
               </div>
               <div className="space-y-3">
-                {laterDeadlines.map((deadline) => (
-                  <div
-                    key={deadline.id}
-                    className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
-                    onClick={() => modals.viewDeadline(deadline)}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">{deadline.title}</p>
-                        <p className="text-sm text-slate-600 mt-1">
-                          {formatDeadlineDate(deadline.deadline_date)}
-                        </p>
+                {laterDeadlines.map((deadline) => {
+                  const parentTrigger = findTriggerForDeadline(deadline);
+                  return (
+                    <div
+                      key={deadline.id}
+                      className="border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => modals.viewDeadline(deadline)}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-slate-900">{deadline.title}</p>
+                            {parentTrigger && (
+                              <ChainBadge
+                                trigger={parentTrigger}
+                                deadlines={deadlines}
+                                compact
+                                onViewChain={(e) => {
+                                  e?.stopPropagation();
+                                  modals.viewChain(parentTrigger);
+                                }}
+                              />
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600 mt-1">
+                            {formatDeadlineDate(deadline.deadline_date)}
+                          </p>
+                        </div>
+                        <span className={`badge ${
+                          deadline.priority === 'fatal' ? 'badge-fatal' :
+                          deadline.priority === 'critical' ? 'badge-critical' :
+                          deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
+                        }`}>
+                          {deadline.priority?.toUpperCase()}
+                        </span>
                       </div>
-                      <span className={`badge ${
-                        deadline.priority === 'fatal' ? 'badge-fatal' :
-                        deadline.priority === 'critical' ? 'badge-critical' :
-                        deadline.priority === 'important' ? 'badge-important' : 'badge-standard'
-                      }`}>
-                        {deadline.priority?.toUpperCase()}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -536,6 +561,29 @@ export default function CaseRoomPage() {
                   className="max-w-sm"
                 />
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* AI Insights - Collapsed by default */}
+        <div className="card">
+          <button
+            onClick={() => setInsightsCollapsed(!insightsCollapsed)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              AI Insights
+            </h2>
+            {insightsCollapsed ? (
+              <ChevronRight className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
+            )}
+          </button>
+          {!insightsCollapsed && (
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <CaseInsights caseId={caseId} />
             </div>
           )}
         </div>

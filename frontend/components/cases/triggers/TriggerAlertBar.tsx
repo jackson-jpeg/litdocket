@@ -7,7 +7,7 @@
  * Removed Add button - all adding now goes through UnifiedAddEventModal.
  */
 
-import { AlertTriangle, ChevronRight, Clock, CheckCircle } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Clock } from 'lucide-react';
 import type { Trigger, Deadline } from '@/hooks/useCaseData';
 
 interface TriggerAlertBarProps {
@@ -103,18 +103,6 @@ export default function TriggerAlertBar({
     );
   }
 
-  // All good - show success status
-  return (
-    <div className="panel-glass border-accent-success px-4 py-3 mb-4">
-      <div className="flex items-center gap-3">
-        <CheckCircle className="w-5 h-5 text-accent-success" />
-        <span className="text-text-primary font-medium">
-          {totalTriggers} trigger{totalTriggers > 1 ? 's' : ''} active
-        </span>
-        <span className="text-text-muted text-sm font-mono">
-          ({totalPendingDeadlines} pending deadline{totalPendingDeadlines !== 1 ? 's' : ''})
-        </span>
-      </div>
-    </div>
-  );
+  // All good - hide alert bar (deadlines are the primary content)
+  return null;
 }
