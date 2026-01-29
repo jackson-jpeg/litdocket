@@ -2,7 +2,7 @@
  * Protected Layout
  *
  * All routes inside this layout require authentication.
- * Uses the Sovereign Cockpit viewport layout.
+ * Uses the Sovereign Cockpit viewport layout with keyboard shortcuts.
  */
 
 'use client';
@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
 import { CockpitLayout } from '@/components/layout';
+import { KeyboardShortcutsProvider } from '@/providers/KeyboardShortcutsProvider';
 
 export default function ProtectedLayout({
   children,
@@ -47,6 +48,10 @@ export default function ProtectedLayout({
     return null;
   }
 
-  // Authenticated - show the Cockpit
-  return <CockpitLayout>{children}</CockpitLayout>;
+  // Authenticated - show the Cockpit with keyboard shortcuts
+  return (
+    <KeyboardShortcutsProvider>
+      <CockpitLayout>{children}</CockpitLayout>
+    </KeyboardShortcutsProvider>
+  );
 }

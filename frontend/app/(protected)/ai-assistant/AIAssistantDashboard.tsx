@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Brain, TrendingUp, FileSearch, Calendar, AlertTriangle, CheckCircle, Clock, Target } from 'lucide-react';
+import { Sparkles, Brain, TrendingUp, FileSearch, Calendar, AlertTriangle, CheckCircle, Clock, Target, Command, MessageSquare } from 'lucide-react';
 import SmartDocumentSearch from '@/components/SmartDocumentSearch';
 import WorkloadHeatmap from '@/components/WorkloadHeatmap';
 import { useWorkload } from '@/hooks/useWorkload';
@@ -69,6 +69,38 @@ export default function AIAssistantDashboard() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Quick AI Terminal Access Banner */}
+        <div className="mb-8 bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/10 rounded-lg">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Quick AI Chat</h3>
+                <p className="text-slate-300 text-sm">
+                  Press <kbd className="px-2 py-0.5 bg-white/20 rounded text-xs font-mono mx-1">⌘K</kbd> anywhere to open the AI Terminal for quick questions about your cases, deadlines, or legal rules.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                // Trigger the keyboard shortcut
+                const event = new KeyboardEvent('keydown', {
+                  key: 'k',
+                  metaKey: true,
+                  bubbles: true,
+                });
+                window.dispatchEvent(event);
+              }}
+              className="px-4 py-2 bg-white text-slate-900 rounded-lg font-medium hover:bg-slate-100 transition-colors flex items-center gap-2"
+            >
+              <Command className="w-4 h-4" />
+              Open Terminal
+            </button>
+          </div>
+        </div>
+
         {activeTab === 'overview' && (
           <div className="space-y-8">
             {/* Stats Grid */}

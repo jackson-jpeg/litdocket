@@ -16,6 +16,7 @@ import ActivityFeed from '@/components/ActivityFeed';
 import GlobalSearch from '@/components/GlobalSearch';
 import NotificationCenter from '@/components/NotificationCenter';
 import { HeatMapSkeleton, MatterHealthSkeleton } from '@/components/Skeleton';
+import { QuickToolsGrid, ToolSuggestionBanner } from '@/components/ContextualToolCard';
 import { useAuth } from '@/lib/auth/auth-context';
 
 interface DashboardData {
@@ -285,6 +286,15 @@ export default function DashboardPage() {
                 <p className="text-sm text-red-700">{error}</p>
               </div>
             )}
+
+            {/* Quick Tools for new users */}
+            <div className="mt-8">
+              <QuickToolsGrid
+                title="Quick Actions"
+                tools={['calculator', 'jurisdiction', 'analyzer']}
+                className="max-w-lg mx-auto"
+              />
+            </div>
           </div>
         ) : (
           <>
@@ -622,6 +632,18 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Tool Suggestion when no critical items */}
+            {activeView === 'overview' && dashboardData &&
+              dashboardData.deadline_alerts.overdue.count === 0 &&
+              dashboardData.deadline_alerts.urgent.count === 0 && (
+              <div className="mt-6">
+                <ToolSuggestionBanner
+                  toolId="calculator"
+                  message="Need to calculate a deadline?"
+                />
               </div>
             )}
 

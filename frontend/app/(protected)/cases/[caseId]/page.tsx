@@ -34,6 +34,8 @@ import {
   getViewingDocument,
   getAddEventTab,
 } from '@/hooks/useCasePageModals';
+import { useTrackCaseView } from '@/hooks/useRecentItems';
+import { ContextualToolCard } from '@/components/ContextualToolCard';
 import type { Document } from '@/types';
 
 export default function CaseRoomPage() {
@@ -54,6 +56,13 @@ export default function CaseRoomPage() {
     onCaseUpdate: () => refetch.caseSummary(),
     onInsightsUpdate: () => {},
   });
+
+  // Track this case as recently viewed
+  useTrackCaseView(caseData ? {
+    id: caseData.id,
+    case_number: caseData.case_number,
+    title: caseData.title,
+  } : null);
 
   // Document upload state
   const [uploading, setUploading] = useState(false);
@@ -509,13 +518,24 @@ export default function CaseRoomPage() {
               <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-lg font-medium text-slate-900 mb-2">No Active Deadlines</p>
               <p className="text-sm text-slate-600 mb-6">Add an event to create deadlines</p>
-              <button
-                onClick={() => modals.openAddEvent('trigger')}
-                className="btn-primary"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Event
-              </button>
+              <div className="flex flex-col items-center gap-4">
+                <button
+                  onClick={() => modals.openAddEvent('trigger')}
+                  className="btn-primary"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Event
+                </button>
+                <div className="text-xs text-slate-500">or</div>
+                <ContextualToolCard
+                  toolId="calculator"
+                  title="Calculate Deadlines"
+                  description="Use the standalone calculator for quick calculations"
+                  size="compact"
+                  queryParams={caseData?.jurisdiction ? { jurisdiction: caseData.jurisdiction } : undefined}
+                  className="max-w-sm"
+                />
+              </div>
             </div>
           )}
         </div>

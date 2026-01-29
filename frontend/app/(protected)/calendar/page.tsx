@@ -14,6 +14,7 @@ import CalendarGrid from '@/components/calendar/CalendarGrid';
 import IntelligentCalendar from '@/components/calendar/IntelligentCalendar';
 import DeadlineDetailModal from '@/components/calendar/DeadlineDetailModal';
 import CreateDeadlineModal from '@/components/calendar/CreateDeadlineModal';
+import { ToolSuggestionBanner } from '@/components/ContextualToolCard';
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -282,6 +283,16 @@ export default function CalendarPage() {
           </div>
         </div>
       </header>
+
+      {/* Tool Suggestion Banner - Show when no deadlines */}
+      {deadlines.length === 0 && !loading && (
+        <div className="flex-shrink-0 px-4 pb-3 bg-slate-100">
+          <ToolSuggestionBanner
+            toolId="calculator"
+            message="No deadlines yet? Calculate one now"
+          />
+        </div>
+      )}
 
       {/* Main Content - Sidebar + Calendar */}
       <div className="flex-1 flex overflow-hidden">

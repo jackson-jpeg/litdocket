@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Download, User, Bell, Settings as SettingsIcon, Plug } from 'lucide-react';
 
@@ -24,12 +25,56 @@ interface NotificationPreferences {
   quiet_hours_end: string;
 }
 
+const validTabs: TabType[] = ['notifications', 'preferences', 'account', 'integrations'];
+
 export default function SettingsPage() {
   const { preferences, fetchPreferences, updatePreferences } = useNotifications();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [localPrefs, setLocalPrefs] = useState<NotificationPreferences | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('notifications');
+
+  // Get active tab from URL hash or query param, default to 'notifications'
+  const getActiveTab = (): TabType => {
+    // Check hash first (e.g., /settings#notifications)
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hashTab = window.location.hash.slice(1) as TabType;
+      if (validTabs.includes(hashTab)) {
+        return hashTab;
+      }
+    }
+    // Check query param (e.g., /settings?tab=notifications)
+    const tabParam = searchParams.get('tab') as TabType;
+    if (tabParam && validTabs.includes(tabParam)) {
+      return tabParam;
+    }
+    return 'notifications';
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getActiveTab);
+
+  // Update active tab when URL changes
+  useEffect(() => {
+    setActiveTab(getActiveTab());
+  }, [searchParams]);
+
+  // Listen for hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveTab(getActiveTab());
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    // Update URL hash without triggering navigation
+    window.history.replaceState(null, '', `/settings#${tab}`);
+  };
 
   useEffect(() => {
     fetchPreferences();
@@ -124,7 +169,7 @@ export default function SettingsPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-semibold text-sm transition-all duration-200 ${
                   activeTab === tab.id
                     ? 'bg-blue-600 text-white shadow-md'
