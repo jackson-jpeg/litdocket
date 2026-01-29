@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Download, User, Bell, Settings as SettingsIcon, Plug } from 'lucide-react';
 
 type TabType = 'notifications' | 'preferences' | 'account' | 'integrations';

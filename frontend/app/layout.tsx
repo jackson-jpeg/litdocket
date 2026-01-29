@@ -2,9 +2,9 @@ import '@/lib/polyfills';
 import type { Metadata } from "next";
 import { Playfair_Display, Space_Grotesk, Newsreader, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
-import { ToastProvider } from "@/components/Toast";
+import { ToastProvider } from "@/shared/components/ui/Toast";
 import { AuthProvider } from "@/lib/auth/auth-context";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import ErrorBoundary from "@/shared/components/ui/ErrorBoundary";
 
 // ============================================================================
 // PAPER & STEEL TYPOGRAPHY SYSTEM
