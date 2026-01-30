@@ -17,6 +17,7 @@ import CaseIntelligencePanel from '@/components/cases/CaseIntelligencePanel';
 import DiscoveryTracker from '@/components/cases/DiscoveryTracker';
 import BriefDraftingAssistant from '@/components/cases/BriefDraftingAssistant';
 import CaseTimeline from '@/components/cases/CaseTimeline';
+import SettlementCalculator from '@/components/cases/SettlementCalculator';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -607,6 +608,13 @@ export default function CaseRoomPage() {
         <BriefDraftingAssistant
           caseId={caseId}
           caseTitle={caseData.title}
+          jurisdiction={caseData.jurisdiction}
+        />
+
+        {/* Settlement Calculator */}
+        <SettlementCalculator
+          caseId={caseId}
+          caseType={caseData.case_type}
           jurisdiction={caseData.jurisdiction}
         />
 

@@ -760,3 +760,230 @@ async def delete_document(
         # Catch any other errors (database errors, etc.)
         logger.error(f"Failed to delete document {document_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
+
+
+# ============================================================
+# Document Intelligence Endpoints
+# ============================================================
+
+class DocumentAnalysisRequest(BaseModel):
+    extract_entities: bool = True
+    extract_dates: bool = True
+    extract_amounts: bool = True
+    extract_citations: bool = True
+    identify_risks: bool = True
+
+
+@router.get("/{document_id}/analysis")
+async def get_document_analysis(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get existing AI analysis for a document.
+    """
+    # Verify document ownership
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Check if analysis exists in metadata
+    if not document.metadata or 'analysis' not in document.metadata:
+        raise HTTPException(status_code=404, detail="No analysis found for this document")
+
+    return document.metadata['analysis']
+
+
+@router.post("/{document_id}/analyze")
+@limiter.limit("5/minute")  # Rate limit AI analysis
+async def analyze_document(
+    request: Request,
+    document_id: str,
+    analysis_request: Optional[DocumentAnalysisRequest] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Run AI-powered analysis on a document.
+
+    Extracts:
+    - Document classification
+    - Key entities (persons, organizations, locations)
+    - Important dates
+    - Monetary amounts
+    - Legal citations
+    - Risk indicators
+    """
+    from app.services.ai_service import AIService
+    import json
+
+    # Verify document ownership
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Get document text
+    content = document.extracted_text or ""
+    if not content:
+        raise HTTPException(status_code=400, detail="Document has no extracted text")
+
+    # Build analysis prompt
+    prompt = f"""Analyze this legal document comprehensively.
+
+Document Name: {document.file_name}
+Document Type: {document.document_type or 'Unknown'}
+Content:
+{content[:12000]}
+
+Provide a detailed analysis in JSON format:
+{{
+    "classification": {{
+        "primary_type": "complaint|motion|order|brief|discovery|contract|correspondence|deposition|exhibit|other",
+        "confidence": 0.95,
+        "secondary_types": ["list", "of", "related", "types"]
+    }},
+    "summary": "2-3 sentence summary of the document",
+    "key_points": ["Important point 1", "Important point 2", "Important point 3"],
+    "entities": [
+        {{"type": "person|organization|location", "value": "Entity name", "confidence": 0.9, "context": "Where mentioned"}}
+    ],
+    "dates": [
+        {{"date": "2024-01-15", "context": "Filing deadline", "importance": "critical|high|standard"}}
+    ],
+    "amounts": [
+        {{"amount": "$50,000", "currency": "USD", "context": "Damages claimed"}}
+    ],
+    "parties_mentioned": [
+        {{"name": "Party Name", "role": "plaintiff|defendant|witness|counsel|judge", "mentions": 5}}
+    ],
+    "legal_citations": [
+        {{"citation": "Case Name, Reporter Citation", "context": "Used to support argument"}}
+    ],
+    "risk_indicators": [
+        {{"indicator": "Risk type", "severity": "high|medium|low", "explanation": "Why this is a risk"}}
+    ]
+}}
+
+Be thorough and accurate. Extract all relevant information."""
+
+    try:
+        ai_service = AIService()
+        response = await ai_service.analyze_with_claude(prompt)
+
+        # Parse JSON response
+        json_start = response.find('{')
+        json_end = response.rfind('}') + 1
+        if json_start >= 0 and json_end > json_start:
+            analysis_data = json.loads(response[json_start:json_end])
+        else:
+            analysis_data = {
+                "classification": {"primary_type": "unknown", "confidence": 0.5, "secondary_types": []},
+                "summary": "Unable to parse analysis",
+                "key_points": [],
+                "entities": [],
+                "dates": [],
+                "amounts": [],
+                "parties_mentioned": [],
+                "legal_citations": [],
+                "risk_indicators": []
+            }
+
+        # Add analysis metadata
+        analysis_data['id'] = str(uuid.uuid4())
+        analysis_data['document_id'] = document_id
+        analysis_data['document_type'] = document.document_type
+        analysis_data['analyzed_at'] = str(datetime.utcnow().isoformat())
+
+        # Store analysis in document metadata
+        if not document.metadata:
+            document.metadata = {}
+        document.metadata['analysis'] = analysis_data
+
+        # Mark document as analyzed
+        document.metadata['analyzed'] = True
+        document.metadata['analyzed_at'] = analysis_data['analyzed_at']
+
+        # Use flag_modified to tell SQLAlchemy the JSONB column changed
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(document, 'metadata')
+
+        db.commit()
+
+        return analysis_data
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI analysis response: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse analysis")
+    except Exception as e:
+        logger.error(f"Document analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{document_id}/summary")
+async def get_document_summary(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a quick AI summary of a document.
+    """
+    from app.services.ai_service import AIService
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    content = document.extracted_text or ""
+    if not content:
+        raise HTTPException(status_code=400, detail="Document has no extracted text")
+
+    # Check if we have a cached summary
+    if document.metadata and 'summary' in document.metadata:
+        return {"summary": document.metadata['summary'], "cached": True}
+
+    prompt = f"""Summarize this legal document in 2-3 concise sentences. Focus on the key purpose, parties involved, and main claims or requests.
+
+Document: {document.file_name}
+Type: {document.document_type or 'Unknown'}
+
+Content:
+{content[:6000]}
+
+Respond with only the summary, no additional formatting."""
+
+    try:
+        ai_service = AIService()
+        summary = await ai_service.analyze_with_claude(prompt)
+
+        # Cache the summary
+        if not document.metadata:
+            document.metadata = {}
+        document.metadata['summary'] = summary.strip()
+
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(document, 'metadata')
+        db.commit()
+
+        return {"summary": summary.strip(), "cached": False}
+
+    except Exception as e:
+        logger.error(f"Document summarization failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Add datetime import at top if not present
+from datetime import datetime

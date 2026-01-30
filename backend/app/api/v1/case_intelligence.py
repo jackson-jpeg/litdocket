@@ -25,8 +25,18 @@ from app.models.case_intelligence import (
     BriefDraft,
 )
 from app.services.case_intelligence_service import CaseIntelligenceService
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+class SettlementRequest(BaseModel):
+    claimed_damages: Optional[float] = None
+    liability_strength: int = 50
+    documentation_quality: int = 50
+    opposing_resources: int = 50
+    case_type: Optional[str] = None
+    jurisdiction: Optional[str] = None
 
 router = APIRouter(prefix="/case-intelligence", tags=["Case Intelligence"])
 
@@ -828,4 +838,146 @@ Format your response as JSON:
 
     except Exception as e:
         logger.error(f"Brief generation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Settlement Calculator Endpoints
+# ============================================================
+
+@router.post("/cases/{case_id}/settlement/calculate")
+async def calculate_settlement(
+    case_id: str,
+    request: SettlementRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calculate AI-powered settlement recommendation based on case factors.
+    """
+    from app.services.ai_service import AIService
+    import json
+
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Get case facts and health score for context
+    facts = db.query(CaseFact).filter(CaseFact.case_id == case_id).limit(20).all()
+    health_score = db.query(CaseHealthScore).filter(
+        CaseHealthScore.case_id == case_id
+    ).order_by(CaseHealthScore.calculated_at.desc()).first()
+
+    # Build context
+    context = {
+        "case_type": request.case_type or case.case_type,
+        "jurisdiction": request.jurisdiction or case.jurisdiction,
+        "claimed_damages": request.claimed_damages,
+        "liability_strength": request.liability_strength,
+        "documentation_quality": request.documentation_quality,
+        "opposing_resources": request.opposing_resources,
+        "facts": [{"type": f.fact_type, "text": f.fact_text} for f in facts[:15]],
+        "health_score": health_score.overall_score if health_score else None
+    }
+
+    prompt = f"""Analyze this litigation case and provide settlement recommendations.
+
+Case Details:
+- Type: {context['case_type'] or 'Unknown'}
+- Jurisdiction: {context['jurisdiction'] or 'Unknown'}
+- Claimed Damages: ${context['claimed_damages'] or 'Not specified'}
+- Liability Strength: {context['liability_strength']}%
+- Documentation Quality: {context['documentation_quality']}%
+- Opposing Party Resources: {context['opposing_resources']}%
+- Case Health Score: {context['health_score'] or 'Not calculated'}
+
+Key Facts:
+{json.dumps([f['text'] for f in context['facts'][:10]], indent=2)}
+
+Provide a comprehensive settlement analysis in JSON format:
+{{
+    "recommended_range": {{
+        "low": 75000,
+        "mid": 125000,
+        "high": 200000
+    }},
+    "confidence": 0.75,
+    "factors": [
+        {{
+            "name": "Strong Documentation",
+            "impact": "positive|negative|neutral",
+            "weight": 0.25,
+            "description": "Well-documented case with clear evidence"
+        }}
+    ],
+    "comparable_settlements": [
+        {{
+            "amount": 150000,
+            "case_type": "Similar case type",
+            "jurisdiction": "Same jurisdiction",
+            "outcome": "Settled before trial"
+        }}
+    ],
+    "negotiation_strategy": {{
+        "initial_demand": 250000,
+        "walkaway_point": 50000,
+        "key_leverage_points": ["Strong evidence", "Clear liability"],
+        "potential_concessions": ["Payment timeline", "Non-monetary terms"]
+    }},
+    "risk_assessment": {{
+        "trial_win_probability": 0.65,
+        "expected_trial_verdict": 175000,
+        "litigation_costs_estimate": 50000,
+        "time_to_trial_months": 18
+    }},
+    "recommendation": "Based on the case strength and comparable settlements, recommend pursuing settlement in the $100,000-$150,000 range."
+}}"""
+
+    try:
+        ai_service = AIService()
+        response = await ai_service.analyze_with_claude(prompt)
+
+        # Parse response
+        json_start = response.find('{')
+        json_end = response.rfind('}') + 1
+        if json_start >= 0 and json_end > json_start:
+            settlement_data = json.loads(response[json_start:json_end])
+        else:
+            # Provide default structure if parsing fails
+            base_amount = request.claimed_damages or 100000
+            settlement_data = {
+                "recommended_range": {
+                    "low": int(base_amount * 0.3),
+                    "mid": int(base_amount * 0.5),
+                    "high": int(base_amount * 0.75)
+                },
+                "confidence": 0.5,
+                "factors": [],
+                "comparable_settlements": [],
+                "negotiation_strategy": {
+                    "initial_demand": int(base_amount * 0.8),
+                    "walkaway_point": int(base_amount * 0.25),
+                    "key_leverage_points": [],
+                    "potential_concessions": []
+                },
+                "risk_assessment": {
+                    "trial_win_probability": 0.5,
+                    "expected_trial_verdict": int(base_amount * 0.6),
+                    "litigation_costs_estimate": 25000,
+                    "time_to_trial_months": 12
+                },
+                "recommendation": "Insufficient data for detailed analysis. Consider gathering more case information."
+            }
+
+        return settlement_data
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse settlement analysis: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse settlement analysis")
+    except Exception as e:
+        logger.error(f"Settlement calculation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
