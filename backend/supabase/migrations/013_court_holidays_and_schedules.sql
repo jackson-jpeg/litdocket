@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS court_holidays (
     actual_date DATE,
     holiday_type VARCHAR(50) DEFAULT 'federal',
     court_closed BOOLEAN DEFAULT TRUE,
-    metadata JSONB DEFAULT '{}',
+    extra_data JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

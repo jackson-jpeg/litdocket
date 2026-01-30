@@ -50,8 +50,8 @@ class CourtHoliday(Base):
     # Is court closed on this day?
     court_closed = Column(Boolean, default=True)
 
-    # Additional metadata
-    metadata = Column(JSONB, default={})
+    # Additional data
+    extra_data = Column(JSONB, default={})
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
