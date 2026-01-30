@@ -8,6 +8,8 @@
  * - Filter by status (pending, approved, rejected)
  * - Full proposal review with source comparison
  * - Approve/reject with modifications
+ * - Batch approve/reject operations
+ * - Edit proposals before approval
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -26,9 +28,38 @@ import {
   ExternalLink,
   BookOpen,
   Filter,
+  CheckSquare,
+  Square,
+  Layers,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import { RuleProposal, DeadlineSpec } from '@/types';
+import { RuleProposal, DeadlineSpec, ServiceExtensions, RuleConditions } from '@/types';
+import ProposalEditModal from '@/components/authority-core/ProposalEditModal';
+
+interface ProposedRuleData {
+  rule_code: string;
+  rule_name: string;
+  trigger_type: string;
+  authority_tier: string;
+  citation?: string;
+  deadlines: DeadlineSpec[];
+  conditions?: RuleConditions;
+  service_extensions?: ServiceExtensions;
+}
+
+interface BatchOperationResult {
+  proposal_id: string;
+  success: boolean;
+  message?: string;
+  rule_id?: string;
+}
+
+interface BatchOperationResponse {
+  total_requested: number;
+  successful: number;
+  failed: number;
+  results: BatchOperationResult[];
+}
 
 type FilterStatus = 'all' | 'pending' | 'approved' | 'rejected' | 'needs_revision';
 
@@ -37,9 +68,10 @@ interface ProposalDetailModalProps {
   onClose: () => void;
   onApprove: (id: string, notes?: string) => void;
   onReject: (id: string, reason: string) => void;
+  onEdit: () => void;
 }
 
-function ProposalDetailModal({ proposal, onClose, onApprove, onReject }: ProposalDetailModalProps) {
+function ProposalDetailModal({ proposal, onClose, onApprove, onReject, onEdit }: ProposalDetailModalProps) {
   const [notes, setNotes] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -242,31 +274,40 @@ function ProposalDetailModal({ proposal, onClose, onApprove, onReject }: Proposa
 
         {/* Footer Actions */}
         {!showRejectForm && proposal.status === 'pending' && (
-          <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
+          <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
             <button
-              onClick={() => setShowRejectForm(true)}
-              className="px-4 py-2.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              onClick={onEdit}
+              className="px-4 py-2.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
             >
-              <XCircle className="w-4 h-4 inline mr-1.5" />
-              Reject
+              <Edit className="w-4 h-4 inline mr-1.5" />
+              Edit Before Approving
             </button>
-            <button
-              onClick={handleApprove}
-              disabled={isSubmitting}
-              className="px-6 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="w-4 h-4 inline mr-1.5 animate-spin" />
-                  Approving...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4 inline mr-1.5" />
-                  Approve Rule
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowRejectForm(true)}
+                className="px-4 py-2.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <XCircle className="w-4 h-4 inline mr-1.5" />
+                Reject
+              </button>
+              <button
+                onClick={handleApprove}
+                disabled={isSubmitting}
+                className="px-6 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 inline mr-1.5 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 inline mr-1.5" />
+                    Approve Rule
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -274,9 +315,12 @@ function ProposalDetailModal({ proposal, onClose, onApprove, onReject }: Proposa
   );
 }
 
-function ProposalCard({ proposal, onSelect }: {
+function ProposalCard({ proposal, onSelect, isSelected, onToggleSelect, showCheckbox }: {
   proposal: RuleProposal;
   onSelect: () => void;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  showCheckbox: boolean;
 }) {
   const statusStyles: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
     pending: { bg: 'bg-amber-100', text: 'text-amber-700', icon: <Clock className="w-4 h-4" /> },
@@ -297,12 +341,31 @@ function ProposalCard({ proposal, onSelect }: {
   return (
     <div
       onClick={onSelect}
-      className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
+      className={`bg-white rounded-lg border p-4 hover:shadow-md transition-all cursor-pointer ${
+        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200 hover:border-blue-300'
+      }`}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-slate-900 truncate">{ruleData.rule_name}</p>
-          <p className="text-sm text-blue-600 truncate">{ruleData.citation || ruleData.rule_code}</p>
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {showCheckbox && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect();
+              }}
+              className="shrink-0 mt-0.5"
+            >
+              {isSelected ? (
+                <CheckSquare className="w-5 h-5 text-blue-600" />
+              ) : (
+                <Square className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+              )}
+            </button>
+          )}
+          <div className="min-w-0">
+            <p className="font-medium text-slate-900 truncate">{ruleData.rule_name}</p>
+            <p className="text-sm text-blue-600 truncate">{ruleData.citation || ruleData.rule_code}</p>
+          </div>
         </div>
         <span className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${style.bg} ${style.text}`}>
           {style.icon}
@@ -340,6 +403,11 @@ export default function ProposalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('pending');
   const [selectedProposal, setSelectedProposal] = useState<RuleProposal | null>(null);
+  const [editingProposal, setEditingProposal] = useState<RuleProposal | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [batchRejectReason, setBatchRejectReason] = useState('');
+  const [showBatchRejectModal, setShowBatchRejectModal] = useState(false);
 
   const fetchProposals = useCallback(async () => {
     setIsLoading(true);
@@ -381,6 +449,88 @@ export default function ProposalsPage() {
       console.error('Failed to reject proposal:', err);
     }
   };
+
+  const handleEditSave = async (proposalId: string, modifications: ProposedRuleData) => {
+    try {
+      await apiClient.post(`/authority-core/proposals/${proposalId}/approve`, {
+        modifications,
+        notes: 'Approved with modifications',
+      });
+      setEditingProposal(null);
+      setSelectedProposal(null);
+      fetchProposals();
+    } catch (err) {
+      console.error('Failed to save modifications:', err);
+      throw err;
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const pendingIds = proposals.filter((p) => p.status === 'pending').map((p) => p.id);
+    setSelectedIds(new Set(pendingIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBatchProcessing(true);
+    try {
+      const response = await apiClient.post<BatchOperationResponse>('/authority-core/proposals/batch-approve', {
+        proposal_ids: Array.from(selectedIds),
+        notes: 'Batch approved',
+      });
+      const { successful, failed } = response.data;
+      clearSelection();
+      fetchProposals();
+      if (failed > 0) {
+        console.warn(`Batch approve: ${successful} succeeded, ${failed} failed`);
+      }
+    } catch (err) {
+      console.error('Failed to batch approve:', err);
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedIds.size === 0 || batchRejectReason.length < 10) return;
+    setIsBatchProcessing(true);
+    try {
+      const response = await apiClient.post<BatchOperationResponse>('/authority-core/proposals/batch-reject', {
+        proposal_ids: Array.from(selectedIds),
+        reason: batchRejectReason,
+      });
+      const { successful, failed } = response.data;
+      clearSelection();
+      setShowBatchRejectModal(false);
+      setBatchRejectReason('');
+      fetchProposals();
+      if (failed > 0) {
+        console.warn(`Batch reject: ${successful} succeeded, ${failed} failed`);
+      }
+    } catch (err) {
+      console.error('Failed to batch reject:', err);
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const pendingProposals = proposals.filter((p) => p.status === 'pending');
 
   const filterOptions: { value: FilterStatus; label: string }[] = [
     { value: 'pending', label: 'Pending' },
@@ -434,14 +584,75 @@ export default function ProposalsPage() {
               ))}
             </div>
           </div>
-          <button
-            onClick={fetchProposals}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchProposals}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
         </div>
+
+        {/* Batch Operations Bar */}
+        {filterStatus === 'pending' && pendingProposals.length > 0 && (
+          <div className="mt-4 flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={selectedIds.size === pendingProposals.length ? clearSelection : selectAll}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                {selectedIds.size === pendingProposals.length ? (
+                  <>
+                    <CheckSquare className="w-4 h-4" />
+                    Deselect All
+                  </>
+                ) : (
+                  <>
+                    <Square className="w-4 h-4" />
+                    Select All ({pendingProposals.length})
+                  </>
+                )}
+              </button>
+              {selectedIds.size > 0 && (
+                <span className="text-sm text-slate-500">
+                  {selectedIds.size} selected
+                </span>
+              )}
+            </div>
+
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowBatchRejectModal(true)}
+                  disabled={isBatchProcessing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Reject Selected
+                </button>
+                <button
+                  onClick={handleBatchApprove}
+                  disabled={isBatchProcessing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {isBatchProcessing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Approve Selected
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -476,6 +687,9 @@ export default function ProposalsPage() {
                 key={proposal.id}
                 proposal={proposal}
                 onSelect={() => setSelectedProposal(proposal)}
+                isSelected={selectedIds.has(proposal.id)}
+                onToggleSelect={() => toggleSelect(proposal.id)}
+                showCheckbox={filterStatus === 'pending' && proposal.status === 'pending'}
               />
             ))}
           </div>
@@ -483,13 +697,67 @@ export default function ProposalsPage() {
       </div>
 
       {/* Detail Modal */}
-      {selectedProposal && (
+      {selectedProposal && !editingProposal && (
         <ProposalDetailModal
           proposal={selectedProposal}
           onClose={() => setSelectedProposal(null)}
           onApprove={handleApprove}
           onReject={handleReject}
+          onEdit={() => {
+            setEditingProposal(selectedProposal);
+          }}
         />
+      )}
+
+      {/* Edit Modal */}
+      {editingProposal && (
+        <ProposalEditModal
+          proposal={editingProposal}
+          onClose={() => setEditingProposal(null)}
+          onSave={handleEditSave}
+        />
+      )}
+
+      {/* Batch Reject Modal */}
+      {showBatchRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">
+              Reject {selectedIds.size} Proposal{selectedIds.size > 1 ? 's' : ''}
+            </h2>
+            <p className="text-sm text-slate-600 mb-4">
+              All selected proposals will be rejected with the same reason.
+            </p>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Rejection Reason (minimum 10 characters)
+            </label>
+            <textarea
+              value={batchRejectReason}
+              onChange={(e) => setBatchRejectReason(e.target.value)}
+              placeholder="Explain why these proposals should be rejected..."
+              className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+              rows={3}
+            />
+            <div className="flex items-center justify-end gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setShowBatchRejectModal(false);
+                  setBatchRejectReason('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBatchReject}
+                disabled={batchRejectReason.length < 10 || isBatchProcessing}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBatchProcessing ? 'Processing...' : 'Reject All'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

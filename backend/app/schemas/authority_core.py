@@ -54,6 +54,20 @@ class ConflictResolutionEnum(str, Enum):
 # DEADLINE SPEC SCHEMAS
 # =============================================================
 
+class DeadlineServiceExtensions(BaseModel):
+    """
+    Per-deadline service extension overrides.
+
+    When specified, these override the rule-level service_extensions for this
+    specific deadline. Useful for deadlines that have different service rules
+    than the default (e.g., statutory deadlines that don't allow extensions).
+    """
+    mail: Optional[int] = Field(None, description="Additional days for mail service (None = use rule default)")
+    electronic: Optional[int] = Field(None, description="Additional days for electronic service (None = use rule default)")
+    personal: Optional[int] = Field(None, description="Additional days for personal service (None = use rule default)")
+    no_extensions: bool = Field(False, description="If true, no service extensions apply to this deadline")
+
+
 class DeadlineSpec(BaseModel):
     """Specification for a single deadline within a rule"""
     title: str = Field(..., description="Deadline title")
@@ -75,6 +89,10 @@ class DeadlineSpec(BaseModel):
         description="Additional conditions for this specific deadline"
     )
     description: Optional[str] = Field(None, description="Additional description")
+    service_extensions: Optional[DeadlineServiceExtensions] = Field(
+        None,
+        description="Per-deadline service extension overrides. If None, uses rule-level defaults."
+    )
 
     class Config:
         json_schema_extra = {
@@ -84,7 +102,8 @@ class DeadlineSpec(BaseModel):
                 "calculation_method": "calendar_days",
                 "priority": "important",
                 "party_responsible": "opposing",
-                "conditions": {"motion_type": "dispositive"}
+                "conditions": {"motion_type": "dispositive"},
+                "service_extensions": {"no_extensions": False, "mail": 5}
             }
         }
 
@@ -313,6 +332,153 @@ class ProposalRejectionRequest(BaseModel):
 class ProposalRevisionRequest(BaseModel):
     """Request to mark proposal as needing revision"""
     notes: str = Field(..., min_length=10, description="What needs to be revised")
+
+
+# =============================================================
+# BATCH OPERATION SCHEMAS
+# =============================================================
+
+class BatchApproveRequest(BaseModel):
+    """Request to batch approve multiple proposals"""
+    proposal_ids: List[str] = Field(..., min_length=1, description="List of proposal IDs to approve")
+    notes: Optional[str] = Field(None, description="Optional notes for all approvals")
+
+
+class BatchRejectRequest(BaseModel):
+    """Request to batch reject multiple proposals"""
+    proposal_ids: List[str] = Field(..., min_length=1, description="List of proposal IDs to reject")
+    reason: str = Field(..., min_length=10, description="Reason for rejection")
+
+
+class BatchOperationResult(BaseModel):
+    """Result of a single operation in a batch"""
+    proposal_id: str
+    success: bool
+    message: Optional[str] = None
+    rule_id: Optional[str] = None  # For approvals, the created rule ID
+
+
+class BatchOperationResponse(BaseModel):
+    """Response for batch operations"""
+    total_requested: int
+    successful: int
+    failed: int
+    results: List[BatchOperationResult]
+
+
+# =============================================================
+# ANALYTICS SCHEMAS
+# =============================================================
+
+class RuleUsageStats(BaseModel):
+    """Usage statistics for a single rule"""
+    rule_id: str
+    rule_name: str
+    rule_code: str
+    jurisdiction_name: Optional[str] = None
+    usage_count: int
+    deadlines_generated: int
+
+
+class JurisdictionStats(BaseModel):
+    """Statistics for a jurisdiction"""
+    jurisdiction_id: str
+    jurisdiction_name: str
+    rule_count: int
+    verified_count: int
+    pending_proposals: int
+
+
+class TierStats(BaseModel):
+    """Statistics for an authority tier"""
+    tier: str
+    rule_count: int
+    usage_count: int
+
+
+class ProposalStats(BaseModel):
+    """Proposal approval/rejection statistics"""
+    total_proposals: int
+    pending: int
+    approved: int
+    rejected: int
+    needs_revision: int
+    approval_rate: float  # Percentage
+
+
+class ConflictStats(BaseModel):
+    """Conflict resolution statistics"""
+    total_conflicts: int
+    pending: int
+    auto_resolved: int
+    manually_resolved: int
+    ignored: int
+
+
+class AnalyticsResponse(BaseModel):
+    """Complete analytics response"""
+    most_used_rules: List[RuleUsageStats]
+    rules_by_jurisdiction: List[JurisdictionStats]
+    rules_by_tier: List[TierStats]
+    proposal_stats: ProposalStats
+    conflict_stats: ConflictStats
+    total_rules: int
+    total_verified_rules: int
+
+
+# =============================================================
+# IMPORT/EXPORT SCHEMAS
+# =============================================================
+
+class RuleExportData(BaseModel):
+    """Data format for exporting a rule"""
+    rule_code: str
+    rule_name: str
+    trigger_type: str
+    authority_tier: str
+    citation: Optional[str] = None
+    source_url: Optional[str] = None
+    source_text: Optional[str] = None
+    deadlines: List[Dict[str, Any]]
+    conditions: Optional[Dict[str, Any]] = None
+    service_extensions: Optional[Dict[str, int]] = None
+    effective_date: Optional[str] = None
+
+
+class RulesExportResponse(BaseModel):
+    """Response for rules export"""
+    export_version: str = "1.0"
+    exported_at: datetime
+    jurisdiction_id: Optional[str] = None
+    jurisdiction_name: Optional[str] = None
+    rule_count: int
+    rules: List[RuleExportData]
+
+
+class RulesImportRequest(BaseModel):
+    """Request to import rules"""
+    jurisdiction_id: str = Field(..., description="Target jurisdiction for imported rules")
+    rules: List[RuleExportData] = Field(..., min_length=1, description="Rules to import")
+    create_as_proposals: bool = Field(True, description="If true, create as proposals for review. If false, create as verified rules.")
+    skip_duplicates: bool = Field(True, description="Skip rules with matching rule_code")
+
+
+class ImportResult(BaseModel):
+    """Result of importing a single rule"""
+    rule_code: str
+    success: bool
+    message: str
+    proposal_id: Optional[str] = None
+    rule_id: Optional[str] = None
+
+
+class RulesImportResponse(BaseModel):
+    """Response for rules import"""
+    total_requested: int
+    imported: int
+    skipped: int
+    failed: int
+    results: List[ImportResult]
 
 
 # =============================================================

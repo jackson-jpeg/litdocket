@@ -24,8 +24,10 @@ from app.models.authority_core import (
     AuthorityRule,
     ScrapeJob,
     RuleProposal,
-    RuleConflict
+    RuleConflict,
+    AuthorityRuleUsage
 )
+from sqlalchemy import func as sql_func, Integer
 from app.models.enums import (
     ProposalStatus,
     ScrapeStatus,
@@ -76,6 +78,24 @@ from app.schemas.authority_core import (
     DiscoveredUrl,
     BatchHarvestRequest,
     BatchHarvestResponse,
+    # Batch operations schemas
+    BatchApproveRequest,
+    BatchRejectRequest,
+    BatchOperationResult,
+    BatchOperationResponse,
+    # Analytics schemas
+    AnalyticsResponse,
+    RuleUsageStats,
+    JurisdictionStats,
+    TierStats,
+    ProposalStats,
+    ConflictStats,
+    # Import/Export schemas
+    RulesExportResponse,
+    RuleExportData,
+    RulesImportRequest,
+    RulesImportResponse,
+    ImportResult,
 )
 from app.services.authority_core_service import AuthorityCoreService
 from app.services.rule_extraction_service import (
@@ -101,7 +121,7 @@ def get_authority_service(db: Session = Depends(get_db)) -> AuthorityCoreService
     return AuthorityCoreService(db)
 
 
-def rule_to_response(rule: AuthorityRule, jurisdiction: Optional[Jurisdiction] = None) -> dict:
+def rule_to_response(rule: AuthorityRule, jurisdiction: Optional[Jurisdiction] = None, usage_count: int = 0) -> dict:
     """Convert AuthorityRule model to response dict"""
     return {
         "id": rule.id,
@@ -127,7 +147,7 @@ def rule_to_response(rule: AuthorityRule, jurisdiction: Optional[Jurisdiction] =
         "superseded_date": rule.superseded_date,
         "created_at": rule.created_at,
         "updated_at": rule.updated_at,
-        "usage_count": 0  # TODO: Calculate from usage table
+        "usage_count": usage_count
     }
 
 
@@ -463,6 +483,147 @@ async def request_revision(
 
 
 # ============================================================
+# Batch Operations
+# ============================================================
+
+@router.post("/proposals/batch-approve")
+async def batch_approve_proposals(
+    request: BatchApproveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Batch approve multiple proposals.
+
+    Approves each proposal in the list and creates AuthorityRules.
+    Returns detailed results for each proposal.
+    """
+    results = []
+    successful = 0
+    failed = 0
+
+    for proposal_id in request.proposal_ids:
+        try:
+            # Verify ownership
+            proposal = service.get_proposal(proposal_id, str(current_user.id))
+            if not proposal:
+                results.append(BatchOperationResult(
+                    proposal_id=proposal_id,
+                    success=False,
+                    message="Proposal not found or access denied"
+                ))
+                failed += 1
+                continue
+
+            # Approve the proposal
+            rule = await service.approve_proposal(
+                proposal_id=proposal_id,
+                user_id=str(current_user.id),
+                notes=request.notes
+            )
+
+            results.append(BatchOperationResult(
+                proposal_id=proposal_id,
+                success=True,
+                message="Approved successfully",
+                rule_id=rule.id
+            ))
+            successful += 1
+
+        except ValueError as e:
+            results.append(BatchOperationResult(
+                proposal_id=proposal_id,
+                success=False,
+                message=str(e)
+            ))
+            failed += 1
+        except Exception as e:
+            logger.error(f"Error approving proposal {proposal_id}: {e}")
+            results.append(BatchOperationResult(
+                proposal_id=proposal_id,
+                success=False,
+                message="Internal error during approval"
+            ))
+            failed += 1
+
+    return BatchOperationResponse(
+        total_requested=len(request.proposal_ids),
+        successful=successful,
+        failed=failed,
+        results=results
+    )
+
+
+@router.post("/proposals/batch-reject")
+async def batch_reject_proposals(
+    request: BatchRejectRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Batch reject multiple proposals.
+
+    Rejects each proposal in the list with the provided reason.
+    Returns detailed results for each proposal.
+    """
+    results = []
+    successful = 0
+    failed = 0
+
+    for proposal_id in request.proposal_ids:
+        try:
+            # Verify ownership
+            proposal = service.get_proposal(proposal_id, str(current_user.id))
+            if not proposal:
+                results.append(BatchOperationResult(
+                    proposal_id=proposal_id,
+                    success=False,
+                    message="Proposal not found or access denied"
+                ))
+                failed += 1
+                continue
+
+            # Reject the proposal
+            await service.reject_proposal(
+                proposal_id=proposal_id,
+                user_id=str(current_user.id),
+                reason=request.reason
+            )
+
+            results.append(BatchOperationResult(
+                proposal_id=proposal_id,
+                success=True,
+                message="Rejected successfully"
+            ))
+            successful += 1
+
+        except ValueError as e:
+            results.append(BatchOperationResult(
+                proposal_id=proposal_id,
+                success=False,
+                message=str(e)
+            ))
+            failed += 1
+        except Exception as e:
+            logger.error(f"Error rejecting proposal {proposal_id}: {e}")
+            results.append(BatchOperationResult(
+                proposal_id=proposal_id,
+                success=False,
+                message="Internal error during rejection"
+            ))
+            failed += 1
+
+    return BatchOperationResponse(
+        total_requested=len(request.proposal_ids),
+        successful=successful,
+        failed=failed,
+        results=results
+    )
+
+
+# ============================================================
 # Rules Database Endpoints
 # ============================================================
 
@@ -550,7 +711,12 @@ async def get_rule(
             Jurisdiction.id == rule.jurisdiction_id
         ).first()
 
-    return rule_to_response(rule, jurisdiction)
+    # Calculate usage count from AuthorityRuleUsage table
+    usage_count = db.query(sql_func.count(AuthorityRuleUsage.id)).filter(
+        AuthorityRuleUsage.rule_id == rule_id
+    ).scalar() or 0
+
+    return rule_to_response(rule, jurisdiction, usage_count)
 
 
 @router.patch("/rules/{rule_id}", response_model=AuthorityRuleResponse)
@@ -1387,3 +1553,584 @@ async def get_harvest_status(
         "started_at": job.started_at,
         "completed_at": job.completed_at
     }
+
+
+# ============================================================
+# Analytics Endpoints
+# ============================================================
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+async def get_analytics(
+    jurisdiction_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive analytics for Authority Core.
+
+    Returns:
+    - Most used rules (top 10)
+    - Rules by jurisdiction
+    - Rules by authority tier
+    - Proposal approval/rejection stats
+    - Conflict resolution stats
+    """
+    # Get most used rules
+    most_used_query = db.query(
+        AuthorityRuleUsage.rule_id,
+        sql_func.count(AuthorityRuleUsage.id).label('usage_count'),
+        sql_func.sum(AuthorityRuleUsage.deadlines_generated).label('deadlines_generated')
+    ).group_by(AuthorityRuleUsage.rule_id).order_by(
+        sql_func.count(AuthorityRuleUsage.id).desc()
+    ).limit(10).all()
+
+    most_used_rules = []
+    for rule_id, usage_count, deadlines_gen in most_used_query:
+        rule = db.query(AuthorityRule).filter(AuthorityRule.id == rule_id).first()
+        if rule:
+            jurisdiction = db.query(Jurisdiction).filter(
+                Jurisdiction.id == rule.jurisdiction_id
+            ).first() if rule.jurisdiction_id else None
+
+            most_used_rules.append(RuleUsageStats(
+                rule_id=rule.id,
+                rule_name=rule.rule_name,
+                rule_code=rule.rule_code,
+                jurisdiction_name=jurisdiction.name if jurisdiction else None,
+                usage_count=usage_count or 0,
+                deadlines_generated=deadlines_gen or 0
+            ))
+
+    # Get rules by jurisdiction
+    jurisdiction_query = db.query(
+        Jurisdiction.id,
+        Jurisdiction.name,
+        sql_func.count(AuthorityRule.id).label('rule_count'),
+        sql_func.sum(
+            sql_func.cast(AuthorityRule.is_verified, Integer)
+        ).label('verified_count')
+    ).outerjoin(
+        AuthorityRule, AuthorityRule.jurisdiction_id == Jurisdiction.id
+    ).filter(
+        AuthorityRule.is_active == True
+    ).group_by(
+        Jurisdiction.id, Jurisdiction.name
+    ).all()
+
+    rules_by_jurisdiction = []
+    for jur_id, jur_name, rule_count, verified_count in jurisdiction_query:
+        # Count pending proposals for this jurisdiction
+        pending_count = db.query(sql_func.count(RuleProposal.id)).filter(
+            RuleProposal.jurisdiction_id == jur_id,
+            RuleProposal.status == ProposalStatus.PENDING
+        ).scalar() or 0
+
+        rules_by_jurisdiction.append(JurisdictionStats(
+            jurisdiction_id=jur_id,
+            jurisdiction_name=jur_name,
+            rule_count=rule_count or 0,
+            verified_count=verified_count or 0,
+            pending_proposals=pending_count
+        ))
+
+    # Get rules by tier
+    from app.models.enums import AuthorityTier
+    tier_stats = []
+    for tier in AuthorityTier:
+        rule_count = db.query(sql_func.count(AuthorityRule.id)).filter(
+            AuthorityRule.authority_tier == tier,
+            AuthorityRule.is_active == True
+        ).scalar() or 0
+
+        usage_count = db.query(sql_func.count(AuthorityRuleUsage.id)).join(
+            AuthorityRule, AuthorityRule.id == AuthorityRuleUsage.rule_id
+        ).filter(
+            AuthorityRule.authority_tier == tier
+        ).scalar() or 0
+
+        tier_stats.append(TierStats(
+            tier=tier.value,
+            rule_count=rule_count,
+            usage_count=usage_count
+        ))
+
+    # Get proposal stats
+    total_proposals = db.query(sql_func.count(RuleProposal.id)).scalar() or 0
+    pending_proposals = db.query(sql_func.count(RuleProposal.id)).filter(
+        RuleProposal.status == ProposalStatus.PENDING
+    ).scalar() or 0
+    approved_proposals = db.query(sql_func.count(RuleProposal.id)).filter(
+        RuleProposal.status == ProposalStatus.APPROVED
+    ).scalar() or 0
+    rejected_proposals = db.query(sql_func.count(RuleProposal.id)).filter(
+        RuleProposal.status == ProposalStatus.REJECTED
+    ).scalar() or 0
+    needs_revision_proposals = db.query(sql_func.count(RuleProposal.id)).filter(
+        RuleProposal.status == ProposalStatus.NEEDS_REVISION
+    ).scalar() or 0
+
+    reviewed_count = approved_proposals + rejected_proposals
+    approval_rate = (approved_proposals / reviewed_count * 100) if reviewed_count > 0 else 0.0
+
+    proposal_stats = ProposalStats(
+        total_proposals=total_proposals,
+        pending=pending_proposals,
+        approved=approved_proposals,
+        rejected=rejected_proposals,
+        needs_revision=needs_revision_proposals,
+        approval_rate=round(approval_rate, 2)
+    )
+
+    # Get conflict stats
+    total_conflicts = db.query(sql_func.count(RuleConflict.id)).scalar() or 0
+    pending_conflicts = db.query(sql_func.count(RuleConflict.id)).filter(
+        RuleConflict.resolution == ConflictResolution.PENDING
+    ).scalar() or 0
+    auto_resolved = db.query(sql_func.count(RuleConflict.id)).filter(
+        RuleConflict.resolution == ConflictResolution.USE_HIGHER_TIER
+    ).scalar() or 0
+    manually_resolved = db.query(sql_func.count(RuleConflict.id)).filter(
+        RuleConflict.resolution.in_([
+            ConflictResolution.USE_RULE_A,
+            ConflictResolution.USE_RULE_B,
+            ConflictResolution.MANUAL
+        ])
+    ).scalar() or 0
+    ignored_conflicts = db.query(sql_func.count(RuleConflict.id)).filter(
+        RuleConflict.resolution == ConflictResolution.IGNORED
+    ).scalar() or 0
+
+    conflict_stats = ConflictStats(
+        total_conflicts=total_conflicts,
+        pending=pending_conflicts,
+        auto_resolved=auto_resolved,
+        manually_resolved=manually_resolved,
+        ignored=ignored_conflicts
+    )
+
+    # Total rule counts
+    total_rules = db.query(sql_func.count(AuthorityRule.id)).filter(
+        AuthorityRule.is_active == True
+    ).scalar() or 0
+    total_verified = db.query(sql_func.count(AuthorityRule.id)).filter(
+        AuthorityRule.is_active == True,
+        AuthorityRule.is_verified == True
+    ).scalar() or 0
+
+    return AnalyticsResponse(
+        most_used_rules=most_used_rules,
+        rules_by_jurisdiction=rules_by_jurisdiction,
+        rules_by_tier=tier_stats,
+        proposal_stats=proposal_stats,
+        conflict_stats=conflict_stats,
+        total_rules=total_rules,
+        total_verified_rules=total_verified
+    )
+
+
+# ============================================================
+# Import/Export Endpoints
+# ============================================================
+
+@router.get("/rules/export", response_model=RulesExportResponse)
+async def export_rules(
+    jurisdiction_id: Optional[str] = None,
+    trigger_type: Optional[str] = None,
+    format: str = Query("json", description="Export format (only json supported)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Export rules to JSON format.
+
+    Optionally filter by jurisdiction or trigger type.
+    """
+    if format != "json":
+        raise HTTPException(status_code=400, detail="Only JSON format is supported")
+
+    query = db.query(AuthorityRule).filter(
+        AuthorityRule.is_active == True,
+        AuthorityRule.is_verified == True
+    )
+
+    if jurisdiction_id:
+        query = query.filter(AuthorityRule.jurisdiction_id == jurisdiction_id)
+    if trigger_type:
+        query = query.filter(AuthorityRule.trigger_type == trigger_type)
+
+    rules = query.all()
+
+    jurisdiction_name = None
+    if jurisdiction_id:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == jurisdiction_id
+        ).first()
+        jurisdiction_name = jurisdiction.name if jurisdiction else None
+
+    export_rules = []
+    for rule in rules:
+        export_rules.append(RuleExportData(
+            rule_code=rule.rule_code,
+            rule_name=rule.rule_name,
+            trigger_type=rule.trigger_type,
+            authority_tier=rule.authority_tier.value if rule.authority_tier else "state",
+            citation=rule.citation,
+            source_url=rule.source_url,
+            source_text=rule.source_text,
+            deadlines=rule.deadlines or [],
+            conditions=rule.conditions,
+            service_extensions=rule.service_extensions,
+            effective_date=rule.effective_date.isoformat() if rule.effective_date else None
+        ))
+
+    return RulesExportResponse(
+        export_version="1.0",
+        exported_at=datetime.utcnow(),
+        jurisdiction_id=jurisdiction_id,
+        jurisdiction_name=jurisdiction_name,
+        rule_count=len(export_rules),
+        rules=export_rules
+    )
+
+
+@router.post("/rules/import", response_model=RulesImportResponse)
+async def import_rules(
+    request: RulesImportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Import rules from JSON format.
+
+    Can create rules as proposals for review or as verified rules directly.
+    """
+    # Verify jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == request.jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    results = []
+    imported = 0
+    skipped = 0
+    failed = 0
+
+    from app.models.enums import AuthorityTier as ATier
+    from app.services.rule_extraction_service import ExtractedRuleData, ExtractedDeadline
+
+    for rule_data in request.rules:
+        try:
+            # Check for duplicates
+            if request.skip_duplicates:
+                existing = db.query(AuthorityRule).filter(
+                    AuthorityRule.jurisdiction_id == request.jurisdiction_id,
+                    AuthorityRule.rule_code == rule_data.rule_code,
+                    AuthorityRule.is_active == True
+                ).first()
+
+                if existing:
+                    results.append(ImportResult(
+                        rule_code=rule_data.rule_code,
+                        success=True,
+                        message="Skipped - rule already exists"
+                    ))
+                    skipped += 1
+                    continue
+
+            if request.create_as_proposals:
+                # Create as proposal for review
+                extracted = ExtractedRuleData(
+                    rule_code=rule_data.rule_code,
+                    rule_name=rule_data.rule_name,
+                    trigger_type=rule_data.trigger_type,
+                    authority_tier=rule_data.authority_tier,
+                    citation=rule_data.citation or "",
+                    source_url=rule_data.source_url,
+                    source_text=rule_data.source_text or "",
+                    deadlines=[
+                        ExtractedDeadline(
+                            title=d.get("title", ""),
+                            days_from_trigger=d.get("days_from_trigger", 0),
+                            calculation_method=d.get("calculation_method", "calendar_days"),
+                            priority=d.get("priority", "standard"),
+                            party_responsible=d.get("party_responsible"),
+                            conditions=d.get("conditions"),
+                            description=d.get("description")
+                        )
+                        for d in rule_data.deadlines
+                    ],
+                    conditions=rule_data.conditions,
+                    service_extensions=rule_data.service_extensions,
+                    confidence_score=1.0,
+                    extraction_notes="Imported from JSON"
+                )
+
+                proposal = await service.create_proposal(
+                    extracted_data=extracted,
+                    scrape_job_id=None,
+                    jurisdiction_id=request.jurisdiction_id,
+                    user_id=str(current_user.id)
+                )
+
+                results.append(ImportResult(
+                    rule_code=rule_data.rule_code,
+                    success=True,
+                    message="Created as proposal",
+                    proposal_id=proposal.id
+                ))
+                imported += 1
+
+            else:
+                # Create as verified rule directly
+                tier_map = {
+                    "federal": ATier.FEDERAL,
+                    "state": ATier.STATE,
+                    "local": ATier.LOCAL,
+                    "standing_order": ATier.STANDING_ORDER,
+                    "firm": ATier.FIRM
+                }
+                authority_tier = tier_map.get(rule_data.authority_tier.lower(), ATier.STATE)
+
+                rule = AuthorityRule(
+                    id=str(uuid.uuid4()),
+                    user_id=str(current_user.id),
+                    jurisdiction_id=request.jurisdiction_id,
+                    authority_tier=authority_tier,
+                    rule_code=rule_data.rule_code,
+                    rule_name=rule_data.rule_name,
+                    trigger_type=rule_data.trigger_type,
+                    citation=rule_data.citation,
+                    source_url=rule_data.source_url,
+                    source_text=rule_data.source_text,
+                    deadlines=rule_data.deadlines,
+                    conditions=rule_data.conditions,
+                    service_extensions=rule_data.service_extensions or {"mail": 3, "electronic": 0, "personal": 0},
+                    confidence_score=1.0,
+                    is_verified=True,
+                    verified_by=str(current_user.id),
+                    verified_at=datetime.utcnow(),
+                    is_active=True
+                )
+
+                db.add(rule)
+                db.commit()
+
+                results.append(ImportResult(
+                    rule_code=rule_data.rule_code,
+                    success=True,
+                    message="Imported as verified rule",
+                    rule_id=rule.id
+                ))
+                imported += 1
+
+        except Exception as e:
+            logger.error(f"Error importing rule {rule_data.rule_code}: {e}")
+            results.append(ImportResult(
+                rule_code=rule_data.rule_code,
+                success=False,
+                message=str(e)
+            ))
+            failed += 1
+
+    return RulesImportResponse(
+        total_requested=len(request.rules),
+        imported=imported,
+        skipped=skipped,
+        failed=failed,
+        results=results
+    )
+
+
+# ============================================================
+# Migration Endpoints (Hardcoded Rules to Authority Core)
+# ============================================================
+
+@router.get("/migration/preview")
+async def preview_migration(
+    jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction (florida_state, federal)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Preview hardcoded rules that can be migrated to Authority Core.
+
+    Returns a list of all hardcoded rules from rules_engine.py that would be
+    migrated, along with their deadlines and metadata.
+    """
+    try:
+        # Import migration functions
+        import sys
+        import os
+        scripts_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'scripts')
+        sys.path.insert(0, scripts_path)
+
+        from migrate_hardcoded_rules import preview_migration as get_preview, get_jurisdiction_id
+
+        rules = get_preview()
+
+        # Filter by jurisdiction if specified
+        if jurisdiction:
+            rules = [r for r in rules if r["jurisdiction"].lower() == jurisdiction.lower()]
+
+        # Check which rules already exist
+        for rule in rules:
+            jurisdiction_id = get_jurisdiction_id(db, rule["jurisdiction"])
+            if jurisdiction_id:
+                existing = db.query(AuthorityRule).filter(
+                    AuthorityRule.rule_code == rule["rule_id"],
+                    AuthorityRule.jurisdiction_id == jurisdiction_id,
+                    AuthorityRule.is_active == True
+                ).first()
+                rule["already_exists"] = existing is not None
+                rule["jurisdiction_id"] = jurisdiction_id
+            else:
+                rule["already_exists"] = False
+                rule["jurisdiction_id"] = None
+
+        # Count statistics
+        total = len(rules)
+        existing = sum(1 for r in rules if r.get("already_exists"))
+        to_migrate = total - existing
+
+        return {
+            "total_rules": total,
+            "already_migrated": existing,
+            "to_migrate": to_migrate,
+            "rules": rules
+        }
+
+    except ImportError as e:
+        logger.error(f"Migration module not found: {e}")
+        raise HTTPException(status_code=500, detail="Migration module not available")
+    except Exception as e:
+        logger.error(f"Preview migration failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/migration/execute")
+async def execute_migration(
+    jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction"),
+    skip_existing: bool = Query(True, description="Skip rules that already exist"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Execute migration of hardcoded rules to Authority Core.
+
+    Creates AuthorityRule entries for all hardcoded rules from rules_engine.py.
+    Rules are created as verified with confidence score of 1.0.
+    """
+    try:
+        # Import migration functions
+        import sys
+        import os
+        scripts_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'scripts')
+        sys.path.insert(0, scripts_path)
+
+        from migrate_hardcoded_rules import migrate_rules
+
+        results = migrate_rules(
+            db,
+            dry_run=False,
+            jurisdiction_filter=jurisdiction,
+            user_id=str(current_user.id)
+        )
+
+        return {
+            "success": True,
+            "total_rules": results["total_rules"],
+            "migrated": results["migrated"],
+            "skipped": results["skipped"],
+            "errors": results["errors"],
+            "details": results["details"]
+        }
+
+    except ImportError as e:
+        logger.error(f"Migration module not found: {e}")
+        raise HTTPException(status_code=500, detail="Migration module not available")
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/migration/status")
+async def get_migration_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the current migration status.
+
+    Returns counts of:
+    - Total hardcoded rules
+    - Rules already migrated to Authority Core
+    - Rules pending migration
+    """
+    try:
+        # Import migration functions
+        import sys
+        import os
+        scripts_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'scripts')
+        sys.path.insert(0, scripts_path)
+
+        from migrate_hardcoded_rules import preview_migration as get_preview, get_jurisdiction_id, JURISDICTION_MAPPING
+
+        rules = get_preview()
+
+        # Count by jurisdiction
+        by_jurisdiction = {}
+        for rule in rules:
+            jur = rule["jurisdiction"]
+            if jur not in by_jurisdiction:
+                by_jurisdiction[jur] = {"total": 0, "migrated": 0, "pending": 0}
+            by_jurisdiction[jur]["total"] += 1
+
+            # Check if exists
+            jurisdiction_id = get_jurisdiction_id(db, jur)
+            if jurisdiction_id:
+                existing = db.query(AuthorityRule).filter(
+                    AuthorityRule.rule_code == rule["rule_id"],
+                    AuthorityRule.jurisdiction_id == jurisdiction_id,
+                    AuthorityRule.is_active == True
+                ).first()
+                if existing:
+                    by_jurisdiction[jur]["migrated"] += 1
+                else:
+                    by_jurisdiction[jur]["pending"] += 1
+            else:
+                by_jurisdiction[jur]["pending"] += 1
+
+        total_hardcoded = len(rules)
+        total_migrated = sum(j["migrated"] for j in by_jurisdiction.values())
+        total_pending = total_hardcoded - total_migrated
+
+        # Get total Authority Core rules
+        total_authority_rules = db.query(sql_func.count(AuthorityRule.id)).filter(
+            AuthorityRule.is_active == True
+        ).scalar() or 0
+
+        return {
+            "hardcoded_rules": {
+                "total": total_hardcoded,
+                "migrated": total_migrated,
+                "pending": total_pending,
+                "by_jurisdiction": by_jurisdiction
+            },
+            "authority_core_rules": {
+                "total": total_authority_rules,
+                "from_migration": total_migrated,
+                "from_other_sources": total_authority_rules - total_migrated
+            },
+            "migration_complete": total_pending == 0
+        }
+
+    except ImportError as e:
+        logger.error(f"Migration module not found: {e}")
+        raise HTTPException(status_code=500, detail="Migration module not available")
+    except Exception as e:
+        logger.error(f"Migration status check failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

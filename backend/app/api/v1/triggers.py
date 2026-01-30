@@ -1,23 +1,75 @@
 """
 Trigger API - Trigger-based deadline generation
+
+This module handles trigger-based deadline generation with Authority Core integration.
+The Authority Core rules database is queried first, with fallback to hardcoded rules.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Any
 from datetime import date as date_type, datetime, timedelta
 from pydantic import BaseModel
+import os
 
 from app.database import get_db
 from app.models.user import User
 from app.models.case import Case
 from app.models.deadline import Deadline
+from app.models.jurisdiction import Jurisdiction
 from app.utils.auth import get_current_user
 from app.services.rules_engine import rules_engine, TriggerType
 from app.services.calendar_service import calendar_service
 from app.services.case_summary_service import CaseSummaryService
+from app.services.authority_integrated_deadline_service import (
+    AuthorityIntegratedDeadlineService,
+    USE_AUTHORITY_CORE
+)
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_jurisdiction_id(db: Session, jurisdiction_name: str) -> Optional[str]:
+    """
+    Look up jurisdiction_id from jurisdiction name.
+
+    Maps common jurisdiction strings (e.g., "florida_state", "federal") to
+    the actual Jurisdiction table UUID.
+
+    Args:
+        db: Database session
+        jurisdiction_name: Jurisdiction name string (e.g., "florida_state")
+
+    Returns:
+        Jurisdiction UUID or None if not found
+    """
+    if not jurisdiction_name:
+        return None
+
+    # Try exact match first
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.name.ilike(jurisdiction_name)
+    ).first()
+
+    if jurisdiction:
+        return jurisdiction.id
+
+    # Try matching by code or common names
+    name_mappings = {
+        "florida_state": ["Florida State", "Florida", "FL"],
+        "federal": ["Federal", "US Federal"],
+        "us_district": ["US District Court", "Federal District"],
+    }
+
+    search_terms = name_mappings.get(jurisdiction_name.lower(), [jurisdiction_name])
+    for term in search_terms:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.name.ilike(f"%{term}%")
+        ).first()
+        if jurisdiction:
+            return jurisdiction.id
+
+    return None
 
 router = APIRouter()
 
@@ -295,7 +347,7 @@ class SimulatedDeadline(BaseModel):
 
 
 @router.post("/simulate")
-def simulate_trigger_deadlines(
+async def simulate_trigger_deadlines(
     request: SimulateTriggerRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -305,6 +357,9 @@ def simulate_trigger_deadlines(
 
     Simulates deadline calculation for a trigger event WITHOUT saving to database.
     Powers the Pre-Flight Audit UI where users can preview 50+ deadlines before committing.
+
+    **Authority Core Integration**: Queries Authority Core rules first, with fallback
+    to hardcoded rules if no Authority rules exist for this jurisdiction/trigger.
 
     Request:
         trigger_type: One of TriggerType enum values (e.g., "trial_date")
@@ -326,6 +381,8 @@ def simulate_trigger_deadlines(
         - days_count: Number of days from trigger
         - calculation_type: calendar_days or court_days
         - short_explanation: Brief explanation for UI
+        - source_rule_id: Authority Core rule ID (if from Authority Core)
+        - source: "authority_core" or "system_rules"
 
     Constraint: Does NOT save to database - this is a preview/simulation only.
     """
@@ -359,6 +416,7 @@ def simulate_trigger_deadlines(
 
     # Determine jurisdiction and court_type from case
     jurisdiction = case.jurisdiction or "florida_state"
+    jurisdiction_id = get_jurisdiction_id(db, jurisdiction)  # Look up from jurisdiction name
     court_type = case.case_type or "civil"
 
     # Map common case_type values to rules engine court_type
@@ -372,14 +430,28 @@ def simulate_trigger_deadlines(
     }
     court_type = court_type_map.get(court_type.lower(), court_type.lower())
 
-    # Get applicable rule templates for this trigger type
-    applicable_rules = rules_engine.get_applicable_rules(
-        jurisdiction=jurisdiction,
+    # Build case context for CompuLaw-style formatting
+    case_context = {
+        "case_number": case.case_number,
+        "plaintiffs": [case.plaintiff] if case.plaintiff else [],
+        "defendants": [case.defendant] if case.defendant else [],
+        "source_document": None,
+        "case_type": court_type,
+    }
+
+    # Use Authority-Integrated Deadline Service
+    integrated_service = AuthorityIntegratedDeadlineService(db)
+    integrated_deadlines = await integrated_service.calculate_deadlines(
+        jurisdiction_id=jurisdiction_id or "",
+        trigger_type=request.trigger_type,
+        trigger_date=trigger_date,
+        jurisdiction_name=jurisdiction,
         court_type=court_type,
-        trigger_type=trigger_type_enum
+        service_method=request.service_method or "email",
+        case_context=case_context
     )
 
-    if not applicable_rules:
+    if not integrated_deadlines:
         # Return empty but successful response if no rules found
         logger.warning(
             f"No rule templates found for {trigger_type_enum.value} in "
@@ -394,52 +466,41 @@ def simulate_trigger_deadlines(
             "court_type": court_type,
             "deadlines_count": 0,
             "deadlines": [],
+            "source": "none",
             "message": f"No rule templates found for {trigger_type_enum.value} in {jurisdiction}/{court_type}"
         }
 
-    # Build case context for CompuLaw-style formatting
-    case_context = {
-        "case_number": case.case_number,
-        "plaintiffs": [case.plaintiff] if case.plaintiff else [],
-        "defendants": [case.defendant] if case.defendant else [],
-        "source_document": None,
-    }
-
-    # Calculate deadlines from ALL applicable templates
-    all_calculated_deadlines = []
-
-    for rule_template in applicable_rules:
-        calculated = rules_engine.calculate_dependent_deadlines(
-            trigger_date=trigger_date,
-            rule_template=rule_template,
-            service_method=request.service_method or "email",
-            case_context=case_context
-        )
-        all_calculated_deadlines.extend(calculated)
+    # Determine source (Authority Core or System Rules)
+    has_authority_source = any(d.source_rule_id for d in integrated_deadlines)
+    source = "authority_core" if has_authority_source else "system_rules"
 
     # Format response - convert to serializable format
     formatted_deadlines = []
-    for deadline in all_calculated_deadlines:
+    for deadline in integrated_deadlines:
         formatted_deadlines.append({
-            "title": deadline.get("title", ""),
-            "description": deadline.get("description", ""),
-            "deadline_date": deadline["deadline_date"].isoformat() if deadline.get("deadline_date") else None,
-            "priority": deadline.get("priority", "STANDARD"),
-            "party_role": deadline.get("party_role", ""),
-            "action_required": deadline.get("action_required", ""),
-            "rule_citation": deadline.get("rule_citation", ""),
-            "calculation_basis": deadline.get("calculation_basis", ""),
-            "trigger_formula": deadline.get("trigger_formula", ""),
-            "days_count": deadline.get("days_count", 0),
-            "calculation_type": deadline.get("calculation_type", "calendar_days"),
-            "short_explanation": deadline.get("short_explanation", ""),
+            "title": deadline.title,
+            "description": deadline.description,
+            "deadline_date": deadline.deadline_date.isoformat() if deadline.deadline_date else None,
+            "priority": deadline.priority,
+            "party_role": deadline.party_role,
+            "action_required": deadline.action_required,
+            "rule_citation": deadline.rule_citation,
+            "calculation_basis": deadline.calculation_basis,
+            "trigger_formula": deadline.trigger_formula or "",
+            "days_count": deadline.days_count,
+            "calculation_type": deadline.calculation_type,
+            "short_explanation": deadline.short_explanation or "",
             # Extra fields for UI
-            "trigger_event": deadline.get("trigger_event", request.trigger_type),
-            "trigger_date": trigger_date.isoformat(),
-            "jurisdiction": deadline.get("jurisdiction", jurisdiction),
-            "court_type": deadline.get("court_type", court_type),
-            "trigger_code": deadline.get("trigger_code", ""),
-            "party_string": deadline.get("party_string", ""),
+            "trigger_event": deadline.trigger_event,
+            "trigger_date": deadline.trigger_date.isoformat() if deadline.trigger_date else trigger_date.isoformat(),
+            "jurisdiction": deadline.jurisdiction or jurisdiction,
+            "court_type": deadline.court_type or court_type,
+            "trigger_code": deadline.trigger_code or "",
+            "party_string": deadline.party_string or "",
+            # Authority Core tracking
+            "source_rule_id": deadline.source_rule_id,
+            "source_rule_name": deadline.source_rule_name,
+            "source": "authority_core" if deadline.source_rule_id else "system_rules",
         })
 
     # Sort by deadline_date
@@ -447,7 +508,7 @@ def simulate_trigger_deadlines(
 
     logger.info(
         f"Simulated {len(formatted_deadlines)} deadlines for {trigger_type_enum.value} "
-        f"on {trigger_date} for case {request.case_id}"
+        f"on {trigger_date} for case {request.case_id} (source: {source})"
     )
 
     return {
@@ -460,6 +521,8 @@ def simulate_trigger_deadlines(
         "court_type": court_type,
         "deadlines_count": len(formatted_deadlines),
         "deadlines": formatted_deadlines,
+        "source": source,
+        "authority_core_enabled": USE_AUTHORITY_CORE,
     }
 
 
@@ -527,13 +590,17 @@ def get_event_types(
 
 
 @router.post("/preview")
-def preview_trigger_deadlines(
+async def preview_trigger_deadlines(
     request: PreviewTriggerRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Preview deadlines that would be created by a trigger without saving.
     Used by SmartEventEntry for live cascade preview.
+
+    **Authority Core Integration**: Queries Authority Core rules first, with fallback
+    to hardcoded rules if no Authority rules exist for this jurisdiction/trigger.
     """
     logger.info(f"Previewing trigger: type={request.trigger_type}, date={request.trigger_date}")
 
@@ -552,49 +619,57 @@ def preview_trigger_deadlines(
             detail=f"Invalid trigger type: {request.trigger_type}"
         )
 
-    # Get applicable templates
-    templates = rules_engine.get_applicable_rules(
-        jurisdiction=request.jurisdiction,
-        court_type=request.court_type,
-        trigger_type=trigger_enum
-    )
-
-    if not templates:
-        return {
-            'success': True,
-            'trigger_type': request.trigger_type,
-            'trigger_date': trigger_date.isoformat(),
-            'deadlines': []
-        }
-
-    # Calculate deadlines without saving
-    all_deadlines = []
+    # Build case context for CompuLaw-style formatting
     case_context = {
         'plaintiffs': [],
         'defendants': [],
         'case_number': 'Preview',
-        'source_document': f"Trigger Event: {request.trigger_type}"
+        'source_document': f"Trigger Event: {request.trigger_type}",
+        'case_type': request.court_type,
     }
 
-    for template in templates:
-        dependent_deadlines = rules_engine.calculate_dependent_deadlines(
-            trigger_date=trigger_date,
-            rule_template=template,
-            service_method=request.service_method or "email",
-            case_context=case_context
-        )
+    # Use Authority-Integrated Deadline Service
+    # Note: jurisdiction_id is empty for preview since we don't have a case context
+    integrated_service = AuthorityIntegratedDeadlineService(db)
+    integrated_deadlines = await integrated_service.calculate_deadlines(
+        jurisdiction_id="",  # No specific jurisdiction ID for preview
+        trigger_type=request.trigger_type,
+        trigger_date=trigger_date,
+        jurisdiction_name=request.jurisdiction,
+        court_type=request.court_type,
+        service_method=request.service_method or "email",
+        case_context=case_context
+    )
 
-        for deadline_data in dependent_deadlines:
-            all_deadlines.append({
-                'title': deadline_data['title'],
-                'description': deadline_data['description'],
-                'deadline_date': deadline_data['deadline_date'].isoformat() if deadline_data['deadline_date'] else None,
-                'priority': deadline_data['priority'],
-                'rule_citation': deadline_data['rule_citation'],
-                'calculation_basis': deadline_data['calculation_basis'],
-                'party_role': deadline_data['party_role'],
-                'action_required': deadline_data['action_required'],
-            })
+    if not integrated_deadlines:
+        return {
+            'success': True,
+            'trigger_type': request.trigger_type,
+            'trigger_date': trigger_date.isoformat(),
+            'deadlines': [],
+            'source': 'none'
+        }
+
+    # Determine source
+    has_authority_source = any(d.source_rule_id for d in integrated_deadlines)
+    source = "authority_core" if has_authority_source else "system_rules"
+
+    # Format response
+    all_deadlines = []
+    for deadline in integrated_deadlines:
+        all_deadlines.append({
+            'title': deadline.title,
+            'description': deadline.description,
+            'deadline_date': deadline.deadline_date.isoformat() if deadline.deadline_date else None,
+            'priority': deadline.priority,
+            'rule_citation': deadline.rule_citation,
+            'calculation_basis': deadline.calculation_basis,
+            'party_role': deadline.party_role,
+            'action_required': deadline.action_required,
+            # Authority Core tracking
+            'source_rule_id': deadline.source_rule_id,
+            'source': "authority_core" if deadline.source_rule_id else "system_rules",
+        })
 
     # Sort by deadline date
     all_deadlines.sort(key=lambda d: d['deadline_date'] or '9999-12-31')
@@ -603,7 +678,9 @@ def preview_trigger_deadlines(
         'success': True,
         'trigger_type': request.trigger_type,
         'trigger_date': trigger_date.isoformat(),
-        'deadlines': all_deadlines
+        'deadlines': all_deadlines,
+        'source': source,
+        'authority_core_enabled': USE_AUTHORITY_CORE,
     }
 
 
@@ -647,6 +724,10 @@ async def create_trigger_event(
     Create a trigger event and generate all dependent deadlines
 
     This is the "magic" - enter one date, get 50+ deadlines auto-calculated
+
+    **Authority Core Integration**: Queries Authority Core rules first, with fallback
+    to hardcoded rules if no Authority rules exist. Each deadline created will have
+    its `source_rule_id` populated if it came from an Authority Core rule.
     """
     logger.info(f"Creating trigger: type={request.trigger_type}, date={request.trigger_date}, case={request.case_id}")
 
@@ -665,7 +746,7 @@ async def create_trigger_event(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
 
-    # Get applicable rule templates
+    # Validate trigger type
     try:
         trigger_enum = TriggerType(request.trigger_type)
     except ValueError:
@@ -674,25 +755,72 @@ async def create_trigger_event(
             detail=f"Invalid trigger type: {request.trigger_type}"
         )
 
-    if request.rule_template_id:
-        # Use specific template
-        template = rules_engine.get_template_by_id(request.rule_template_id)
-        if not template:
-            raise HTTPException(status_code=404, detail="Rule template not found")
-        templates = [template]
-    else:
-        # Get all applicable templates
-        templates = rules_engine.get_applicable_rules(
-            jurisdiction=request.jurisdiction,
-            court_type=request.court_type,
-            trigger_type=trigger_enum
-        )
+    # Get jurisdiction info from case
+    jurisdiction_name = case.jurisdiction or request.jurisdiction or "florida_state"
+    jurisdiction_id = get_jurisdiction_id(db, jurisdiction_name)  # Look up from jurisdiction name
+    court_type = case.case_type or request.court_type or "civil"
 
-    if not templates:
+    # Map common case_type values to rules engine court_type
+    court_type_map = {
+        "personal_injury": "civil",
+        "contract_dispute": "civil",
+        "real_estate": "civil",
+        "employment": "civil",
+        "criminal": "criminal",
+        "appellate": "appellate",
+    }
+    court_type = court_type_map.get(court_type.lower(), court_type.lower())
+
+    # Build case context for CompuLaw-style formatting
+    case_context = {
+        'plaintiffs': [],
+        'defendants': [],
+        'case_number': case.case_number,
+        'source_document': request.notes or f"Trigger Event: {request.trigger_type}",
+        'case_type': court_type,
+    }
+
+    # Extract party names from case.parties (if available)
+    if case.parties:
+        for party in case.parties:
+            party_name = party.get('name', '')
+            party_role = party.get('role', '').lower()
+            if party_name:
+                if 'plaintiff' in party_role:
+                    case_context['plaintiffs'].append(party_name)
+                elif 'defendant' in party_role:
+                    case_context['defendants'].append(party_name)
+
+    # CONVERSATIONAL INTAKE: Merge user-provided context for conditional deadline filtering
+    # User context contains answers like {"jury_status": true, "trial_duration_days": 3}
+    if request.context:
+        case_context.update(request.context)
+        logger.info(f"Using conversational context: {request.context}")
+
+    # Use Authority-Integrated Deadline Service
+    integrated_service = AuthorityIntegratedDeadlineService(db)
+    integrated_deadlines = await integrated_service.calculate_deadlines(
+        jurisdiction_id=jurisdiction_id or "",
+        trigger_type=request.trigger_type,
+        trigger_date=trigger_date,
+        jurisdiction_name=jurisdiction_name,
+        court_type=court_type,
+        service_method=request.service_method or "email",
+        case_context=case_context,
+        user_id=str(current_user.id),
+        case_id=request.case_id
+    )
+
+    if not integrated_deadlines:
         raise HTTPException(
             status_code=404,
-            detail=f"No rule templates found for {request.jurisdiction} {request.court_type} {request.trigger_type}"
+            detail=f"No rule templates found for {jurisdiction_name} {court_type} {request.trigger_type}"
         )
+
+    # Determine source for logging
+    has_authority_source = any(d.source_rule_id for d in integrated_deadlines)
+    source = "authority_core" if has_authority_source else "system_rules"
+    logger.info(f"Using {len(integrated_deadlines)} deadlines from {source}")
 
     # Create the trigger deadline (the "parent")
     trigger_deadline = Deadline(
@@ -715,85 +843,54 @@ async def create_trigger_event(
     # Generate all dependent deadlines
     all_dependent_deadlines = []
 
-    # Build case context for CompuLaw-style formatting
-    case_context = {
-        'plaintiffs': [],
-        'defendants': [],
-        'case_number': case.case_number,
-        'source_document': request.notes or f"Trigger Event: {request.trigger_type}"
-    }
+    for deadline_data in integrated_deadlines:
+        title = deadline_data.title
 
-    # Extract party names from case.parties (if available)
-    if case.parties:
-        for party in case.parties:
-            party_name = party.get('name', '')
-            party_role = party.get('role', '').lower()
-            if party_name:
-                if 'plaintiff' in party_role:
-                    case_context['plaintiffs'].append(party_name)
-                elif 'defendant' in party_role:
-                    case_context['defendants'].append(party_name)
+        # Check if this deadline is excluded
+        if request.exclusions and title in request.exclusions:
+            logger.info(f"Excluding deadline: {title}")
+            continue
 
-    # CONVERSATIONAL INTAKE: Merge user-provided context for conditional deadline filtering
-    # User context contains answers like {"jury_status": true, "trial_duration_days": 3}
-    if request.context:
-        case_context.update(request.context)
-        logger.info(f"Using conversational context: {request.context}")
+        # Check for date override
+        final_date = deadline_data.deadline_date
+        is_overridden = False
 
-    for template in templates:
-        dependent_deadlines = rules_engine.calculate_dependent_deadlines(
-            trigger_date=trigger_date,
-            rule_template=template,
-            service_method=request.service_method or "email",
-            case_context=case_context
+        if request.overrides and title in request.overrides:
+            try:
+                override_date = date_type.fromisoformat(request.overrides[title])
+                final_date = override_date
+                is_overridden = True
+                logger.info(f"Override applied for '{title}': {deadline_data.deadline_date} -> {override_date}")
+            except ValueError:
+                logger.warning(f"Invalid override date for '{title}': {request.overrides[title]}")
+
+        deadline = Deadline(
+            case_id=request.case_id,
+            user_id=str(current_user.id),
+            parent_deadline_id=str(trigger_deadline.id),
+            title=title,
+            description=deadline_data.description,
+            deadline_date=final_date,
+            priority=deadline_data.priority,
+            party_role=deadline_data.party_role,
+            action_required=deadline_data.action_required,
+            applicable_rule=deadline_data.rule_citation,
+            rule_citation=deadline_data.source_citation,  # Full citation text
+            calculation_basis=deadline_data.calculation_basis,
+            trigger_event=deadline_data.trigger_event,
+            trigger_date=deadline_data.trigger_date,
+            is_calculated=True,
+            is_dependent=True,
+            auto_recalculate=not is_overridden,  # Don't auto-recalculate if manually overridden
+            is_manually_overridden=is_overridden,
+            original_deadline_date=deadline_data.deadline_date,
+            service_method=request.service_method,
+            # Authority Core integration - link to source rule
+            source_rule_id=deadline_data.source_rule_id,
         )
 
-        # Create deadline records
-        for deadline_data in dependent_deadlines:
-            title = deadline_data['title']
-
-            # Check if this deadline is excluded
-            if request.exclusions and title in request.exclusions:
-                logger.info(f"Excluding deadline: {title}")
-                continue
-
-            # Check for date override
-            final_date = deadline_data['deadline_date']
-            is_overridden = False
-
-            if request.overrides and title in request.overrides:
-                try:
-                    override_date = date_type.fromisoformat(request.overrides[title])
-                    final_date = override_date
-                    is_overridden = True
-                    logger.info(f"Override applied for '{title}': {deadline_data['deadline_date']} -> {override_date}")
-                except ValueError:
-                    logger.warning(f"Invalid override date for '{title}': {request.overrides[title]}")
-
-            deadline = Deadline(
-                case_id=request.case_id,
-                user_id=str(current_user.id),
-                parent_deadline_id=str(trigger_deadline.id),
-                title=title,
-                description=deadline_data['description'],
-                deadline_date=final_date,
-                priority=deadline_data['priority'],
-                party_role=deadline_data['party_role'],
-                action_required=deadline_data['action_required'],
-                applicable_rule=deadline_data['rule_citation'],
-                calculation_basis=deadline_data['calculation_basis'],
-                trigger_event=deadline_data['trigger_event'],
-                trigger_date=deadline_data['trigger_date'],
-                is_calculated=True,
-                is_dependent=True,
-                auto_recalculate=not is_overridden,  # Don't auto-recalculate if manually overridden
-                is_manually_overridden=is_overridden,
-                original_deadline_date=deadline_data['deadline_date'],
-                service_method=request.service_method
-            )
-
-            db.add(deadline)
-            all_dependent_deadlines.append(deadline)
+        db.add(deadline)
+        all_dependent_deadlines.append(deadline)
 
     db.commit()
 
@@ -807,7 +904,8 @@ async def create_trigger_event(
                 "trigger_id": str(trigger_deadline.id),
                 "trigger_type": request.trigger_type,
                 "trigger_date": trigger_date.isoformat(),
-                "deadlines_created": len(all_dependent_deadlines)
+                "deadlines_created": len(all_dependent_deadlines),
+                "source": source,
             },
             db=db
         )
@@ -819,13 +917,17 @@ async def create_trigger_event(
         'trigger_deadline_id': str(trigger_deadline.id),
         'trigger_date': trigger_date.isoformat(),
         'dependent_deadlines_created': len(all_dependent_deadlines),
+        'source': source,
+        'authority_core_enabled': USE_AUTHORITY_CORE,
         'deadlines': [
             {
                 'id': str(d.id),
                 'title': d.title,
                 'deadline_date': d.deadline_date.isoformat() if d.deadline_date else None,
                 'priority': d.priority,
-                'rule_citation': d.applicable_rule
+                'rule_citation': d.applicable_rule,
+                'source_rule_id': d.source_rule_id,
+                'source': 'authority_core' if d.source_rule_id else 'system_rules',
             }
             for d in all_dependent_deadlines
         ]

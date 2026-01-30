@@ -90,7 +90,30 @@ class RulesEngine:
     """
     The "Brain" - Manages court rules and generates dependent deadlines
     Trigger-based deadline architecture
+
+    DEPRECATION NOTICE:
+    -------------------
+    This class contains hardcoded rule templates that are being replaced by
+    Authority Core (app.services.authority_core_service.AuthorityCoreService).
+
+    Authority Core provides:
+    - Database-driven rules that can be updated without code changes
+    - AI-powered rule extraction from court websites
+    - Attorney approval workflow for new rules
+    - Full audit trail and version history
+    - Conflict detection and resolution
+
+    Migration Path:
+    1. Use the migration tool at /admin/migrate-rules to migrate hardcoded rules
+    2. Once migrated, rules will be served from Authority Core
+    3. Hardcoded rules are used as fallback only when Authority Core has no rules
+
+    See: app.services.authority_integrated_deadline_service.AuthorityIntegratedDeadlineService
     """
+
+    # Deprecation flag - set to True to log warnings when hardcoded rules are used
+    _DEPRECATION_WARNING_ENABLED = True
+    _deprecation_warned = False
 
     def __init__(self):
         self.rule_templates: Dict[str, RuleTemplate] = {}
@@ -99,6 +122,15 @@ class RulesEngine:
         self._load_florida_pretrial_rules()
         self._load_federal_pretrial_rules()
         self._load_appellate_rules()
+
+        # Log deprecation notice once per session
+        if self._DEPRECATION_WARNING_ENABLED and not RulesEngine._deprecation_warned:
+            logger.warning(
+                "RulesEngine: Hardcoded rules are deprecated. "
+                "Consider migrating to Authority Core for dynamic rule management. "
+                "Use /admin/migrate-rules or run scripts/migrate_hardcoded_rules.py"
+            )
+            RulesEngine._deprecation_warned = True
 
     def _normalize_value(self, value: Any) -> Any:
         """
@@ -1764,6 +1796,13 @@ class RulesEngine:
             List of calculated deadlines with complete audit trails
         """
         from app.utils.florida_holidays import subtract_court_days
+
+        # Log deprecation warning when hardcoded rules are used
+        if not rule_template.rule_id.startswith("DB_") and not rule_template.rule_id.startswith("AC_"):
+            logger.info(
+                f"Using hardcoded rule '{rule_template.rule_id}' for {rule_template.trigger_type.value}. "
+                "Consider migrating to Authority Core for dynamic rule management."
+            )
 
         calculated_deadlines = []
 

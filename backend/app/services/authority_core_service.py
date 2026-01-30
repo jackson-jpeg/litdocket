@@ -23,7 +23,8 @@ from app.models.authority_core import (
     ScrapeJob,
     RuleProposal,
     RuleConflict,
-    AuthorityRuleUsage
+    AuthorityRuleUsage,
+    AuthorityRuleHistory
 )
 from app.models.jurisdiction import Jurisdiction
 from app.models.enums import (
@@ -585,29 +586,291 @@ class AuthorityCoreService:
         rule_conditions: Optional[Dict[str, Any]],
         case_context: Dict[str, Any]
     ) -> bool:
-        """Check if rule conditions match the case context"""
+        """
+        Check if rule conditions match the case context.
+
+        Supports:
+        - Simple value matching (case_types, motion_types)
+        - Exclusions (exclusions.field = [excluded_values])
+        - Date ranges (date_range.field = {after: date, before: date})
+        - Boolean logic (AND, OR, NOT)
+        - Regex patterns (regex.field = pattern)
+        - Numeric comparisons (numeric.field = {gt: N, lt: N, gte: N, lte: N, eq: N})
+
+        Args:
+            rule_conditions: The conditions to check
+            case_context: The case context to check against
+
+        Returns:
+            True if all conditions match, False otherwise
+        """
         if not rule_conditions:
             return True
 
-        # Check case_types
+        # Check for boolean logic wrappers
+        if "$and" in rule_conditions:
+            return all(
+                self._conditions_match(sub_cond, case_context)
+                for sub_cond in rule_conditions["$and"]
+            )
+
+        if "$or" in rule_conditions:
+            return any(
+                self._conditions_match(sub_cond, case_context)
+                for sub_cond in rule_conditions["$or"]
+            )
+
+        if "$not" in rule_conditions:
+            return not self._conditions_match(rule_conditions["$not"], case_context)
+
+        # Simple value matching: case_types
         if "case_types" in rule_conditions:
             case_type = case_context.get("case_type")
-            if case_type and case_type not in rule_conditions["case_types"]:
-                return False
+            allowed_types = rule_conditions["case_types"]
 
-        # Check motion_types
+            if case_type:
+                # Support regex patterns in case_types
+                if any(self._match_with_regex(case_type, pattern) for pattern in allowed_types):
+                    pass  # Match found
+                elif case_type not in allowed_types:
+                    return False
+
+        # Simple value matching: motion_types
         if "motion_types" in rule_conditions:
             motion_type = case_context.get("motion_type")
             if motion_type and motion_type not in rule_conditions["motion_types"]:
                 return False
 
-        # Check exclusions
+        # Exclusions
         if "exclusions" in rule_conditions:
             for key, excluded_values in rule_conditions["exclusions"].items():
-                if case_context.get(key) in excluded_values:
+                context_value = case_context.get(key)
+                if context_value is not None and context_value in excluded_values:
+                    return False
+
+        # Date range conditions
+        if "date_range" in rule_conditions:
+            if not self._check_date_range_conditions(
+                rule_conditions["date_range"], case_context
+            ):
+                return False
+
+        # Regex conditions
+        if "regex" in rule_conditions:
+            if not self._check_regex_conditions(
+                rule_conditions["regex"], case_context
+            ):
+                return False
+
+        # Numeric conditions
+        if "numeric" in rule_conditions:
+            if not self._check_numeric_conditions(
+                rule_conditions["numeric"], case_context
+            ):
+                return False
+
+        # Field existence checks
+        if "required_fields" in rule_conditions:
+            for field in rule_conditions["required_fields"]:
+                if field not in case_context or case_context[field] is None:
+                    return False
+
+        # Boolean field checks
+        if "boolean" in rule_conditions:
+            for field, expected_value in rule_conditions["boolean"].items():
+                actual_value = case_context.get(field)
+                # Normalize boolean-like values
+                normalized = self._normalize_boolean(actual_value)
+                expected = self._normalize_boolean(expected_value)
+                if normalized != expected:
                     return False
 
         return True
+
+    def _match_with_regex(self, value: str, pattern: str) -> bool:
+        """
+        Check if a value matches a pattern.
+
+        Pattern can be:
+        - Plain string: exact match
+        - String starting with "regex:": regex pattern
+        - String with wildcards (*): glob-style matching
+        """
+        import re
+
+        if pattern.startswith("regex:"):
+            # Explicit regex pattern
+            regex_pattern = pattern[6:]  # Remove "regex:" prefix
+            try:
+                return bool(re.match(regex_pattern, value, re.IGNORECASE))
+            except re.error:
+                logger.warning(f"Invalid regex pattern: {regex_pattern}")
+                return False
+
+        elif "*" in pattern:
+            # Glob-style pattern - convert to regex
+            regex_pattern = pattern.replace("*", ".*")
+            try:
+                return bool(re.match(f"^{regex_pattern}$", value, re.IGNORECASE))
+            except re.error:
+                return False
+
+        else:
+            # Exact match (case-insensitive)
+            return value.lower() == pattern.lower()
+
+    def _check_date_range_conditions(
+        self,
+        date_conditions: Dict[str, Any],
+        case_context: Dict[str, Any]
+    ) -> bool:
+        """
+        Check date range conditions.
+
+        Supports:
+        - after: date must be after this date
+        - before: date must be before this date
+        - on_or_after: date must be on or after this date
+        - on_or_before: date must be on or before this date
+        """
+        from datetime import datetime as dt
+
+        for field, conditions in date_conditions.items():
+            context_value = case_context.get(field)
+            if not context_value:
+                continue
+
+            # Parse the context date
+            if isinstance(context_value, str):
+                try:
+                    context_date = dt.fromisoformat(context_value.replace('Z', '+00:00')).date()
+                except ValueError:
+                    logger.warning(f"Invalid date format in context: {context_value}")
+                    continue
+            elif isinstance(context_value, date):
+                context_date = context_value
+            else:
+                continue
+
+            # Check each condition
+            if "after" in conditions:
+                after_date = self._parse_date_condition(conditions["after"])
+                if after_date and context_date <= after_date:
+                    return False
+
+            if "before" in conditions:
+                before_date = self._parse_date_condition(conditions["before"])
+                if before_date and context_date >= before_date:
+                    return False
+
+            if "on_or_after" in conditions:
+                after_date = self._parse_date_condition(conditions["on_or_after"])
+                if after_date and context_date < after_date:
+                    return False
+
+            if "on_or_before" in conditions:
+                before_date = self._parse_date_condition(conditions["on_or_before"])
+                if before_date and context_date > before_date:
+                    return False
+
+        return True
+
+    def _parse_date_condition(self, value: Any) -> Optional[date]:
+        """Parse a date from a condition value"""
+        from datetime import datetime as dt
+
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            # Handle special values
+            if value == "today":
+                return date.today()
+            try:
+                return dt.fromisoformat(value.replace('Z', '+00:00')).date()
+            except ValueError:
+                return None
+        return None
+
+    def _check_regex_conditions(
+        self,
+        regex_conditions: Dict[str, str],
+        case_context: Dict[str, Any]
+    ) -> bool:
+        """
+        Check regex pattern conditions.
+
+        Format: {"field_name": "pattern"}
+        """
+        import re
+
+        for field, pattern in regex_conditions.items():
+            context_value = case_context.get(field)
+            if context_value is None:
+                continue
+
+            # Convert to string if necessary
+            value_str = str(context_value)
+
+            try:
+                if not re.search(pattern, value_str, re.IGNORECASE):
+                    return False
+            except re.error:
+                logger.warning(f"Invalid regex pattern for {field}: {pattern}")
+                continue
+
+        return True
+
+    def _check_numeric_conditions(
+        self,
+        numeric_conditions: Dict[str, Dict[str, Any]],
+        case_context: Dict[str, Any]
+    ) -> bool:
+        """
+        Check numeric comparison conditions.
+
+        Format: {"field_name": {"gt": N, "lt": N, "gte": N, "lte": N, "eq": N}}
+        """
+        for field, conditions in numeric_conditions.items():
+            context_value = case_context.get(field)
+            if context_value is None:
+                continue
+
+            try:
+                num_value = float(context_value)
+            except (ValueError, TypeError):
+                continue
+
+            # Check each comparison
+            if "gt" in conditions and not (num_value > conditions["gt"]):
+                return False
+            if "lt" in conditions and not (num_value < conditions["lt"]):
+                return False
+            if "gte" in conditions and not (num_value >= conditions["gte"]):
+                return False
+            if "lte" in conditions and not (num_value <= conditions["lte"]):
+                return False
+            if "eq" in conditions and not (num_value == conditions["eq"]):
+                return False
+            if "ne" in conditions and not (num_value != conditions["ne"]):
+                return False
+
+        return True
+
+    def _normalize_boolean(self, value: Any) -> Optional[bool]:
+        """Normalize various boolean-like values to actual booleans"""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            lower = value.lower().strip()
+            if lower in ("true", "yes", "1", "y", "on"):
+                return True
+            if lower in ("false", "no", "0", "n", "off"):
+                return False
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return None
 
     async def search_rules(
         self,
@@ -704,7 +967,7 @@ class AuthorityCoreService:
             trigger_type: The trigger event type
             trigger_date: Date of the trigger event
             case_context: Optional context for conditions
-            service_method: Service method for extensions
+            service_method: Service method for extensions (mail, electronic, personal)
 
         Returns:
             List of calculated deadlines
@@ -723,15 +986,24 @@ class AuthorityCoreService:
         calculator = AuthoritativeDeadlineCalculator()
 
         for rule in rules:
-            # Get service extension days
-            extensions = rule.service_extensions or {}
-            extension_days = extensions.get(service_method, 0)
+            # Get rule-level service extensions (defaults)
+            rule_extensions = rule.service_extensions or {"mail": 3, "electronic": 0, "personal": 0}
 
             for deadline_spec in rule.deadlines or []:
                 # Check deadline-specific conditions
                 if deadline_spec.get("conditions") and case_context:
                     if not self._conditions_match(deadline_spec["conditions"], case_context):
                         continue
+
+                # =====================================================================
+                # Per-Deadline Service Extensions
+                # Priority: deadline-level > rule-level > default (0)
+                # =====================================================================
+                extension_days = self._get_service_extension_days(
+                    service_method=service_method,
+                    rule_extensions=rule_extensions,
+                    deadline_extensions=deadline_spec.get("service_extensions")
+                )
 
                 # Calculate the deadline date
                 days = deadline_spec.get("days_from_trigger", 0) + extension_days
@@ -767,6 +1039,43 @@ class AuthorityCoreService:
 
         return calculated
 
+    def _get_service_extension_days(
+        self,
+        service_method: str,
+        rule_extensions: Dict[str, int],
+        deadline_extensions: Optional[Dict[str, Any]]
+    ) -> int:
+        """
+        Calculate service extension days with per-deadline override support.
+
+        Priority:
+        1. If deadline has no_extensions=True, return 0
+        2. If deadline has explicit extension for this method, use it
+        3. Otherwise, use rule-level extension
+        4. Default to 0 if nothing specified
+
+        Args:
+            service_method: The service method (mail, electronic, personal)
+            rule_extensions: Rule-level service extensions dict
+            deadline_extensions: Per-deadline service extensions dict (optional)
+
+        Returns:
+            Number of extension days to add
+        """
+        # If deadline has explicit service_extensions
+        if deadline_extensions:
+            # Check if no_extensions flag is set
+            if deadline_extensions.get("no_extensions", False):
+                return 0
+
+            # Check if deadline has explicit value for this service method
+            deadline_value = deadline_extensions.get(service_method)
+            if deadline_value is not None:
+                return deadline_value
+
+        # Fall back to rule-level extension
+        return rule_extensions.get(service_method, 0)
+
     # =========================================================================
     # CONFLICT DETECTION
     # =========================================================================
@@ -775,63 +1084,333 @@ class AuthorityCoreService:
         """
         Check for conflicts between new rule and existing rules.
 
-        Conflicts are detected when:
-        1. Same trigger type and jurisdiction
-        2. Different deadline days for same deadline title
-        3. Different calculation methods
+        Conflicts are detected:
+        1. Within same jurisdiction (same trigger type)
+        2. Across tiers (Federal vs State vs Local) for same trigger type
+        3. Different deadline days for same deadline title
+        4. Different calculation methods
+
+        Severity is determined by:
+        - "error": Same tier, same jurisdiction - must be resolved
+        - "warning": Cross-tier conflict (lower tier conflicts with higher)
+        - "info": Method mismatch or minor differences
+
+        Cross-tier conflicts with clear precedence are auto-resolved.
         """
         conflicts = []
 
-        # Find existing rules with same trigger and jurisdiction
-        existing_rules = self.db.query(AuthorityRule).filter(
+        # =====================================================================
+        # 1. Check within same jurisdiction (existing behavior)
+        # =====================================================================
+        same_jurisdiction_rules = self.db.query(AuthorityRule).filter(
             AuthorityRule.jurisdiction_id == new_rule.jurisdiction_id,
             AuthorityRule.trigger_type == new_rule.trigger_type,
             AuthorityRule.is_active == True,
             AuthorityRule.id != new_rule.id
         ).all()
 
-        for existing in existing_rules:
-            # Compare deadlines
-            new_deadlines = {d.get("title"): d for d in (new_rule.deadlines or [])}
-            existing_deadlines = {d.get("title"): d for d in (existing.deadlines or [])}
+        for existing in same_jurisdiction_rules:
+            new_conflicts = self._compare_rule_deadlines(
+                new_rule, existing,
+                is_same_jurisdiction=True,
+                is_cross_tier=False
+            )
+            conflicts.extend(new_conflicts)
 
-            for title, new_dl in new_deadlines.items():
-                if title in existing_deadlines:
-                    existing_dl = existing_deadlines[title]
+        # =====================================================================
+        # 2. Check cross-tier conflicts (Federal vs State vs Local)
+        # =====================================================================
+        # Get all rules with same trigger type but different jurisdictions/tiers
+        cross_tier_rules = self.db.query(AuthorityRule).filter(
+            AuthorityRule.trigger_type == new_rule.trigger_type,
+            AuthorityRule.is_active == True,
+            AuthorityRule.id != new_rule.id,
+            # Different jurisdiction OR same jurisdiction but different tier
+            or_(
+                AuthorityRule.jurisdiction_id != new_rule.jurisdiction_id,
+                and_(
+                    AuthorityRule.jurisdiction_id == new_rule.jurisdiction_id,
+                    AuthorityRule.authority_tier != new_rule.authority_tier
+                )
+            )
+        ).all()
 
-                    # Check days mismatch
-                    if new_dl.get("days_from_trigger") != existing_dl.get("days_from_trigger"):
-                        conflict = RuleConflict(
-                            id=str(uuid.uuid4()),
-                            rule_a_id=new_rule.id,
-                            rule_b_id=existing.id,
-                            conflict_type="days_mismatch",
-                            severity="warning",
-                            description=f"Deadline '{title}' has different days: {new_dl.get('days_from_trigger')} vs {existing_dl.get('days_from_trigger')}",
-                            resolution=ConflictResolution.PENDING
-                        )
-                        self.db.add(conflict)
-                        conflicts.append(conflict)
-
-                    # Check method mismatch
-                    if new_dl.get("calculation_method") != existing_dl.get("calculation_method"):
-                        conflict = RuleConflict(
-                            id=str(uuid.uuid4()),
-                            rule_a_id=new_rule.id,
-                            rule_b_id=existing.id,
-                            conflict_type="method_mismatch",
-                            severity="info",
-                            description=f"Deadline '{title}' has different calculation methods",
-                            resolution=ConflictResolution.PENDING
-                        )
-                        self.db.add(conflict)
-                        conflicts.append(conflict)
+        for existing in cross_tier_rules:
+            # Only check if there's a tier difference
+            if existing.authority_tier != new_rule.authority_tier:
+                new_conflicts = self._compare_rule_deadlines(
+                    new_rule, existing,
+                    is_same_jurisdiction=(existing.jurisdiction_id == new_rule.jurisdiction_id),
+                    is_cross_tier=True
+                )
+                conflicts.extend(new_conflicts)
 
         if conflicts:
             self.db.commit()
             logger.info(f"Detected {len(conflicts)} conflicts for rule {new_rule.id}")
 
+            # Auto-resolve cross-tier conflicts with clear precedence
+            await self._auto_resolve_cross_tier_conflicts(conflicts)
+
         return conflicts
+
+    def _compare_rule_deadlines(
+        self,
+        rule_a: AuthorityRule,
+        rule_b: AuthorityRule,
+        is_same_jurisdiction: bool,
+        is_cross_tier: bool
+    ) -> List[RuleConflict]:
+        """
+        Compare deadlines between two rules and create conflict records.
+
+        Args:
+            rule_a: The new rule being checked
+            rule_b: The existing rule to compare against
+            is_same_jurisdiction: Whether rules are in the same jurisdiction
+            is_cross_tier: Whether rules are from different authority tiers
+
+        Returns:
+            List of RuleConflict records created
+        """
+        conflicts = []
+
+        # Compare deadlines
+        deadlines_a = {d.get("title"): d for d in (rule_a.deadlines or [])}
+        deadlines_b = {d.get("title"): d for d in (rule_b.deadlines or [])}
+
+        for title, dl_a in deadlines_a.items():
+            if title in deadlines_b:
+                dl_b = deadlines_b[title]
+
+                # Determine severity based on context
+                base_severity = self._determine_conflict_severity(
+                    rule_a, rule_b, is_same_jurisdiction, is_cross_tier
+                )
+
+                # Check days mismatch
+                days_a = dl_a.get("days_from_trigger")
+                days_b = dl_b.get("days_from_trigger")
+                if days_a != days_b:
+                    # Build description with tier info for cross-tier conflicts
+                    if is_cross_tier:
+                        desc = (
+                            f"Cross-tier conflict: '{title}' has different days. "
+                            f"{rule_a.authority_tier.value.upper()} ({rule_a.rule_code}): {days_a} days vs "
+                            f"{rule_b.authority_tier.value.upper()} ({rule_b.rule_code}): {days_b} days"
+                        )
+                    else:
+                        desc = f"Deadline '{title}' has different days: {days_a} vs {days_b}"
+
+                    conflict = RuleConflict(
+                        id=str(uuid.uuid4()),
+                        rule_a_id=rule_a.id,
+                        rule_b_id=rule_b.id,
+                        conflict_type="days_mismatch" if not is_cross_tier else "cross_tier_days_mismatch",
+                        severity=base_severity,
+                        description=desc,
+                        resolution=ConflictResolution.PENDING
+                    )
+                    self.db.add(conflict)
+                    conflicts.append(conflict)
+
+                # Check method mismatch
+                method_a = dl_a.get("calculation_method")
+                method_b = dl_b.get("calculation_method")
+                if method_a != method_b:
+                    if is_cross_tier:
+                        desc = (
+                            f"Cross-tier conflict: '{title}' has different calculation methods. "
+                            f"{rule_a.authority_tier.value.upper()}: {method_a} vs "
+                            f"{rule_b.authority_tier.value.upper()}: {method_b}"
+                        )
+                    else:
+                        desc = f"Deadline '{title}' has different calculation methods: {method_a} vs {method_b}"
+
+                    conflict = RuleConflict(
+                        id=str(uuid.uuid4()),
+                        rule_a_id=rule_a.id,
+                        rule_b_id=rule_b.id,
+                        conflict_type="method_mismatch" if not is_cross_tier else "cross_tier_method_mismatch",
+                        severity="info",  # Method mismatches are always informational
+                        description=desc,
+                        resolution=ConflictResolution.PENDING
+                    )
+                    self.db.add(conflict)
+                    conflicts.append(conflict)
+
+                # Check priority mismatch (cross-tier only)
+                if is_cross_tier:
+                    priority_a = dl_a.get("priority")
+                    priority_b = dl_b.get("priority")
+                    if priority_a != priority_b:
+                        conflict = RuleConflict(
+                            id=str(uuid.uuid4()),
+                            rule_a_id=rule_a.id,
+                            rule_b_id=rule_b.id,
+                            conflict_type="cross_tier_priority_mismatch",
+                            severity="info",
+                            description=(
+                                f"Cross-tier priority mismatch: '{title}'. "
+                                f"{rule_a.authority_tier.value.upper()}: {priority_a} vs "
+                                f"{rule_b.authority_tier.value.upper()}: {priority_b}"
+                            ),
+                            resolution=ConflictResolution.PENDING
+                        )
+                        self.db.add(conflict)
+                        conflicts.append(conflict)
+
+        return conflicts
+
+    def _determine_conflict_severity(
+        self,
+        rule_a: AuthorityRule,
+        rule_b: AuthorityRule,
+        is_same_jurisdiction: bool,
+        is_cross_tier: bool
+    ) -> str:
+        """
+        Determine the severity of a conflict based on context.
+
+        Returns:
+            "error": Same tier, same jurisdiction - must be manually resolved
+            "warning": Cross-tier conflict - may be auto-resolved
+            "info": Minor differences
+        """
+        if is_same_jurisdiction and not is_cross_tier:
+            # Same jurisdiction, same tier - this is a serious conflict
+            return "error"
+        elif is_cross_tier:
+            # Cross-tier conflicts are warnings - can often be auto-resolved
+            return "warning"
+        else:
+            return "info"
+
+    async def _auto_resolve_cross_tier_conflicts(self, conflicts: List[RuleConflict]) -> None:
+        """
+        Auto-resolve cross-tier conflicts where tier precedence is clear.
+
+        Federal > State > Local > Standing Order > Firm
+        """
+        for conflict in conflicts:
+            if conflict.resolution != ConflictResolution.PENDING:
+                continue
+
+            if not conflict.conflict_type.startswith("cross_tier_"):
+                continue
+
+            # Get both rules
+            rule_a = self.db.query(AuthorityRule).filter(
+                AuthorityRule.id == conflict.rule_a_id
+            ).first()
+            rule_b = self.db.query(AuthorityRule).filter(
+                AuthorityRule.id == conflict.rule_b_id
+            ).first()
+
+            if not rule_a or not rule_b:
+                continue
+
+            # Determine winner by tier precedence
+            tier_a = TIER_PRECEDENCE.get(rule_a.authority_tier, 99)
+            tier_b = TIER_PRECEDENCE.get(rule_b.authority_tier, 99)
+
+            if tier_a < tier_b:
+                # Rule A is higher tier - it wins
+                conflict.resolution = ConflictResolution.USE_HIGHER_TIER
+                conflict.resolution_notes = (
+                    f"Auto-resolved: {rule_a.authority_tier.value.upper()} tier "
+                    f"takes precedence over {rule_b.authority_tier.value.upper()} tier"
+                )
+                conflict.resolved_at = datetime.utcnow()
+                logger.info(
+                    f"Auto-resolved conflict {conflict.id}: "
+                    f"{rule_a.authority_tier.value} > {rule_b.authority_tier.value}"
+                )
+            elif tier_b < tier_a:
+                # Rule B is higher tier - it wins
+                conflict.resolution = ConflictResolution.USE_HIGHER_TIER
+                conflict.resolution_notes = (
+                    f"Auto-resolved: {rule_b.authority_tier.value.upper()} tier "
+                    f"takes precedence over {rule_a.authority_tier.value.upper()} tier"
+                )
+                conflict.resolved_at = datetime.utcnow()
+                logger.info(
+                    f"Auto-resolved conflict {conflict.id}: "
+                    f"{rule_b.authority_tier.value} > {rule_a.authority_tier.value}"
+                )
+            # If same tier, leave as PENDING for manual resolution
+
+        self.db.commit()
+
+    async def auto_resolve_by_tier(
+        self,
+        conflict_id: Optional[str] = None,
+        resolve_all_pending: bool = False
+    ) -> List[str]:
+        """
+        Auto-resolve conflicts based on tier precedence.
+
+        Federal > State > Local > Standing Order > Firm
+
+        Args:
+            conflict_id: Specific conflict to resolve (optional)
+            resolve_all_pending: If True, resolve all pending cross-tier conflicts
+
+        Returns:
+            List of conflict IDs that were resolved
+        """
+        resolved_ids = []
+
+        if conflict_id:
+            # Resolve specific conflict
+            conflicts = [self.db.query(RuleConflict).filter(
+                RuleConflict.id == conflict_id,
+                RuleConflict.resolution == ConflictResolution.PENDING
+            ).first()]
+            conflicts = [c for c in conflicts if c]  # Remove None
+        elif resolve_all_pending:
+            # Resolve all pending cross-tier conflicts
+            conflicts = self.db.query(RuleConflict).filter(
+                RuleConflict.resolution == ConflictResolution.PENDING,
+                RuleConflict.conflict_type.like("cross_tier_%")
+            ).all()
+        else:
+            return []
+
+        for conflict in conflicts:
+            # Get both rules
+            rule_a = self.db.query(AuthorityRule).filter(
+                AuthorityRule.id == conflict.rule_a_id
+            ).first()
+            rule_b = self.db.query(AuthorityRule).filter(
+                AuthorityRule.id == conflict.rule_b_id
+            ).first()
+
+            if not rule_a or not rule_b:
+                continue
+
+            # Determine winner by tier precedence
+            tier_a = TIER_PRECEDENCE.get(rule_a.authority_tier, 99)
+            tier_b = TIER_PRECEDENCE.get(rule_b.authority_tier, 99)
+
+            if tier_a != tier_b:
+                winner = rule_a if tier_a < tier_b else rule_b
+                loser = rule_b if tier_a < tier_b else rule_a
+
+                conflict.resolution = ConflictResolution.USE_HIGHER_TIER
+                conflict.resolution_notes = (
+                    f"Auto-resolved by tier precedence: {winner.authority_tier.value.upper()} "
+                    f"({winner.rule_code}) takes precedence over "
+                    f"{loser.authority_tier.value.upper()} ({loser.rule_code})"
+                )
+                conflict.resolved_at = datetime.utcnow()
+                resolved_ids.append(conflict.id)
+                logger.info(f"Auto-resolved conflict {conflict.id} by tier precedence")
+
+        if resolved_ids:
+            self.db.commit()
+
+        return resolved_ids
 
     def list_conflicts(
         self,
@@ -912,4 +1491,185 @@ class AuthorityCoreService:
         return {
             "usage_count": usage_count or 0,
             "total_deadlines_generated": total_deadlines or 0
+        }
+
+    # =========================================================================
+    # RULE HISTORY & VERSIONING
+    # =========================================================================
+
+    def get_rule_history(
+        self,
+        rule_id: str,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[AuthorityRuleHistory]:
+        """
+        Get the change history for a rule.
+
+        Args:
+            rule_id: The rule to get history for
+            limit: Maximum records to return
+            offset: Records to skip
+
+        Returns:
+            List of AuthorityRuleHistory records, newest first
+        """
+        return self.db.query(AuthorityRuleHistory).filter(
+            AuthorityRuleHistory.rule_id == rule_id
+        ).order_by(
+            desc(AuthorityRuleHistory.version)
+        ).offset(offset).limit(limit).all()
+
+    def get_rule_at_version(
+        self,
+        rule_id: str,
+        version: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the state of a rule at a specific version.
+
+        Args:
+            rule_id: The rule ID
+            version: The version number to retrieve
+
+        Returns:
+            Rule data as stored at that version, or None if not found
+        """
+        history = self.db.query(AuthorityRuleHistory).filter(
+            AuthorityRuleHistory.rule_id == rule_id,
+            AuthorityRuleHistory.version == version
+        ).first()
+
+        if history:
+            return history.new_data
+        return None
+
+    def get_latest_rule_version(self, rule_id: str) -> int:
+        """Get the latest version number for a rule"""
+        result = self.db.query(func.max(AuthorityRuleHistory.version)).filter(
+            AuthorityRuleHistory.rule_id == rule_id
+        ).scalar()
+        return result or 0
+
+    async def record_manual_history(
+        self,
+        rule_id: str,
+        change_type: str,
+        user_id: str,
+        change_reason: Optional[str] = None,
+        previous_data: Optional[Dict[str, Any]] = None,
+        new_data: Optional[Dict[str, Any]] = None,
+        changed_fields: Optional[List[str]] = None
+    ) -> AuthorityRuleHistory:
+        """
+        Manually record a history entry for a rule.
+
+        Use this for:
+        - Recording changes made outside normal update flow
+        - Adding explanatory history entries
+        - Migration/import operations
+
+        Args:
+            rule_id: The rule being modified
+            change_type: Type of change (created, updated, superseded, etc.)
+            user_id: User making the change
+            change_reason: Why the change was made
+            previous_data: State before change
+            new_data: State after change
+            changed_fields: List of field names that changed
+
+        Returns:
+            Created AuthorityRuleHistory record
+        """
+        # Get next version number
+        next_version = self.get_latest_rule_version(rule_id) + 1
+
+        # If new_data not provided, snapshot the current rule
+        if new_data is None:
+            rule = self.get_rule(rule_id)
+            if rule:
+                new_data = self._rule_to_snapshot(rule)
+            else:
+                raise ValueError(f"Rule {rule_id} not found")
+
+        history = AuthorityRuleHistory(
+            id=str(uuid.uuid4()),
+            rule_id=rule_id,
+            version=next_version,
+            changed_by=user_id,
+            change_type=change_type,
+            previous_data=previous_data,
+            new_data=new_data,
+            changed_fields=changed_fields,
+            change_reason=change_reason
+        )
+
+        self.db.add(history)
+        self.db.commit()
+        self.db.refresh(history)
+
+        logger.info(f"Recorded manual history v{next_version} for rule {rule_id}: {change_type}")
+        return history
+
+    def _rule_to_snapshot(self, rule: AuthorityRule) -> Dict[str, Any]:
+        """Convert a rule to a JSON-serializable snapshot for history storage"""
+        return {
+            "rule_code": rule.rule_code,
+            "rule_name": rule.rule_name,
+            "trigger_type": rule.trigger_type,
+            "authority_tier": rule.authority_tier.value if rule.authority_tier else None,
+            "citation": rule.citation,
+            "source_url": rule.source_url,
+            "source_text": rule.source_text,
+            "deadlines": rule.deadlines,
+            "conditions": rule.conditions,
+            "service_extensions": rule.service_extensions,
+            "confidence_score": float(rule.confidence_score) if rule.confidence_score else None,
+            "is_verified": rule.is_verified,
+            "is_active": rule.is_active,
+            "effective_date": rule.effective_date.isoformat() if rule.effective_date else None,
+            "superseded_date": rule.superseded_date.isoformat() if rule.superseded_date else None
+        }
+
+    def compare_rule_versions(
+        self,
+        rule_id: str,
+        from_version: int,
+        to_version: int
+    ) -> Dict[str, Any]:
+        """
+        Compare two versions of a rule and return the differences.
+
+        Args:
+            rule_id: The rule to compare
+            from_version: Earlier version number
+            to_version: Later version number
+
+        Returns:
+            Dict with changed fields and their old/new values
+        """
+        from_data = self.get_rule_at_version(rule_id, from_version)
+        to_data = self.get_rule_at_version(rule_id, to_version)
+
+        if not from_data or not to_data:
+            return {"error": "One or both versions not found"}
+
+        changes = {}
+        all_keys = set(from_data.keys()) | set(to_data.keys())
+
+        for key in all_keys:
+            old_val = from_data.get(key)
+            new_val = to_data.get(key)
+            if old_val != new_val:
+                changes[key] = {
+                    "from": old_val,
+                    "to": new_val
+                }
+
+        return {
+            "rule_id": rule_id,
+            "from_version": from_version,
+            "to_version": to_version,
+            "changes": changes,
+            "fields_changed": list(changes.keys())
         }

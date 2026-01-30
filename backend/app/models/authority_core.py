@@ -98,6 +98,7 @@ class AuthorityRule(Base):
     usage_records = relationship("AuthorityRuleUsage", back_populates="rule", cascade="all, delete-orphan")
     conflicts_as_a = relationship("RuleConflict", foreign_keys="RuleConflict.rule_a_id", back_populates="rule_a", cascade="all, delete-orphan")
     conflicts_as_b = relationship("RuleConflict", foreign_keys="RuleConflict.rule_b_id", back_populates="rule_b", cascade="all, delete-orphan")
+    history = relationship("AuthorityRuleHistory", back_populates="rule", cascade="all, delete-orphan", order_by="AuthorityRuleHistory.version.desc()")
 
 
 class ScrapeJob(Base):
@@ -297,3 +298,54 @@ class AuthorityRuleUsage(Base):
     case = relationship("Case")
     deadline = relationship("Deadline")
     user = relationship("User")
+
+
+class AuthorityRuleHistory(Base):
+    """
+    Version history for authority rules.
+
+    Tracks every change made to a rule, supporting:
+    - Audit trail for legal defensibility
+    - Version rollback capabilities
+    - Change attribution
+    - Compliance tracking
+
+    Change types:
+    - created: Rule was first created
+    - updated: Rule was modified
+    - superseded: Rule was replaced by a newer version
+    - deactivated: Rule was marked inactive
+    - reactivated: Rule was marked active again
+    """
+    __tablename__ = "authority_rule_history"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    # The rule this history entry belongs to
+    rule_id = Column(String(36), ForeignKey("authority_rules.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Version number (incrementing)
+    version = Column(Integer, nullable=False, default=1)
+
+    # Who made the change
+    changed_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True)
+
+    # What type of change was made
+    change_type = Column(String(50), nullable=False)  # created, updated, superseded, deactivated, reactivated
+
+    # Snapshots of the rule data before and after the change
+    previous_data = Column(JSONB)  # Full rule data before change (null for 'created')
+    new_data = Column(JSONB, nullable=False)  # Full rule data after change
+
+    # Fields that were changed (for easier diffing)
+    changed_fields = Column(ARRAY(Text))  # ["deadlines", "citation", "conditions"]
+
+    # Reason for the change
+    change_reason = Column(Text)
+
+    # Timestamp
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    rule = relationship("AuthorityRule", back_populates="history")
+    changed_by_user = relationship("User", foreign_keys=[changed_by])

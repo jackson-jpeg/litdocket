@@ -56,6 +56,9 @@ class Deadline(Base):
     rule_citation = Column(Text)  # Full rule text
     calculation_basis = Column(Text)  # How deadline was calculated
 
+    # Authority Core integration - links to the authoritative rule that generated this deadline
+    source_rule_id = Column(String(36), ForeignKey("authority_rules.id", ondelete="SET NULL"), index=True)
+
     # Status and priority
     priority = Column(String(20), default="standard")  # informational, standard, important, critical, fatal
     status = Column(String(50), default="pending")  # pending, completed, cancelled
@@ -91,6 +94,9 @@ class Deadline(Base):
     override_user = relationship("User", foreign_keys=[override_user_id])  # Who manually overrode this deadline
     verified_by_user = relationship("User", foreign_keys=[verified_by])  # Who verified this deadline (Case OS)
     calendar_events = relationship("CalendarEvent", back_populates="deadline")
+
+    # Authority Core - link to the authoritative rule that generated this deadline
+    authority_rule = relationship("AuthorityRule", foreign_keys=[source_rule_id])
 
     # V3.0 Enhancements - Dependency tracking and audit trail
     chains_as_parent = relationship("DeadlineChain", foreign_keys="DeadlineChain.parent_deadline_id", back_populates="parent_deadline", cascade="all, delete-orphan")
