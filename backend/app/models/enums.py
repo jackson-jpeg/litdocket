@@ -63,6 +63,7 @@ class JurisdictionType(enum.Enum):
     FEDERAL = "federal"
     STATE = "state"
     LOCAL = "local"
+    BANKRUPTCY = "bankruptcy"
     APPELLATE = "appellate"
 
 

@@ -18,16 +18,7 @@ import enum
 from app.database import Base
 
 # Import centralized enums (SINGLE SOURCE OF TRUTH)
-from app.models.enums import TriggerType, DeadlinePriority, CalculationMethod
-
-
-class JurisdictionType(enum.Enum):
-    """Types of jurisdictions"""
-    FEDERAL = "federal"
-    STATE = "state"
-    LOCAL = "local"
-    BANKRUPTCY = "bankruptcy"
-    APPELLATE = "appellate"
+from app.models.enums import TriggerType, DeadlinePriority, CalculationMethod, JurisdictionType
 
 
 class CourtType(enum.Enum):
@@ -65,7 +56,10 @@ class Jurisdiction(Base):
     code = Column(String(50), unique=True, nullable=False, index=True)  # "FL", "FED", "FL-11CIR"
     name = Column(String(255), nullable=False)  # "Florida State Courts"
     description = Column(Text)
-    jurisdiction_type = Column(SQLEnum(JurisdictionType), nullable=False)
+    jurisdiction_type = Column(
+        SQLEnum(JurisdictionType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False
+    )
 
     # Hierarchy - for local courts under state/federal
     parent_jurisdiction_id = Column(String(36), ForeignKey("jurisdictions.id"), nullable=True)
@@ -103,7 +97,10 @@ class RuleSet(Base):
     description = Column(Text)
 
     jurisdiction_id = Column(String(36), ForeignKey("jurisdictions.id"), nullable=False, index=True)
-    court_type = Column(SQLEnum(CourtType), nullable=False)
+    court_type = Column(
+        SQLEnum(CourtType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False
+    )
 
     # What rules/sources this set contains deadlines from
     contains_deadlines_from = Column(JSON)  # ["Florida Rules of Civil Procedure", "Florida Rules of Appellate Procedure"]
@@ -156,7 +153,11 @@ class RuleSetDependency(Base):
     # The rule set that is required
     required_rule_set_id = Column(String(36), ForeignKey("rule_sets.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    dependency_type = Column(SQLEnum(DependencyType), nullable=False, default=DependencyType.CONCURRENT)
+    dependency_type = Column(
+        SQLEnum(DependencyType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=DependencyType.CONCURRENT
+    )
 
     # Priority for conflict resolution (higher = takes precedence)
     priority = Column(Integer, default=0)
@@ -190,7 +191,10 @@ class CourtLocation(Base):
     name = Column(String(255), nullable=False)  # "U.S. District Court - Southern District of Florida"
     short_name = Column(String(100))  # "S.D. Fla."
 
-    court_type = Column(SQLEnum(CourtType), nullable=False)
+    court_type = Column(
+        SQLEnum(CourtType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False
+    )
 
     # Geographic identifiers
     district = Column(String(100))  # "Southern", "Middle", "Northern"
@@ -233,11 +237,17 @@ class RuleTemplate(Base):
     name = Column(String(255), nullable=False)  # "Answer to Complaint"
     description = Column(Text)
 
-    trigger_type = Column(SQLEnum(TriggerType), nullable=False, index=True)
+    trigger_type = Column(
+        SQLEnum(TriggerType, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        index=True
+    )
     citation = Column(String(255))  # "Fla. R. Civ. P. 1.140(a)"
 
     # Metadata
-    court_type = Column(SQLEnum(CourtType))  # Can be null to apply to all
+    court_type = Column(
+        SQLEnum(CourtType, values_callable=lambda x: [e.value for e in x])
+    )  # Can be null to apply to all
     case_types = Column(JSON)  # ["civil", "family"] or null for all
 
     is_active = Column(Boolean, default=True)
@@ -274,12 +284,19 @@ class RuleTemplateDeadline(Base):
     description = Column(Text)  # Full description
 
     days_from_trigger = Column(Integer, nullable=False)  # Can be negative (before trigger)
-    priority = Column(SQLEnum(DeadlinePriority), nullable=False, default=DeadlinePriority.STANDARD)
+    priority = Column(
+        SQLEnum(DeadlinePriority, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=DeadlinePriority.STANDARD
+    )
 
     party_responsible = Column(String(100))  # "defendant", "plaintiff", "both", "opposing", "movant"
     action_required = Column(Text)  # "File and serve Answer to Complaint"
 
-    calculation_method = Column(SQLEnum(CalculationMethod), default=CalculationMethod.CALENDAR_DAYS)
+    calculation_method = Column(
+        SQLEnum(CalculationMethod, values_callable=lambda x: [e.value for e in x]),
+        default=CalculationMethod.CALENDAR_DAYS
+    )
     add_service_days = Column(Boolean, default=False)  # Add 3-5 days for mail service
 
     rule_citation = Column(String(255))  # Specific rule citation

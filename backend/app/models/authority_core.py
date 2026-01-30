@@ -36,7 +36,12 @@ class AuthorityRule(Base):
 
     # Authority level for precedence (federal > state > local > standing_order > firm)
     authority_tier = Column(
-        SQLEnum(AuthorityTier, name='authority_tier', create_type=False),
+        SQLEnum(
+            AuthorityTier,
+            name='authority_tier',
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         nullable=False,
         default=AuthorityTier.STATE,
         index=True
@@ -117,7 +122,12 @@ class ScrapeJob(Base):
 
     # Status tracking
     status = Column(
-        SQLEnum(ScrapeStatus, name='scrape_status', create_type=False),
+        SQLEnum(
+            ScrapeStatus,
+            name='scrape_status',
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         nullable=False,
         default=ScrapeStatus.QUEUED,
         index=True
@@ -177,7 +187,12 @@ class RuleProposal(Base):
 
     # Review status
     status = Column(
-        SQLEnum(ProposalStatus, name='proposal_status', create_type=False),
+        SQLEnum(
+            ProposalStatus,
+            name='proposal_status',
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         nullable=False,
         default=ProposalStatus.PENDING,
         index=True
@@ -224,7 +239,12 @@ class RuleConflict(Base):
 
     # Resolution
     resolution = Column(
-        SQLEnum(ConflictResolution, name='conflict_resolution', create_type=False),
+        SQLEnum(
+            ConflictResolution,
+            name='conflict_resolution',
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x]
+        ),
         default=ConflictResolution.PENDING
     )
     resolution_notes = Column(Text)
