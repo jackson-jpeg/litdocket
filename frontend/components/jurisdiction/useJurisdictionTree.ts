@@ -3,18 +3,17 @@
 /**
  * useJurisdictionTree Hook
  *
- * Fetches jurisdictions and rule sets from Supabase, organizes them into
+ * Fetches jurisdictions and rule sets from the backend API, organizes them into
  * a hierarchical tree structure with dependency tracking.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import apiClient from '@/lib/api-client';
 import type {
   JurisdictionTreeNode,
   JurisdictionTreeState,
   JurisdictionSelection,
   SelectionWarning,
-  RuleSetWithDependencies,
 } from './types';
 
 interface UseJurisdictionTreeOptions {
@@ -37,6 +36,36 @@ interface UseJurisdictionTreeReturn extends JurisdictionTreeState {
   // Reset
   clearSelection: () => void;
   setSelection: (ruleSetIds: string[]) => void;
+}
+
+// API response types
+interface JurisdictionTreeItem {
+  id: string;
+  code: string;
+  name: string;
+  jurisdiction_type: string;
+  parent_jurisdiction_id: string | null;
+}
+
+interface RuleSetDependency {
+  required_rule_set_id: string;
+  dependency_type: string;
+  priority: number;
+}
+
+interface RuleSetTreeItem {
+  id: string;
+  code: string;
+  name: string;
+  jurisdiction_id: string;
+  court_type: string | null;
+  is_local: boolean;
+  dependencies: RuleSetDependency[];
+}
+
+interface JurisdictionTreeResponse {
+  jurisdictions: JurisdictionTreeItem[];
+  rule_sets: RuleSetTreeItem[];
 }
 
 export function useJurisdictionTree(
@@ -65,42 +94,25 @@ export function useJurisdictionTree(
       setError(null);
 
       try {
-        // Fetch jurisdictions
-        let jurisdictionQuery = supabase
-          .from('jurisdictions')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
-
+        // Fetch from backend API
+        const params: Record<string, string> = {};
         if (filterByState) {
-          jurisdictionQuery = jurisdictionQuery.or(`state.eq.${filterByState},jurisdiction_type.eq.federal`);
+          params.filter_by_state = filterByState;
         }
 
-        const { data: jurisdictions, error: jError } = await jurisdictionQuery;
-        if (jError) throw jError;
+        const response = await apiClient.get<JurisdictionTreeResponse>(
+          '/jurisdictions/tree',
+          { params }
+        );
 
-        // Fetch rule sets with dependencies
-        const { data: ruleSets, error: rsError } = await supabase
-          .from('rule_sets')
-          .select(`
-            *,
-            dependencies:rule_set_dependencies(
-              required_rule_set_id,
-              dependency_type,
-              priority
-            )
-          `)
-          .eq('is_active', true)
-          .order('code');
-
-        if (rsError) throw rsError;
+        const { jurisdictions, rule_sets: ruleSets } = response.data;
 
         // Build dependency maps
         const depMap = new Map<string, string[]>();
         const reverseDepMap = new Map<string, string[]>();
 
-        for (const rs of ruleSets || []) {
-          const deps = rs.dependencies?.map((d: { required_rule_set_id: string }) => d.required_rule_set_id) || [];
+        for (const rs of ruleSets) {
+          const deps = rs.dependencies?.map(d => d.required_rule_set_id) || [];
           depMap.set(rs.id, deps);
 
           // Build reverse map
@@ -115,7 +127,7 @@ export function useJurisdictionTree(
         setReverseDependencyMap(reverseDepMap);
 
         // Build tree structure
-        const { tree, flat } = buildTree(jurisdictions || [], ruleSets || [], expandedByDefault);
+        const { tree, flat } = buildTree(jurisdictions, ruleSets, expandedByDefault);
         setNodes(tree);
         setFlatNodes(flat);
 
@@ -138,26 +150,8 @@ export function useJurisdictionTree(
 
   // Build tree from flat data
   function buildTree(
-    jurisdictions: Array<{
-      id: string;
-      code: string;
-      name: string;
-      jurisdiction_type: string;
-      parent_jurisdiction_id: string | null;
-    }>,
-    ruleSets: Array<{
-      id: string;
-      code: string;
-      name: string;
-      jurisdiction_id: string;
-      court_type: string;
-      is_local: boolean;
-      dependencies?: Array<{
-        required_rule_set_id: string;
-        dependency_type: string;
-        priority: number;
-      }>;
-    }>,
+    jurisdictions: JurisdictionTreeItem[],
+    ruleSets: RuleSetTreeItem[],
     expanded: boolean
   ): { tree: JurisdictionTreeNode[]; flat: Map<string, JurisdictionTreeNode> } {
     const flat = new Map<string, JurisdictionTreeNode>();
@@ -197,7 +191,7 @@ export function useJurisdictionTree(
         parentId: rs.jurisdiction_id,
         children: [],
         isLocal: rs.is_local,
-        courtType: rs.court_type,
+        courtType: rs.court_type || undefined,
         requiredRuleSets: rs.dependencies?.map(d => d.required_rule_set_id) || [],
         isSelected: false,
         isAutoSelected: false,

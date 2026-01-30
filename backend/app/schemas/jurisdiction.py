@@ -453,6 +453,43 @@ class JurisdictionChangeResult(BaseModel):
     warnings: List[str] = []
 
 
+# ============================================================
+# Jurisdiction Tree Schemas (for frontend tree selector)
+# ============================================================
+
+class RuleSetDependencySimple(BaseModel):
+    """Simplified dependency for tree view"""
+    required_rule_set_id: str
+    dependency_type: str
+    priority: int
+
+
+class JurisdictionTreeItem(BaseModel):
+    """Jurisdiction item for tree"""
+    id: str
+    code: str
+    name: str
+    jurisdiction_type: str
+    parent_jurisdiction_id: Optional[str] = None
+
+
+class RuleSetTreeItem(BaseModel):
+    """Rule set item for tree with dependencies"""
+    id: str
+    code: str
+    name: str
+    jurisdiction_id: str
+    court_type: Optional[str] = None
+    is_local: bool = False
+    dependencies: List[RuleSetDependencySimple] = []
+
+
+class JurisdictionTreeResponse(BaseModel):
+    """Complete data for jurisdiction tree selector"""
+    jurisdictions: List[JurisdictionTreeItem]
+    rule_sets: List[RuleSetTreeItem]
+
+
 # Fix forward references
 HierarchyNode.model_rebuild()
 JurisdictionWithChildren.model_rebuild()
