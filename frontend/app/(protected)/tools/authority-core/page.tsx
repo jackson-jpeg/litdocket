@@ -73,35 +73,79 @@ function TabButton({ active, onClick, icon, label, count }: TabButtonProps) {
   );
 }
 
+interface HarvestResult {
+  job_id: string;
+  status: string;
+  rules_found: number;
+  proposals_created: number;
+  errors: string[];
+}
+
 function ScrapePanel({ jurisdictions, onJobCreated }: {
   jurisdictions: Jurisdiction[];
   onJobCreated: (job: ScrapeJob) => void;
 }) {
   const [selectedJurisdiction, setSelectedJurisdiction] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [url, setUrl] = useState('');
+  const [useExtendedThinking, setUseExtendedThinking] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<HarvestResult | null>(null);
 
-  const handleScrape = async () => {
-    if (!selectedJurisdiction || !searchQuery.trim()) {
-      setError('Please select a jurisdiction and enter a search query');
+  const handleHarvest = async () => {
+    if (!selectedJurisdiction || !url.trim()) {
+      setError('Please select a jurisdiction and enter a URL');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      new URL(url.trim());
+    } catch {
+      setError('Please enter a valid URL (e.g., https://www.flsd.uscourts.gov/local-rules)');
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setResult(null);
 
     try {
-      const response = await apiClient.post('/api/v1/authority-core/scrape', {
+      const response = await apiClient.post('/api/v1/authority-core/harvest', {
+        url: url.trim(),
         jurisdiction_id: selectedJurisdiction,
-        search_query: searchQuery.trim(),
+        use_extended_thinking: useExtendedThinking,
+        auto_approve_high_confidence: false,
       });
 
-      onJobCreated(response.data);
-      setSearchQuery('');
+      setResult(response.data);
+
+      // Create a ScrapeJob-like object for the parent component
+      const jobData: ScrapeJob = {
+        id: response.data.job_id,
+        user_id: '',
+        jurisdiction_id: selectedJurisdiction,
+        jurisdiction_name: response.data.jurisdiction_name,
+        search_query: `Harvest from ${url.trim()}`,
+        status: response.data.status,
+        progress_pct: 100,
+        rules_found: response.data.rules_found,
+        proposals_created: response.data.proposals_created,
+        urls_processed: [url.trim()],
+        created_at: new Date().toISOString(),
+      };
+      onJobCreated(jobData);
+
+      if (response.data.status === 'completed') {
+        setUrl('');
+      }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start scrape job';
-      setError(errorMessage);
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string } } };
+        setError(axiosError.response?.data?.detail || 'Failed to harvest rules');
+      } else {
+        setError('Failed to harvest rules');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +159,7 @@ function ScrapePanel({ jurisdictions, onJobCreated }: {
         </div>
         <div>
           <h3 className="font-semibold text-slate-900">Extract Court Rules</h3>
-          <p className="text-sm text-slate-500">Search and extract rules from court websites</p>
+          <p className="text-sm text-slate-500">Extract rules from official court websites</p>
         </div>
       </div>
 
@@ -140,18 +184,31 @@ function ScrapePanel({ jurisdictions, onJobCreated }: {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1.5">
-            Search Query
+            Court Rules URL
           </label>
           <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="e.g., motion response deadline, discovery rules"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://www.flsd.uscourts.gov/local-rules"
             className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <p className="mt-1.5 text-xs text-slate-500">
-            Be specific about what rules you&apos;re looking for
+            Enter the URL of an official court rules page
           </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="extendedThinking"
+            checked={useExtendedThinking}
+            onChange={(e) => setUseExtendedThinking(e.target.checked)}
+            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="extendedThinking" className="text-sm text-slate-600">
+            Use extended thinking (more accurate, slower)
+          </label>
         </div>
 
         {error && (
@@ -161,15 +218,37 @@ function ScrapePanel({ jurisdictions, onJobCreated }: {
           </div>
         )}
 
+        {result && (
+          <div className={`p-3 rounded-lg flex items-start gap-2 ${
+            result.errors.length > 0
+              ? 'bg-amber-50 border border-amber-200'
+              : 'bg-green-50 border border-green-200'
+          }`}>
+            <CheckCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+              result.errors.length > 0 ? 'text-amber-500' : 'text-green-500'
+            }`} />
+            <div className="text-sm">
+              <p className={result.errors.length > 0 ? 'text-amber-700' : 'text-green-700'}>
+                Found {result.rules_found} rules, created {result.proposals_created} proposals
+              </p>
+              {result.errors.length > 0 && (
+                <p className="text-amber-600 text-xs mt-1">
+                  {result.errors.length} warning(s) during extraction
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <button
-          onClick={handleScrape}
-          disabled={isLoading || !selectedJurisdiction || !searchQuery.trim()}
+          onClick={handleHarvest}
+          disabled={isLoading || !selectedJurisdiction || !url.trim()}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isLoading ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              Starting Extraction...
+              Extracting Rules...
             </>
           ) : (
             <>
