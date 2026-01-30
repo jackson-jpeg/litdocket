@@ -6,12 +6,17 @@ Uses Claude's capabilities to:
 2. Extract structured rule data from legal text
 3. Calculate confidence scores for extractions
 4. Map extracted rules to trigger types
+5. Scrape and clean legal text from court URLs (RuleHarvester-2 enhancement)
+6. Extract rules with extended thinking for complex documents
+7. Detect conflicts between extracted rules and cited authorities
 """
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import re
 import logging
+import hashlib
+import httpx
 
 from anthropic import Anthropic
 
@@ -20,6 +25,10 @@ from app.models.enums import TriggerType, AuthorityTier
 
 logger = logging.getLogger(__name__)
 
+
+# =============================================================
+# DATACLASSES
+# =============================================================
 
 @dataclass
 class ExtractedDeadline:
@@ -31,6 +40,13 @@ class ExtractedDeadline:
     party_responsible: Optional[str] = None
     conditions: Optional[Dict[str, Any]] = None
     description: Optional[str] = None
+
+
+@dataclass
+class RelatedRule:
+    """A citation to another rule referenced in the extracted rule"""
+    citation: str  # e.g., "FRCP 6(a)"
+    purpose: str  # Why it's referenced (e.g., "computation of time")
 
 
 @dataclass
@@ -48,6 +64,26 @@ class ExtractedRuleData:
     service_extensions: Optional[Dict[str, int]] = None
     confidence_score: float = 0.0
     extraction_notes: Optional[str] = None
+    # RuleHarvester-2 enhancements
+    related_rules: List[RelatedRule] = field(default_factory=list)
+    extraction_reasoning: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ScrapedContent:
+    """Result from scraping a court URL (RuleHarvester-2 enhancement)"""
+    raw_text: str  # Clean legal text with nav/UI filtered out
+    content_hash: str  # For change detection (first 1000 chars hash)
+    source_urls: List[str]  # Grounding URLs for the content
+
+
+@dataclass
+class DetectedConflict:
+    """A conflict between an extracted rule and cited authority"""
+    rule_a: str  # The extracted rule citation
+    rule_b: str  # The cited authority (e.g., FRCP 6)
+    discrepancy: str  # Description of the conflict
+    ai_resolution_recommendation: str  # AI's recommended resolution
 
 
 @dataclass
@@ -438,6 +474,301 @@ Please provide a corrected extraction as JSON. If the feedback indicates the ext
             logger.error(f"Refinement failed: {e}")
 
         return original_extraction
+
+    # =============================================================
+    # RULEHARVESTER-2 ENHANCED METHODS
+    # =============================================================
+
+    async def scrape_url_content(self, url: str) -> ScrapedContent:
+        """
+        Fetch and clean legal text from a court URL.
+
+        Adapted from ruleharvester's deepScanUrl(). Uses Claude to extract
+        clean legal text from court websites, filtering out navigation,
+        sidebars, footers, and other UI noise.
+
+        Args:
+            url: The URL to scrape (e.g., court rules page)
+
+        Returns:
+            ScrapedContent with cleaned text, content hash, and source URLs
+        """
+        # Fetch the raw HTML content
+        try:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(
+                    url,
+                    headers={
+                        "User-Agent": "LitDocket/1.0 (Legal Research Bot; +https://litdocket.com)"
+                    }
+                )
+                response.raise_for_status()
+                raw_html = response.text
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch URL {url}: {e}")
+            raise ValueError(f"Failed to fetch URL: {e}")
+
+        # Use Claude to extract clean legal text from HTML
+        extraction_prompt = """You are a legal content extraction assistant. Extract the main legal rule text from this HTML page.
+
+INSTRUCTIONS:
+1. Extract ONLY the substantive legal rule content (statutes, rules, procedures)
+2. REMOVE all navigation elements, sidebars, footers, headers, menus
+3. REMOVE any advertisements, related links, or non-rule content
+4. PRESERVE the exact text of rules, citations, and legal language
+5. PRESERVE formatting like numbered sections, subsections, and indentation
+6. Include the rule citation/title if present
+
+Return ONLY the clean legal text. If no legal rule content is found, return "NO_LEGAL_CONTENT_FOUND".
+
+HTML CONTENT:
+{html}"""
+
+        try:
+            response = self.anthropic.messages.create(
+                model=self.model,
+                max_tokens=8192,
+                messages=[{
+                    "role": "user",
+                    "content": extraction_prompt.format(html=raw_html[:50000])  # Limit HTML size
+                }]
+            )
+
+            raw_text = response.content[0].text.strip()
+
+            if raw_text == "NO_LEGAL_CONTENT_FOUND":
+                raise ValueError("No legal content found at URL")
+
+            # Generate content hash for change detection (first 1000 chars)
+            content_hash = hashlib.sha256(raw_text[:1000].encode()).hexdigest()[:16]
+
+            return ScrapedContent(
+                raw_text=raw_text,
+                content_hash=content_hash,
+                source_urls=[url]
+            )
+
+        except Exception as e:
+            logger.error(f"Content extraction failed for {url}: {e}")
+            raise ValueError(f"Content extraction failed: {e}")
+
+    async def extract_with_extended_thinking(
+        self,
+        content: str,
+        jurisdiction_name: str,
+        source_url: Optional[str] = None
+    ) -> List[ExtractedRuleData]:
+        """
+        Extract rules using Claude's extended thinking for complex documents.
+
+        Adapted from ruleharvester's extractRuleData() with thinkingBudget.
+        Uses extended thinking to provide chain-of-thought reasoning for
+        complex rule extraction, improving accuracy and providing transparency.
+
+        Args:
+            content: The text content containing court rules
+            jurisdiction_name: Name of the jurisdiction for context
+            source_url: Optional URL where content was found
+
+        Returns:
+            List of ExtractedRuleData with extraction_reasoning populated
+        """
+        prompt = f"""{self.EXTRACTION_PROMPT}
+
+JURISDICTION CONTEXT: {jurisdiction_name}
+
+ADDITIONAL INSTRUCTIONS FOR EXTENDED THINKING:
+- Think through each rule carefully, identifying the trigger event, deadlines, and any conditions
+- Consider how this rule relates to other rules (e.g., FRCP time computation rules)
+- Note any ambiguities or areas requiring attorney review
+- Document your reasoning for deadline day counts and calculation methods
+
+SOURCE TEXT:
+{content[:15000]}
+
+Extract all procedural rules from this text and return as JSON array.
+After the JSON array, provide a brief "EXTRACTION_REASONING" section explaining your analysis."""
+
+        try:
+            # Use extended thinking for complex extraction
+            response = self.anthropic.messages.create(
+                model="claude-sonnet-4-20250514",  # Extended thinking requires specific model
+                max_tokens=16000,
+                thinking={
+                    "type": "enabled",
+                    "budget_tokens": 10000  # Allow substantial thinking for complex rules
+                },
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            # Extract thinking blocks for transparency
+            thinking_content = []
+            response_text = ""
+
+            for block in response.content:
+                if block.type == "thinking":
+                    thinking_content.append(block.thinking)
+                elif block.type == "text":
+                    response_text = block.text
+
+            # Parse the extraction response
+            extracted = self._parse_extraction_response(response_text)
+
+            # Extract reasoning section if present
+            extraction_reasoning = thinking_content  # Use thinking blocks as reasoning
+
+            # Also try to parse explicit EXTRACTION_REASONING from response
+            reasoning_match = re.search(
+                r'EXTRACTION_REASONING[:\s]*(.*?)(?=\Z|\n\n[A-Z])',
+                response_text,
+                re.DOTALL | re.IGNORECASE
+            )
+            if reasoning_match:
+                explicit_reasoning = reasoning_match.group(1).strip()
+                if explicit_reasoning:
+                    extraction_reasoning.append(explicit_reasoning)
+
+            # Convert to ExtractedRuleData objects with reasoning
+            results = []
+            for rule_dict in extracted:
+                try:
+                    deadlines = [
+                        ExtractedDeadline(
+                            title=d.get("title", ""),
+                            days_from_trigger=d.get("days_from_trigger", 0),
+                            calculation_method=d.get("calculation_method", "calendar_days"),
+                            priority=d.get("priority", "standard"),
+                            party_responsible=d.get("party_responsible"),
+                            conditions=d.get("conditions"),
+                            description=d.get("description")
+                        )
+                        for d in rule_dict.get("deadlines", [])
+                    ]
+
+                    # Parse related rules if present
+                    related_rules = [
+                        RelatedRule(
+                            citation=r.get("citation", ""),
+                            purpose=r.get("purpose", "")
+                        )
+                        for r in rule_dict.get("related_rules", [])
+                    ]
+
+                    rule_data = ExtractedRuleData(
+                        rule_code=rule_dict.get("rule_code", "UNKNOWN"),
+                        rule_name=rule_dict.get("rule_name", "Unknown Rule"),
+                        trigger_type=rule_dict.get("trigger_type", "custom_trigger"),
+                        authority_tier=rule_dict.get("authority_tier", "state"),
+                        citation=rule_dict.get("citation", ""),
+                        source_url=source_url,
+                        source_text=content[:2000],
+                        deadlines=deadlines,
+                        conditions=rule_dict.get("conditions"),
+                        service_extensions=rule_dict.get("service_extensions", {
+                            "mail": 3, "electronic": 0, "personal": 0
+                        }),
+                        confidence_score=self._calculate_confidence(rule_dict),
+                        extraction_notes=None,
+                        related_rules=related_rules,
+                        extraction_reasoning=extraction_reasoning
+                    )
+                    results.append(rule_data)
+                except Exception as e:
+                    logger.warning(f"Failed to parse rule: {e}")
+                    continue
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Extended thinking extraction failed: {e}")
+            # Fall back to standard extraction
+            logger.info("Falling back to standard extraction")
+            return await self.extract_from_content(content, jurisdiction_name, source_url)
+
+    async def detect_authority_conflicts(
+        self,
+        rule: ExtractedRuleData,
+        authority_citation: str
+    ) -> List[DetectedConflict]:
+        """
+        Detect conflicts between an extracted rule and cited authority.
+
+        Adapted from ruleharvester's resolveRuleConflicts(). Cross-references
+        the extracted rule against cited authority (e.g., FRCP 6) to identify
+        any contradictions or discrepancies.
+
+        Args:
+            rule: The extracted rule to check
+            authority_citation: The authority to check against (e.g., "FRCP 6")
+
+        Returns:
+            List of DetectedConflict with AI-generated resolution recommendations
+        """
+        conflict_prompt = f"""You are a legal conflict detection assistant. Analyze whether the following extracted rule conflicts with the cited authority.
+
+EXTRACTED RULE:
+- Citation: {rule.citation}
+- Name: {rule.rule_name}
+- Trigger Type: {rule.trigger_type}
+- Deadlines: {json.dumps([{
+    'title': d.title,
+    'days': d.days_from_trigger,
+    'method': d.calculation_method
+} for d in rule.deadlines])}
+- Source Text: {rule.source_text[:1500]}
+
+AUTHORITY TO CHECK AGAINST: {authority_citation}
+
+INSTRUCTIONS:
+1. Consider whether the extracted rule's deadlines conflict with the cited authority
+2. Check if time computation methods are consistent
+3. Look for any explicit contradictions or ambiguities
+4. Consider jurisdictional hierarchy (local rules can modify but not contradict federal rules in most cases)
+
+If conflicts exist, return a JSON array with:
+[
+  {{
+    "rule_a": "citation of extracted rule",
+    "rule_b": "citation of authority being checked",
+    "discrepancy": "description of the conflict",
+    "ai_resolution_recommendation": "recommended resolution based on legal hierarchy and best practices"
+  }}
+]
+
+If NO conflicts exist, return an empty array: []
+
+Return ONLY the JSON array, no other text."""
+
+        try:
+            response = self.anthropic.messages.create(
+                model=self.model,
+                max_tokens=2048,
+                messages=[{"role": "user", "content": conflict_prompt}]
+            )
+
+            response_text = response.content[0].text.strip()
+
+            # Parse the JSON response
+            conflicts_data = self._parse_extraction_response(response_text)
+
+            # Convert to DetectedConflict objects
+            conflicts = []
+            for c in conflicts_data:
+                conflicts.append(DetectedConflict(
+                    rule_a=c.get("rule_a", rule.citation),
+                    rule_b=c.get("rule_b", authority_citation),
+                    discrepancy=c.get("discrepancy", "Unknown discrepancy"),
+                    ai_resolution_recommendation=c.get(
+                        "ai_resolution_recommendation",
+                        "Manual review recommended"
+                    )
+                ))
+
+            return conflicts
+
+        except Exception as e:
+            logger.error(f"Conflict detection failed: {e}")
+            return []
 
 
 # Singleton instance

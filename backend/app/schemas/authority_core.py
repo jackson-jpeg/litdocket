@@ -406,3 +406,161 @@ class DeadlineCalculationResponse(BaseModel):
     rules_applied: int
     deadlines: List[CalculatedDeadline]
     warnings: Optional[List[str]] = None
+
+
+# =============================================================
+# RULEHARVESTER-2 ENHANCED SCHEMAS
+# =============================================================
+
+class ScrapeUrlRequest(BaseModel):
+    """Request to scrape legal content from a URL"""
+    url: str = Field(..., description="The URL to scrape (e.g., court rules page)")
+    jurisdiction_id: str = Field(..., description="Jurisdiction this URL belongs to")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "url": "https://www.flsd.uscourts.gov/local-rules",
+                "jurisdiction_id": "sdfl-uuid"
+            }
+        }
+
+
+class ScrapeUrlResponse(BaseModel):
+    """Response from URL scraping"""
+    raw_text: str = Field(..., description="Clean legal text with navigation filtered out")
+    content_hash: str = Field(..., description="Hash of first 1000 chars for change detection")
+    source_urls: List[str] = Field(..., description="Source URLs for the content")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "raw_text": "LOCAL RULE 7.1 MOTIONS GENERALLY\n(a) Time Periods...",
+                "content_hash": "a1b2c3d4e5f6g7h8",
+                "source_urls": ["https://www.flsd.uscourts.gov/local-rules"]
+            }
+        }
+
+
+class RelatedRuleSpec(BaseModel):
+    """A citation to another related rule"""
+    citation: str = Field(..., description="The rule citation (e.g., FRCP 6(a))")
+    purpose: str = Field(..., description="Why the rule is referenced")
+
+
+class ExtractedDeadlineSpec(BaseModel):
+    """Deadline specification from extraction"""
+    title: str
+    days_from_trigger: int
+    calculation_method: str
+    priority: str
+    party_responsible: Optional[str] = None
+    conditions: Optional[Dict[str, Any]] = None
+    description: Optional[str] = None
+
+
+class ExtractEnhancedRequest(BaseModel):
+    """Request for enhanced extraction with extended thinking"""
+    text: str = Field(..., description="The text content to extract rules from")
+    jurisdiction_id: str = Field(..., description="Jurisdiction for context")
+    source_url: Optional[str] = Field(None, description="Source URL of the content")
+    use_extended_thinking: bool = Field(
+        True,
+        description="Whether to use extended thinking for complex extraction"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "LOCAL RULE 7.1 MOTIONS GENERALLY\n(a) Time Periods...",
+                "jurisdiction_id": "sdfl-uuid",
+                "source_url": "https://www.flsd.uscourts.gov/local-rules",
+                "use_extended_thinking": True
+            }
+        }
+
+
+class ExtractedRuleResponse(BaseModel):
+    """Response for an extracted rule with RuleHarvester-2 enhancements"""
+    rule_code: str
+    rule_name: str
+    trigger_type: str
+    authority_tier: str
+    citation: str
+    source_url: Optional[str]
+    source_text: str
+    deadlines: List[ExtractedDeadlineSpec]
+    conditions: Optional[Dict[str, Any]] = None
+    service_extensions: Optional[Dict[str, int]] = None
+    confidence_score: float
+    extraction_notes: Optional[str] = None
+    # RuleHarvester-2 enhancements
+    related_rules: List[RelatedRuleSpec] = []
+    extraction_reasoning: List[str] = []
+
+
+class ExtractEnhancedResponse(BaseModel):
+    """Response from enhanced extraction"""
+    rules: List[ExtractedRuleResponse]
+    total_rules_found: int
+    used_extended_thinking: bool
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "rules": [],
+                "total_rules_found": 3,
+                "used_extended_thinking": True
+            }
+        }
+
+
+class DetectConflictsRequest(BaseModel):
+    """Request to detect conflicts between a proposal and cited authority"""
+    proposal_id: str = Field(..., description="The proposal ID to check for conflicts")
+    authority_citation: str = Field(
+        ...,
+        description="The authority to check against (e.g., 'FRCP 6')"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "proposal_id": "proposal-uuid",
+                "authority_citation": "FRCP 6(a)"
+            }
+        }
+
+
+class DetectedConflictResponse(BaseModel):
+    """A detected conflict between rules"""
+    rule_a: str = Field(..., description="Citation of the extracted/local rule")
+    rule_b: str = Field(..., description="Citation of the authority being checked")
+    discrepancy: str = Field(..., description="Description of the conflict")
+    ai_resolution_recommendation: str = Field(
+        ...,
+        description="AI-generated recommendation for resolving the conflict"
+    )
+
+
+class DetectConflictsResponse(BaseModel):
+    """Response from conflict detection"""
+    proposal_id: str
+    authority_citation: str
+    conflicts_found: int
+    conflicts: List[DetectedConflictResponse]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "proposal_id": "proposal-uuid",
+                "authority_citation": "FRCP 6(a)",
+                "conflicts_found": 1,
+                "conflicts": [{
+                    "rule_a": "S.D. Fla. L.R. 7.1(a)",
+                    "rule_b": "FRCP 6(a)",
+                    "discrepancy": "Local rule specifies 14 calendar days but does not account for FRCP 6(a) weekend/holiday extension",
+                    "ai_resolution_recommendation": "Apply FRCP 6(a) extension rules when deadline falls on weekend/holiday"
+                }]
+            }
+        }

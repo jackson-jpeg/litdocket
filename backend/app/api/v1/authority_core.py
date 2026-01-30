@@ -52,9 +52,27 @@ from app.schemas.authority_core import (
     ProposalStatusEnum,
     ScrapeStatusEnum,
     ConflictResolutionEnum,
+    # RuleHarvester-2 enhanced schemas
+    ScrapeUrlRequest,
+    ScrapeUrlResponse,
+    ExtractEnhancedRequest,
+    ExtractEnhancedResponse,
+    ExtractedRuleResponse,
+    ExtractedDeadlineSpec,
+    RelatedRuleSpec,
+    DetectConflictsRequest,
+    DetectConflictsResponse,
+    DetectedConflictResponse,
 )
 from app.services.authority_core_service import AuthorityCoreService
-from app.services.rule_extraction_service import ExtractedRuleData, ExtractedDeadline
+from app.services.rule_extraction_service import (
+    ExtractedRuleData,
+    ExtractedDeadline,
+    rule_extraction_service,
+    ScrapedContent,
+    DetectedConflict,
+    RelatedRule
+)
 
 logger = logging.getLogger(__name__)
 
@@ -759,3 +777,213 @@ async def create_rule(
     db.refresh(rule)
 
     return rule_to_response(rule, jurisdiction)
+
+
+# ============================================================
+# RuleHarvester-2 Enhanced Endpoints
+# ============================================================
+
+@router.post("/scrape-url", response_model=ScrapeUrlResponse)
+async def scrape_url_content(
+    request: ScrapeUrlRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Scrape and clean legal content from a court URL.
+
+    Uses Claude to extract clean legal text from the URL, filtering out
+    navigation, sidebars, footers, and other UI noise. Returns the cleaned
+    text along with a content hash for change detection.
+
+    This is the first step in the RuleHarvester-2 pipeline:
+    1. scrape-url → Get clean legal text
+    2. extract-enhanced → Extract rules with extended thinking
+    3. detect-conflicts → Check for conflicts with cited authorities
+    """
+    # Verify jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == request.jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    try:
+        scraped = await rule_extraction_service.scrape_url_content(request.url)
+        return ScrapeUrlResponse(
+            raw_text=scraped.raw_text,
+            content_hash=scraped.content_hash,
+            source_urls=scraped.source_urls
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"URL scraping failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to scrape URL content")
+
+
+@router.post("/extract-enhanced", response_model=ExtractEnhancedResponse)
+async def extract_with_extended_thinking(
+    request: ExtractEnhancedRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Extract rules from text using Claude's extended thinking.
+
+    Uses extended thinking (chain-of-thought) for complex rule extraction,
+    providing transparency into the extraction reasoning. This improves
+    accuracy for complex rules with multiple conditions or references.
+
+    Returns extracted rules with:
+    - extraction_reasoning: Chain-of-thought from extended thinking
+    - related_rules: Citations to other rules referenced
+    - confidence_score: Calculated confidence in the extraction
+    """
+    # Verify jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == request.jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    try:
+        if request.use_extended_thinking:
+            extracted_rules = await rule_extraction_service.extract_with_extended_thinking(
+                content=request.text,
+                jurisdiction_name=jurisdiction.name,
+                source_url=request.source_url
+            )
+        else:
+            extracted_rules = await rule_extraction_service.extract_from_content(
+                content=request.text,
+                jurisdiction_name=jurisdiction.name,
+                source_url=request.source_url
+            )
+
+        # Convert to response format
+        rules_response = []
+        for rule in extracted_rules:
+            rules_response.append(ExtractedRuleResponse(
+                rule_code=rule.rule_code,
+                rule_name=rule.rule_name,
+                trigger_type=rule.trigger_type,
+                authority_tier=rule.authority_tier,
+                citation=rule.citation,
+                source_url=rule.source_url,
+                source_text=rule.source_text,
+                deadlines=[
+                    ExtractedDeadlineSpec(
+                        title=d.title,
+                        days_from_trigger=d.days_from_trigger,
+                        calculation_method=d.calculation_method,
+                        priority=d.priority,
+                        party_responsible=d.party_responsible,
+                        conditions=d.conditions,
+                        description=d.description
+                    )
+                    for d in rule.deadlines
+                ],
+                conditions=rule.conditions,
+                service_extensions=rule.service_extensions,
+                confidence_score=rule.confidence_score,
+                extraction_notes=rule.extraction_notes,
+                related_rules=[
+                    RelatedRuleSpec(citation=r.citation, purpose=r.purpose)
+                    for r in rule.related_rules
+                ],
+                extraction_reasoning=rule.extraction_reasoning
+            ))
+
+        return ExtractEnhancedResponse(
+            rules=rules_response,
+            total_rules_found=len(rules_response),
+            used_extended_thinking=request.use_extended_thinking
+        )
+
+    except Exception as e:
+        logger.error(f"Enhanced extraction failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to extract rules")
+
+
+@router.post("/detect-conflicts", response_model=DetectConflictsResponse)
+async def detect_authority_conflicts(
+    request: DetectConflictsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Detect conflicts between a proposal and cited authority.
+
+    Cross-references the extracted rule in a proposal against the cited
+    authority (e.g., FRCP 6) to identify any contradictions or discrepancies.
+    Returns AI-generated resolution recommendations.
+
+    Use this after extraction to verify the rule doesn't conflict with
+    higher-tier authorities before approval.
+    """
+    # Get the proposal
+    proposal = service.get_proposal(request.proposal_id, str(current_user.id))
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    # Extract rule data from proposal
+    rule_data = proposal.proposed_rule_data
+    if not rule_data:
+        raise HTTPException(status_code=400, detail="Proposal has no rule data")
+
+    # Convert proposal data to ExtractedRuleData for conflict detection
+    try:
+        deadlines = [
+            ExtractedDeadline(
+                title=d.get("title", ""),
+                days_from_trigger=d.get("days_from_trigger", 0),
+                calculation_method=d.get("calculation_method", "calendar_days"),
+                priority=d.get("priority", "standard"),
+                party_responsible=d.get("party_responsible"),
+                conditions=d.get("conditions"),
+                description=d.get("description")
+            )
+            for d in rule_data.get("deadlines", [])
+        ]
+
+        extracted_rule = ExtractedRuleData(
+            rule_code=rule_data.get("rule_code", "UNKNOWN"),
+            rule_name=rule_data.get("rule_name", "Unknown Rule"),
+            trigger_type=rule_data.get("trigger_type", "custom_trigger"),
+            authority_tier=rule_data.get("authority_tier", "state"),
+            citation=rule_data.get("citation", ""),
+            source_url=proposal.source_url,
+            source_text=proposal.source_text or "",
+            deadlines=deadlines,
+            conditions=rule_data.get("conditions"),
+            service_extensions=rule_data.get("service_extensions")
+        )
+
+        # Run conflict detection
+        conflicts = await rule_extraction_service.detect_authority_conflicts(
+            rule=extracted_rule,
+            authority_citation=request.authority_citation
+        )
+
+        return DetectConflictsResponse(
+            proposal_id=request.proposal_id,
+            authority_citation=request.authority_citation,
+            conflicts_found=len(conflicts),
+            conflicts=[
+                DetectedConflictResponse(
+                    rule_a=c.rule_a,
+                    rule_b=c.rule_b,
+                    discrepancy=c.discrepancy,
+                    ai_resolution_recommendation=c.ai_resolution_recommendation
+                )
+                for c in conflicts
+            ]
+        )
+
+    except Exception as e:
+        logger.error(f"Conflict detection failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to detect conflicts")
