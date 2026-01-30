@@ -539,6 +539,69 @@ export default function AuthorityCorePage() {
         </div>
       </div>
 
+      {/* Quick Access Features */}
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button
+            onClick={() => router.push('/rules/visualization')}
+            className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+          >
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900">Rule Graph</p>
+              <p className="text-xs text-slate-500">Visualize dependencies</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push('/rules/schedules')}
+            className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+          >
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Clock className="w-4 h-4 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900">Schedules</p>
+              <p className="text-xs text-slate-500">Auto-harvest rules</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push('/rules/holidays')}
+            className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+          >
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <svg className="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900">Holidays</p>
+              <p className="text-xs text-slate-500">Court calendars</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push('/rules/analytics')}
+            className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+          >
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-900">Analytics</p>
+              <p className="text-xs text-slate-500">Rule effectiveness</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Tab Navigation */}
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center gap-2">

@@ -2134,3 +2134,1158 @@ async def get_migration_status(
     except Exception as e:
         logger.error(f"Migration status check failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Visualization Endpoints
+# ============================================================
+
+@router.get("/visualization/graph")
+async def get_rule_graph(
+    jurisdiction_id: Optional[str] = None,
+    trigger_type: Optional[str] = None,
+    conflicts_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get rule dependency graph data for visualization.
+
+    Returns nodes (rules) and edges (relationships/conflicts) suitable
+    for rendering with react-flow or d3.
+    """
+    # Build query for rules
+    query = db.query(AuthorityRule).filter(AuthorityRule.is_active == True)
+
+    if jurisdiction_id:
+        query = query.filter(AuthorityRule.jurisdiction_id == jurisdiction_id)
+    if trigger_type:
+        query = query.filter(AuthorityRule.trigger_type == trigger_type)
+
+    rules = query.all()
+
+    if conflicts_only:
+        # Only include rules that have conflicts
+        conflict_rule_ids = set()
+        conflicts = db.query(RuleConflict).filter(
+            RuleConflict.resolution == ConflictResolution.PENDING
+        ).all()
+        for c in conflicts:
+            conflict_rule_ids.add(c.rule_a_id)
+            conflict_rule_ids.add(c.rule_b_id)
+        rules = [r for r in rules if r.id in conflict_rule_ids]
+
+    rule_ids = {r.id for r in rules}
+
+    # Get usage counts
+    usage_counts = {}
+    usage_query = db.query(
+        AuthorityRuleUsage.rule_id,
+        sql_func.count(AuthorityRuleUsage.id).label('count')
+    ).filter(
+        AuthorityRuleUsage.rule_id.in_(rule_ids)
+    ).group_by(AuthorityRuleUsage.rule_id).all()
+
+    for rule_id, count in usage_query:
+        usage_counts[rule_id] = count
+
+    # Build nodes
+    nodes = []
+    jurisdictions = set()
+    tiers = set()
+
+    for rule in rules:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == rule.jurisdiction_id
+        ).first() if rule.jurisdiction_id else None
+
+        jurisdiction_name = jurisdiction.name if jurisdiction else "Unknown"
+        jurisdictions.add(jurisdiction_name)
+        tiers.add(rule.authority_tier.value if rule.authority_tier else "unknown")
+
+        nodes.append({
+            "id": rule.id,
+            "rule_code": rule.rule_code,
+            "rule_name": rule.rule_name,
+            "trigger_type": rule.trigger_type,
+            "authority_tier": rule.authority_tier.value if rule.authority_tier else "unknown",
+            "jurisdiction_name": jurisdiction_name,
+            "deadlines_count": len(rule.deadlines) if rule.deadlines else 0,
+            "is_verified": rule.is_verified,
+            "usage_count": usage_counts.get(rule.id, 0)
+        })
+
+    # Build edges
+    edges = []
+
+    # 1. Conflict edges
+    conflicts = db.query(RuleConflict).filter(
+        RuleConflict.rule_a_id.in_(rule_ids),
+        RuleConflict.rule_b_id.in_(rule_ids)
+    ).all()
+
+    for conflict in conflicts:
+        edges.append({
+            "source": conflict.rule_a_id,
+            "target": conflict.rule_b_id,
+            "type": "conflict",
+            "label": conflict.conflict_type,
+            "severity": conflict.severity
+        })
+
+    # 2. Same trigger type edges (rules that share the same trigger)
+    trigger_groups = {}
+    for rule in rules:
+        if rule.trigger_type not in trigger_groups:
+            trigger_groups[rule.trigger_type] = []
+        trigger_groups[rule.trigger_type].append(rule.id)
+
+    for trigger_type, rule_ids_group in trigger_groups.items():
+        if len(rule_ids_group) > 1:
+            # Connect first rule to all others in group
+            for i in range(1, len(rule_ids_group)):
+                edges.append({
+                    "source": rule_ids_group[0],
+                    "target": rule_ids_group[i],
+                    "type": "same_trigger",
+                    "label": trigger_type
+                })
+
+    # 3. Supersedes edges (based on effective/superseded dates)
+    for rule in rules:
+        if rule.superseded_date:
+            # Find rules that might supersede this one
+            superseding = db.query(AuthorityRule).filter(
+                AuthorityRule.trigger_type == rule.trigger_type,
+                AuthorityRule.jurisdiction_id == rule.jurisdiction_id,
+                AuthorityRule.effective_date != None,
+                AuthorityRule.effective_date >= rule.superseded_date,
+                AuthorityRule.is_active == True,
+                AuthorityRule.id != rule.id
+            ).first()
+
+            if superseding and superseding.id in rule_ids:
+                edges.append({
+                    "source": superseding.id,
+                    "target": rule.id,
+                    "type": "supersedes"
+                })
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "tiers": list(tiers),
+        "jurisdictions": list(jurisdictions)
+    }
+
+
+# ============================================================
+# Smart Rule Discovery Endpoints
+# ============================================================
+
+@router.post("/discover/related")
+async def discover_related_rules(
+    url: str,
+    jurisdiction_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Discover related rules from a URL.
+
+    When harvesting a rule, this endpoint suggests other rules from the same
+    section, chapter, or related legal provisions.
+    """
+    from app.services.ai_service import AIService
+
+    ai_service = AIService()
+
+    # Get jurisdiction info
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Scrape the URL to analyze structure
+    try:
+        scraper = service._get_scraper()
+        content = await scraper.scrape_url(url)
+
+        if not content:
+            raise HTTPException(status_code=400, detail="Could not fetch URL content")
+
+        # Use AI to identify related rules and suggest URLs
+        prompt = f"""Analyze this legal document and identify related rules that should also be harvested.
+
+URL: {url}
+Jurisdiction: {jurisdiction.name}
+
+Content excerpt:
+{content[:8000]}
+
+Please identify:
+1. The rule section/chapter this belongs to
+2. Other rules in the same section that might be relevant
+3. Cross-referenced rules mentioned in the text
+4. Suggested URLs for related rules (if derivable from URL patterns)
+
+Format your response as JSON:
+{{
+    "current_rule_section": "e.g., Rule 12 - Defenses and Objections",
+    "chapter": "e.g., Title III - Pleadings and Motions",
+    "related_rules": [
+        {{
+            "rule_code": "e.g., FRCP Rule 11",
+            "rule_name": "Signing Pleadings",
+            "relationship": "same_chapter|cross_reference|prerequisite|follow_up",
+            "suggested_url": "https://..."
+        }}
+    ],
+    "cross_references": ["Rule 11", "Rule 15(a)"],
+    "harvest_priority": "high|medium|low"
+}}"""
+
+        response = await ai_service.analyze_with_claude(prompt)
+
+        import json
+        try:
+            # Extract JSON from response
+            json_match = response.find('{')
+            json_end = response.rfind('}') + 1
+            if json_match >= 0 and json_end > json_match:
+                result = json.loads(response[json_match:json_end])
+            else:
+                result = {"error": "Could not parse AI response", "raw": response}
+        except json.JSONDecodeError:
+            result = {"error": "Invalid JSON in AI response", "raw": response}
+
+        return {
+            "url": url,
+            "jurisdiction": jurisdiction.name,
+            "discovery_result": result
+        }
+
+    except Exception as e:
+        logger.error(f"Rule discovery failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/discover/suggestions")
+async def get_harvest_suggestions(
+    jurisdiction_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get suggestions for rules to harvest based on existing rules and gaps.
+
+    Analyzes current rule coverage and suggests missing rules.
+    """
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Get existing rules for this jurisdiction
+    existing_rules = db.query(AuthorityRule).filter(
+        AuthorityRule.jurisdiction_id == jurisdiction_id,
+        AuthorityRule.is_active == True
+    ).all()
+
+    existing_triggers = set(r.trigger_type for r in existing_rules)
+    existing_codes = set(r.rule_code for r in existing_rules)
+
+    # Common trigger types that should have rules
+    all_trigger_types = [
+        "complaint_served", "answer_filed", "case_filed",
+        "discovery_served", "discovery_deadline",
+        "motion_filed", "motion_hearing",
+        "trial_date", "pretrial_conference",
+        "mediation", "arbitration",
+        "appeal_filed", "judgment_entered",
+        "deposition_noticed", "expert_disclosed"
+    ]
+
+    missing_triggers = [t for t in all_trigger_types if t not in existing_triggers]
+
+    # Suggest URLs based on jurisdiction
+    suggested_urls = []
+    if jurisdiction.code == "FED" or jurisdiction.code.startswith("FED-"):
+        suggested_urls = [
+            {"url": "https://www.law.cornell.edu/rules/frcp", "description": "Federal Rules of Civil Procedure"},
+            {"url": "https://www.law.cornell.edu/rules/frap", "description": "Federal Rules of Appellate Procedure"},
+            {"url": "https://www.law.cornell.edu/rules/frbp", "description": "Federal Rules of Bankruptcy Procedure"},
+        ]
+    elif jurisdiction.code == "FL" or jurisdiction.code.startswith("FL-"):
+        suggested_urls = [
+            {"url": "https://www.flcourts.gov/Resources-Services/Rules-Procedures", "description": "Florida Court Rules"},
+            {"url": "https://www.floridabar.org/rules/", "description": "Florida Bar Rules"},
+        ]
+
+    return {
+        "jurisdiction": jurisdiction.name,
+        "coverage": {
+            "total_rules": len(existing_rules),
+            "trigger_types_covered": len(existing_triggers),
+            "trigger_types_missing": len(missing_triggers)
+        },
+        "missing_trigger_types": missing_triggers,
+        "suggested_urls": suggested_urls,
+        "gaps": [
+            {
+                "trigger_type": t,
+                "priority": "high" if t in ["complaint_served", "answer_filed", "trial_date"] else "medium",
+                "description": f"No rules found for {t.replace('_', ' ')} trigger"
+            }
+            for t in missing_triggers[:10]
+        ]
+    }
+
+
+# ============================================================
+# Rule Comparison Endpoints
+# ============================================================
+
+@router.get("/compare/rules")
+async def compare_rules(
+    rule_ids: str,  # Comma-separated list of rule IDs
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Compare multiple rules side-by-side.
+
+    Shows differences in deadlines, conditions, and requirements.
+    """
+    ids = [id.strip() for id in rule_ids.split(",")]
+
+    if len(ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 rule IDs required for comparison")
+    if len(ids) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 rules can be compared at once")
+
+    rules = db.query(AuthorityRule).filter(AuthorityRule.id.in_(ids)).all()
+
+    if len(rules) != len(ids):
+        raise HTTPException(status_code=404, detail="One or more rules not found")
+
+    # Build comparison matrix
+    comparison = {
+        "rules": [],
+        "differences": [],
+        "commonalities": []
+    }
+
+    for rule in rules:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == rule.jurisdiction_id
+        ).first() if rule.jurisdiction_id else None
+
+        comparison["rules"].append({
+            "id": rule.id,
+            "rule_code": rule.rule_code,
+            "rule_name": rule.rule_name,
+            "jurisdiction": jurisdiction.name if jurisdiction else "Unknown",
+            "authority_tier": rule.authority_tier.value if rule.authority_tier else "unknown",
+            "trigger_type": rule.trigger_type,
+            "citation": rule.citation,
+            "deadlines": rule.deadlines or [],
+            "conditions": rule.conditions or {},
+            "service_extensions": rule.service_extensions or {}
+        })
+
+    # Find differences
+    if len(rules) >= 2:
+        # Compare deadline days
+        all_deadlines = {}
+        for rule in rules:
+            for dl in (rule.deadlines or []):
+                title = dl.get("title", "Unknown")
+                if title not in all_deadlines:
+                    all_deadlines[title] = {}
+                all_deadlines[title][rule.id] = dl.get("days_from_trigger")
+
+        for title, values in all_deadlines.items():
+            unique_values = set(v for v in values.values() if v is not None)
+            if len(unique_values) > 1:
+                comparison["differences"].append({
+                    "type": "deadline_days",
+                    "deadline_title": title,
+                    "values": {
+                        r.rule_code: values.get(r.id)
+                        for r in rules if r.id in values
+                    }
+                })
+
+        # Compare service extensions
+        service_types = ["mail", "electronic", "personal"]
+        for stype in service_types:
+            values = {
+                r.rule_code: (r.service_extensions or {}).get(stype, 0)
+                for r in rules
+            }
+            if len(set(values.values())) > 1:
+                comparison["differences"].append({
+                    "type": "service_extension",
+                    "service_method": stype,
+                    "values": values
+                })
+
+        # Find commonalities
+        if all(r.trigger_type == rules[0].trigger_type for r in rules):
+            comparison["commonalities"].append({
+                "type": "trigger_type",
+                "value": rules[0].trigger_type
+            })
+
+        # Check for same deadline titles
+        common_deadline_titles = None
+        for rule in rules:
+            titles = set(dl.get("title") for dl in (rule.deadlines or []))
+            if common_deadline_titles is None:
+                common_deadline_titles = titles
+            else:
+                common_deadline_titles &= titles
+
+        if common_deadline_titles:
+            comparison["commonalities"].append({
+                "type": "common_deadlines",
+                "titles": list(common_deadline_titles)
+            })
+
+    return comparison
+
+
+@router.get("/compare/jurisdictions")
+async def compare_jurisdictions(
+    trigger_type: str,
+    jurisdiction_ids: str,  # Comma-separated
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Compare how different jurisdictions handle the same trigger type.
+    """
+    ids = [id.strip() for id in jurisdiction_ids.split(",")]
+
+    if len(ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 jurisdictions required")
+
+    comparison = {
+        "trigger_type": trigger_type,
+        "jurisdictions": []
+    }
+
+    for jid in ids:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == jid
+        ).first()
+
+        if not jurisdiction:
+            continue
+
+        rules = db.query(AuthorityRule).filter(
+            AuthorityRule.jurisdiction_id == jid,
+            AuthorityRule.trigger_type == trigger_type,
+            AuthorityRule.is_active == True
+        ).all()
+
+        comparison["jurisdictions"].append({
+            "id": jurisdiction.id,
+            "name": jurisdiction.name,
+            "code": jurisdiction.code,
+            "rules_count": len(rules),
+            "rules": [
+                {
+                    "id": r.id,
+                    "rule_code": r.rule_code,
+                    "rule_name": r.rule_name,
+                    "citation": r.citation,
+                    "authority_tier": r.authority_tier.value if r.authority_tier else "unknown",
+                    "deadlines": r.deadlines or [],
+                    "service_extensions": r.service_extensions or {}
+                }
+                for r in rules
+            ]
+        })
+
+    return comparison
+
+
+# ============================================================
+# Holiday Calendar Endpoints
+# ============================================================
+
+@router.get("/holidays")
+async def get_court_holidays(
+    jurisdiction_id: str,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get court holidays for a jurisdiction.
+
+    Returns all holidays for the specified year (defaults to current year).
+    """
+    from app.models.court_holiday import CourtHoliday
+    from datetime import datetime
+
+    if not year:
+        year = datetime.now().year
+
+    holidays = db.query(CourtHoliday).filter(
+        CourtHoliday.jurisdiction_id == jurisdiction_id,
+        CourtHoliday.year == year
+    ).order_by(CourtHoliday.holiday_date).all()
+
+    return {
+        "jurisdiction_id": jurisdiction_id,
+        "year": year,
+        "holidays": [
+            {
+                "id": h.id,
+                "name": h.name,
+                "date": h.holiday_date.isoformat() if h.holiday_date else None,
+                "is_observed": h.is_observed,
+                "actual_date": h.actual_date.isoformat() if h.actual_date else None,
+                "holiday_type": h.holiday_type,
+                "court_closed": h.court_closed
+            }
+            for h in holidays
+        ]
+    }
+
+
+@router.post("/holidays/generate")
+async def generate_holidays(
+    jurisdiction_id: str,
+    year: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate court holidays for a jurisdiction and year.
+
+    Uses holiday patterns to create specific holiday dates.
+    """
+    from app.models.court_holiday import CourtHoliday, HolidayPattern
+    from datetime import date
+    from calendar import monthrange
+
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Get patterns for this jurisdiction (and global patterns)
+    patterns = db.query(HolidayPattern).filter(
+        HolidayPattern.is_active == True,
+        (HolidayPattern.jurisdiction_id == None) | (HolidayPattern.jurisdiction_id == jurisdiction_id)
+    ).all()
+
+    created_count = 0
+
+    for pattern in patterns:
+        try:
+            # Calculate holiday date based on pattern type
+            if pattern.pattern_type == 'fixed':
+                month = pattern.pattern_definition.get('month')
+                day = pattern.pattern_definition.get('day')
+                holiday_date = date(year, month, day)
+
+            elif pattern.pattern_type == 'floating':
+                month = pattern.pattern_definition.get('month')
+                weekday = pattern.pattern_definition.get('weekday')  # 0=Monday
+                occurrence = pattern.pattern_definition.get('occurrence')
+
+                if occurrence > 0:
+                    # Nth occurrence (e.g., 3rd Monday)
+                    first_of_month = date(year, month, 1)
+                    days_until_weekday = (weekday - first_of_month.weekday() + 7) % 7
+                    holiday_date = date(year, month, 1 + days_until_weekday + (occurrence - 1) * 7)
+                else:
+                    # Last occurrence
+                    last_day = monthrange(year, month)[1]
+                    last_of_month = date(year, month, last_day)
+                    days_since_weekday = (last_of_month.weekday() - weekday + 7) % 7
+                    holiday_date = date(year, month, last_day - days_since_weekday)
+            else:
+                continue
+
+            # Calculate observed date
+            observed_date = holiday_date
+            if pattern.federal_observation_rules:
+                if holiday_date.weekday() == 5:  # Saturday
+                    observed_date = date(year, holiday_date.month, holiday_date.day - 1)
+                elif holiday_date.weekday() == 6:  # Sunday
+                    observed_date = date(year, holiday_date.month, holiday_date.day + 1)
+
+            # Check if holiday already exists
+            existing = db.query(CourtHoliday).filter(
+                CourtHoliday.jurisdiction_id == jurisdiction_id,
+                CourtHoliday.name == pattern.name,
+                CourtHoliday.year == year
+            ).first()
+
+            if not existing:
+                holiday = CourtHoliday(
+                    jurisdiction_id=jurisdiction_id,
+                    name=pattern.name,
+                    holiday_date=observed_date,
+                    year=year,
+                    is_observed=observed_date != holiday_date,
+                    actual_date=holiday_date if observed_date != holiday_date else None,
+                    holiday_type=pattern.holiday_type,
+                    court_closed=pattern.court_closed
+                )
+                db.add(holiday)
+                created_count += 1
+
+        except Exception as e:
+            logger.warning(f"Failed to generate holiday {pattern.name}: {e}")
+
+    db.commit()
+
+    return {
+        "jurisdiction_id": jurisdiction_id,
+        "year": year,
+        "holidays_created": created_count,
+        "patterns_processed": len(patterns)
+    }
+
+
+@router.post("/holidays")
+async def create_holiday(
+    jurisdiction_id: str,
+    name: str,
+    holiday_date: date,
+    holiday_type: str = "custom",
+    court_closed: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a custom court holiday."""
+    from app.models.court_holiday import CourtHoliday
+    from datetime import date as date_type
+
+    holiday = CourtHoliday(
+        jurisdiction_id=jurisdiction_id,
+        name=name,
+        holiday_date=holiday_date,
+        year=holiday_date.year,
+        holiday_type=holiday_type,
+        court_closed=court_closed
+    )
+    db.add(holiday)
+    db.commit()
+    db.refresh(holiday)
+
+    return {
+        "id": holiday.id,
+        "name": holiday.name,
+        "date": holiday.holiday_date.isoformat(),
+        "holiday_type": holiday.holiday_type,
+        "court_closed": holiday.court_closed
+    }
+
+
+@router.delete("/holidays/{holiday_id}")
+async def delete_holiday(
+    holiday_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a court holiday."""
+    from app.models.court_holiday import CourtHoliday
+
+    holiday = db.query(CourtHoliday).filter(CourtHoliday.id == holiday_id).first()
+    if not holiday:
+        raise HTTPException(status_code=404, detail="Holiday not found")
+
+    db.delete(holiday)
+    db.commit()
+
+    return {"deleted": True, "id": holiday_id}
+
+
+@router.get("/holidays/check")
+async def check_business_day(
+    jurisdiction_id: str,
+    check_date: date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check if a date is a business day for a jurisdiction.
+
+    Returns whether the court is open and any holidays on that date.
+    """
+    from app.models.court_holiday import CourtHoliday
+
+    # Check for weekends
+    is_weekend = check_date.weekday() >= 5
+
+    # Check for holidays
+    holiday = db.query(CourtHoliday).filter(
+        CourtHoliday.jurisdiction_id == jurisdiction_id,
+        CourtHoliday.holiday_date == check_date,
+        CourtHoliday.court_closed == True
+    ).first()
+
+    is_business_day = not is_weekend and not holiday
+
+    return {
+        "date": check_date.isoformat(),
+        "jurisdiction_id": jurisdiction_id,
+        "is_business_day": is_business_day,
+        "is_weekend": is_weekend,
+        "holiday": {
+            "name": holiday.name,
+            "type": holiday.holiday_type
+        } if holiday else None
+    }
+
+
+# ============================================================
+# Scheduled Harvesting Endpoints
+# ============================================================
+
+@router.get("/schedules")
+async def list_harvest_schedules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all harvest schedules for the current user."""
+    from app.models.court_holiday import HarvestSchedule
+
+    schedules = db.query(HarvestSchedule).filter(
+        HarvestSchedule.user_id == str(current_user.id)
+    ).order_by(HarvestSchedule.created_at.desc()).all()
+
+    result = []
+    for s in schedules:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == s.jurisdiction_id
+        ).first() if s.jurisdiction_id else None
+
+        result.append({
+            "id": s.id,
+            "name": s.name,
+            "url": s.url,
+            "jurisdiction_id": s.jurisdiction_id,
+            "jurisdiction_name": jurisdiction.name if jurisdiction else None,
+            "frequency": s.frequency,
+            "is_active": s.is_active,
+            "last_checked_at": s.last_checked_at.isoformat() if s.last_checked_at else None,
+            "next_run_at": s.next_run_at.isoformat() if s.next_run_at else None,
+            "total_checks": s.total_checks,
+            "changes_detected": s.changes_detected,
+            "rules_harvested": s.rules_harvested,
+            "error_count": s.error_count
+        })
+
+    return result
+
+
+@router.post("/schedules")
+async def create_harvest_schedule(
+    url: str,
+    jurisdiction_id: str,
+    frequency: str,  # daily, weekly, monthly
+    name: Optional[str] = None,
+    day_of_week: Optional[int] = None,
+    day_of_month: Optional[int] = None,
+    use_extended_thinking: bool = True,
+    auto_approve_high_confidence: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new harvest schedule."""
+    from app.models.court_holiday import HarvestSchedule
+    from datetime import datetime, timedelta
+
+    if frequency not in ['daily', 'weekly', 'monthly']:
+        raise HTTPException(status_code=400, detail="Invalid frequency")
+
+    if frequency == 'weekly' and day_of_week is None:
+        raise HTTPException(status_code=400, detail="day_of_week required for weekly schedule")
+
+    if frequency == 'monthly' and day_of_month is None:
+        raise HTTPException(status_code=400, detail="day_of_month required for monthly schedule")
+
+    # Calculate next run time
+    now = datetime.utcnow()
+    if frequency == 'daily':
+        next_run = now + timedelta(days=1)
+    elif frequency == 'weekly':
+        days_ahead = day_of_week - now.weekday()
+        if days_ahead <= 0:
+            days_ahead += 7
+        next_run = now + timedelta(days=days_ahead)
+    else:  # monthly
+        if now.day < day_of_month:
+            next_run = now.replace(day=day_of_month)
+        else:
+            if now.month == 12:
+                next_run = now.replace(year=now.year + 1, month=1, day=day_of_month)
+            else:
+                next_run = now.replace(month=now.month + 1, day=day_of_month)
+
+    schedule = HarvestSchedule(
+        user_id=str(current_user.id),
+        jurisdiction_id=jurisdiction_id,
+        url=url,
+        name=name or f"Schedule for {url[:50]}",
+        frequency=frequency,
+        day_of_week=day_of_week,
+        day_of_month=day_of_month,
+        use_extended_thinking=use_extended_thinking,
+        auto_approve_high_confidence=auto_approve_high_confidence,
+        next_run_at=next_run
+    )
+
+    db.add(schedule)
+    db.commit()
+    db.refresh(schedule)
+
+    return {
+        "id": schedule.id,
+        "name": schedule.name,
+        "url": schedule.url,
+        "frequency": schedule.frequency,
+        "next_run_at": schedule.next_run_at.isoformat() if schedule.next_run_at else None
+    }
+
+
+@router.put("/schedules/{schedule_id}")
+async def update_harvest_schedule(
+    schedule_id: str,
+    is_active: Optional[bool] = None,
+    frequency: Optional[str] = None,
+    day_of_week: Optional[int] = None,
+    day_of_month: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update a harvest schedule."""
+    from app.models.court_holiday import HarvestSchedule
+
+    schedule = db.query(HarvestSchedule).filter(
+        HarvestSchedule.id == schedule_id,
+        HarvestSchedule.user_id == str(current_user.id)
+    ).first()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    if is_active is not None:
+        schedule.is_active = is_active
+
+    if frequency:
+        schedule.frequency = frequency
+
+    if day_of_week is not None:
+        schedule.day_of_week = day_of_week
+
+    if day_of_month is not None:
+        schedule.day_of_month = day_of_month
+
+    db.commit()
+
+    return {"updated": True, "id": schedule_id}
+
+
+@router.delete("/schedules/{schedule_id}")
+async def delete_harvest_schedule(
+    schedule_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a harvest schedule."""
+    from app.models.court_holiday import HarvestSchedule
+
+    schedule = db.query(HarvestSchedule).filter(
+        HarvestSchedule.id == schedule_id,
+        HarvestSchedule.user_id == str(current_user.id)
+    ).first()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    db.delete(schedule)
+    db.commit()
+
+    return {"deleted": True, "id": schedule_id}
+
+
+@router.post("/schedules/{schedule_id}/run")
+async def run_harvest_schedule_now(
+    schedule_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """Manually trigger a harvest schedule to run now."""
+    from app.models.court_holiday import HarvestSchedule, HarvestScheduleRun
+    from datetime import datetime
+    import hashlib
+
+    schedule = db.query(HarvestSchedule).filter(
+        HarvestSchedule.id == schedule_id,
+        HarvestSchedule.user_id == str(current_user.id)
+    ).first()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    # Create run record
+    run = HarvestScheduleRun(
+        schedule_id=schedule.id,
+        status="running"
+    )
+    db.add(run)
+    db.commit()
+
+    try:
+        # Scrape the URL
+        scraper = service._get_scraper()
+        content = await scraper.scrape_url(schedule.url)
+
+        if not content:
+            run.status = "failed"
+            run.error_message = "Could not fetch URL content"
+            db.commit()
+            raise HTTPException(status_code=400, detail="Could not fetch URL content")
+
+        # Calculate content hash
+        content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+        run.content_hash = content_hash
+        run.content_changed = content_hash != schedule.last_content_hash
+
+        if run.content_changed or not schedule.last_content_hash:
+            # Extract rules using AI
+            extractor = service._get_extractor()
+            rules = await extractor.extract_rules(
+                content,
+                schedule.jurisdiction_id,
+                use_extended_thinking=schedule.use_extended_thinking
+            )
+
+            run.rules_found = len(rules) if rules else 0
+
+            # Create proposals
+            proposals_created = 0
+            for rule_data in (rules or []):
+                try:
+                    proposal = service.create_proposal(
+                        rule_data,
+                        schedule.url,
+                        content[:2000],
+                        schedule.jurisdiction_id,
+                        str(current_user.id),
+                        None  # No scrape job ID
+                    )
+                    if proposal:
+                        proposals_created += 1
+
+                        # Auto-approve if configured
+                        if schedule.auto_approve_high_confidence:
+                            confidence = rule_data.get('confidence_score', 0)
+                            if confidence >= 0.85:
+                                service.approve_proposal(
+                                    proposal.id,
+                                    str(current_user.id),
+                                    "Auto-approved (high confidence)"
+                                )
+                except Exception as e:
+                    logger.warning(f"Failed to create proposal: {e}")
+
+            run.proposals_created = proposals_created
+            schedule.rules_harvested += proposals_created
+            schedule.changes_detected += 1
+
+        # Update schedule stats
+        schedule.last_content_hash = content_hash
+        schedule.last_checked_at = datetime.utcnow()
+        schedule.total_checks += 1
+        schedule.error_count = 0
+
+        run.status = "completed"
+        run.completed_at = datetime.utcnow()
+
+        db.commit()
+
+        return {
+            "run_id": run.id,
+            "status": "completed",
+            "content_changed": run.content_changed,
+            "rules_found": run.rules_found,
+            "proposals_created": run.proposals_created
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        run.status = "failed"
+        run.error_message = str(e)
+        run.completed_at = datetime.utcnow()
+        schedule.error_count += 1
+        schedule.last_error = str(e)
+        db.commit()
+
+        logger.error(f"Scheduled harvest failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/schedules/{schedule_id}/runs")
+async def get_schedule_runs(
+    schedule_id: str,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get run history for a harvest schedule."""
+    from app.models.court_holiday import HarvestSchedule, HarvestScheduleRun
+
+    schedule = db.query(HarvestSchedule).filter(
+        HarvestSchedule.id == schedule_id,
+        HarvestSchedule.user_id == str(current_user.id)
+    ).first()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    runs = db.query(HarvestScheduleRun).filter(
+        HarvestScheduleRun.schedule_id == schedule_id
+    ).order_by(HarvestScheduleRun.started_at.desc()).limit(limit).all()
+
+    return [
+        {
+            "id": r.id,
+            "status": r.status,
+            "content_changed": r.content_changed,
+            "rules_found": r.rules_found,
+            "proposals_created": r.proposals_created,
+            "error_message": r.error_message,
+            "started_at": r.started_at.isoformat() if r.started_at else None,
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None
+        }
+        for r in runs
+    ]
+
+
+# ============================================================
+# Rule Effectiveness Metrics Endpoints
+# ============================================================
+
+@router.get("/metrics/effectiveness")
+async def get_rule_effectiveness_metrics(
+    jurisdiction_id: Optional[str] = None,
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get rule effectiveness metrics.
+
+    Shows which rules are most used, override rates, and performance patterns.
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import and_
+
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+    # Base query for usage
+    usage_query = db.query(AuthorityRuleUsage).filter(
+        AuthorityRuleUsage.used_at >= cutoff_date
+    )
+
+    if jurisdiction_id:
+        # Filter by jurisdiction through the rule
+        rule_ids = db.query(AuthorityRule.id).filter(
+            AuthorityRule.jurisdiction_id == jurisdiction_id
+        ).subquery()
+        usage_query = usage_query.filter(AuthorityRuleUsage.rule_id.in_(rule_ids))
+
+    # Most used rules
+    most_used = db.query(
+        AuthorityRuleUsage.rule_id,
+        sql_func.count(AuthorityRuleUsage.id).label('usage_count'),
+        sql_func.sum(AuthorityRuleUsage.deadlines_generated).label('total_deadlines')
+    ).filter(
+        AuthorityRuleUsage.used_at >= cutoff_date
+    ).group_by(AuthorityRuleUsage.rule_id).order_by(
+        sql_func.count(AuthorityRuleUsage.id).desc()
+    ).limit(10).all()
+
+    most_used_rules = []
+    for rule_id, usage_count, total_deadlines in most_used:
+        rule = db.query(AuthorityRule).filter(AuthorityRule.id == rule_id).first()
+        if rule:
+            jurisdiction = db.query(Jurisdiction).filter(
+                Jurisdiction.id == rule.jurisdiction_id
+            ).first() if rule.jurisdiction_id else None
+
+            most_used_rules.append({
+                "rule_id": rule.id,
+                "rule_code": rule.rule_code,
+                "rule_name": rule.rule_name,
+                "jurisdiction": jurisdiction.name if jurisdiction else "Unknown",
+                "usage_count": usage_count,
+                "total_deadlines_generated": total_deadlines or 0,
+                "avg_deadlines_per_use": round((total_deadlines or 0) / usage_count, 1) if usage_count else 0
+            })
+
+    # Usage by trigger type
+    by_trigger = db.query(
+        AuthorityRuleUsage.trigger_type,
+        sql_func.count(AuthorityRuleUsage.id).label('count')
+    ).filter(
+        AuthorityRuleUsage.used_at >= cutoff_date
+    ).group_by(AuthorityRuleUsage.trigger_type).all()
+
+    # Total stats
+    total_usage = usage_query.count()
+    total_rules_used = db.query(sql_func.count(sql_func.distinct(AuthorityRuleUsage.rule_id))).filter(
+        AuthorityRuleUsage.used_at >= cutoff_date
+    ).scalar() or 0
+
+    # Rules with no usage
+    all_rule_ids = set(r.id for r in db.query(AuthorityRule.id).filter(
+        AuthorityRule.is_active == True
+    ).all())
+
+    used_rule_ids = set(u.rule_id for u in db.query(AuthorityRuleUsage.rule_id).filter(
+        AuthorityRuleUsage.used_at >= cutoff_date
+    ).distinct().all())
+
+    unused_rules = all_rule_ids - used_rule_ids
+
+    return {
+        "period_days": days,
+        "summary": {
+            "total_rule_applications": total_usage,
+            "unique_rules_used": total_rules_used,
+            "unused_rules_count": len(unused_rules)
+        },
+        "most_used_rules": most_used_rules,
+        "usage_by_trigger_type": [
+            {"trigger_type": t, "count": c}
+            for t, c in by_trigger
+        ],
+        "recommendations": [
+            {
+                "type": "unused_rules",
+                "message": f"{len(unused_rules)} rules have not been used in the last {days} days",
+                "action": "Review and consider deactivating unused rules"
+            }
+        ] if unused_rules else []
+    }

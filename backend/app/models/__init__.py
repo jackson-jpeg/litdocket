@@ -67,6 +67,15 @@ from app.models.authority_core import (
     RuleProposal,
     RuleConflict,
     AuthorityRuleUsage,
+    AuthorityRuleHistory,
+)
+
+# Court Holidays & Scheduled Harvesting
+from app.models.court_holiday import (
+    CourtHoliday,
+    HolidayPattern,
+    HarvestSchedule,
+    HarvestScheduleRun,
 )
 
 __all__ = [
@@ -125,4 +134,10 @@ __all__ = [
     "RuleProposal",
     "RuleConflict",
     "AuthorityRuleUsage",
+    "AuthorityRuleHistory",
+    # Court Holidays & Scheduled Harvesting
+    "CourtHoliday",
+    "HolidayPattern",
+    "HarvestSchedule",
+    "HarvestScheduleRun",
 ]
