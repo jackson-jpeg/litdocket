@@ -201,8 +201,8 @@ class CaseEvent(Base):
     location = Column(Text)
     virtual_link = Column(Text)
 
-    # Additional metadata
-    metadata = Column(JSONB, default={})
+    # Additional data (named extra_data to avoid SQLAlchemy reserved 'metadata')
+    extra_data = Column(JSONB, default={})
 
     # AI-generated flag
     is_ai_generated = Column(Boolean, default=False)
