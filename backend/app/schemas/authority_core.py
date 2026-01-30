@@ -564,3 +564,142 @@ class DetectConflictsResponse(BaseModel):
                 }]
             }
         }
+
+
+# =============================================================
+# AUTO-HARVEST SCHEMAS (End-to-end rule extraction)
+# =============================================================
+
+class HarvestRequest(BaseModel):
+    """Request to harvest rules from a URL automatically"""
+    url: str = Field(..., description="URL to scrape for court rules")
+    jurisdiction_id: str = Field(..., description="Target jurisdiction")
+    use_extended_thinking: bool = Field(
+        True,
+        description="Use extended thinking for complex rule extraction"
+    )
+    auto_approve_high_confidence: bool = Field(
+        False,
+        description="Auto-approve rules with confidence >= 0.85"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "url": "https://www.flmd.uscourts.gov/local-rules",
+                "jurisdiction_id": "jurisdiction-uuid",
+                "use_extended_thinking": True,
+                "auto_approve_high_confidence": False
+            }
+        }
+
+
+class DiscoverUrlsRequest(BaseModel):
+    """Request to discover court rule URLs for a jurisdiction"""
+    jurisdiction_id: str = Field(..., description="Jurisdiction to find rules for")
+    search_query: Optional[str] = Field(
+        None,
+        description="Optional specific search query (e.g., 'motion deadlines')"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "jurisdiction_id": "jurisdiction-uuid",
+                "search_query": "local rules civil procedure"
+            }
+        }
+
+
+class DiscoveredUrl(BaseModel):
+    """A discovered URL that may contain court rules"""
+    url: str
+    title: str
+    description: str
+    confidence: float = Field(..., ge=0, le=1, description="Confidence this URL contains rules")
+    source: str = Field(..., description="How URL was discovered (web_search, known_pattern)")
+
+
+class DiscoverUrlsResponse(BaseModel):
+    """Response with discovered URLs"""
+    jurisdiction_id: str
+    jurisdiction_name: str
+    urls: List[DiscoveredUrl]
+    search_query_used: str
+
+
+class HarvestProgressEvent(BaseModel):
+    """Progress event during harvesting"""
+    job_id: str
+    status: str
+    progress_pct: int
+    phase: str  # "scraping", "extracting", "creating_proposals", "completed", "failed"
+    message: str
+    url: Optional[str] = None
+    rules_found: int = 0
+    proposals_created: int = 0
+    errors: List[str] = []
+
+
+class HarvestedRule(BaseModel):
+    """A rule that was harvested"""
+    proposal_id: str
+    rule_code: str
+    rule_name: str
+    trigger_type: str
+    citation: Optional[str]
+    deadlines_count: int
+    confidence_score: float
+    auto_approved: bool = False
+    extraction_reasoning: List[str] = []
+
+
+class HarvestResponse(BaseModel):
+    """Complete response from a harvest operation"""
+    job_id: str
+    status: str
+    jurisdiction_id: str
+    jurisdiction_name: str
+    url: str
+    content_hash: str
+    rules_found: int
+    proposals_created: int
+    rules: List[HarvestedRule]
+    errors: List[str] = []
+    processing_time_ms: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "job_id": "job-uuid",
+                "status": "completed",
+                "jurisdiction_id": "jurisdiction-uuid",
+                "jurisdiction_name": "U.S. District Court - Middle District of Florida",
+                "url": "https://www.flmd.uscourts.gov/local-rules",
+                "content_hash": "a1b2c3d4",
+                "rules_found": 15,
+                "proposals_created": 15,
+                "rules": [],
+                "errors": [],
+                "processing_time_ms": 45000
+            }
+        }
+
+
+class BatchHarvestRequest(BaseModel):
+    """Request to harvest rules from multiple URLs"""
+    urls: List[str] = Field(..., min_length=1, max_length=10, description="URLs to harvest")
+    jurisdiction_id: str = Field(..., description="Target jurisdiction")
+    use_extended_thinking: bool = True
+    auto_approve_high_confidence: bool = False
+
+
+class BatchHarvestResponse(BaseModel):
+    """Response from batch harvesting"""
+    job_id: str
+    total_urls: int
+    completed_urls: int
+    failed_urls: int
+    total_rules_found: int
+    total_proposals_created: int
+    results: List[HarvestResponse]

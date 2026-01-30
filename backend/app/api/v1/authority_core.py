@@ -31,6 +31,9 @@ from app.models.enums import (
     ScrapeStatus,
     ConflictResolution
 )
+from app.config import settings
+from datetime import datetime
+import uuid
 from app.schemas.authority_core import (
     AuthorityRuleCreate,
     AuthorityRuleUpdate,
@@ -63,6 +66,16 @@ from app.schemas.authority_core import (
     DetectConflictsRequest,
     DetectConflictsResponse,
     DetectedConflictResponse,
+    # Auto-harvest schemas
+    HarvestRequest,
+    HarvestResponse,
+    HarvestedRule,
+    HarvestProgressEvent,
+    DiscoverUrlsRequest,
+    DiscoverUrlsResponse,
+    DiscoveredUrl,
+    BatchHarvestRequest,
+    BatchHarvestResponse,
 )
 from app.services.authority_core_service import AuthorityCoreService
 from app.services.rule_extraction_service import (
@@ -987,3 +1000,390 @@ async def detect_authority_conflicts(
     except Exception as e:
         logger.error(f"Conflict detection failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to detect conflicts")
+
+
+# ============================================================
+# Auto-Harvest Endpoints (End-to-end rule extraction)
+# ============================================================
+
+@router.post("/harvest", response_model=HarvestResponse)
+async def harvest_rules_from_url(
+    request: HarvestRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Harvest rules from a URL automatically.
+
+    This is the main entry point for the auto-scraper. It:
+    1. Fetches and cleans content from the URL
+    2. Extracts rules using AI (with optional extended thinking)
+    3. Creates proposals for each extracted rule
+    4. Optionally auto-approves high-confidence rules
+
+    Returns complete results including all extracted rules and proposals.
+    """
+    import time
+    start_time = time.time()
+
+    # Verify jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == request.jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    errors = []
+    harvested_rules = []
+
+    # Create a scrape job for tracking
+    job = await service.start_scrape(
+        jurisdiction_id=request.jurisdiction_id,
+        search_query=f"Auto-harvest from {request.url}",
+        user_id=str(current_user.id)
+    )
+
+    try:
+        # Step 1: Scrape the URL content
+        logger.info(f"Harvesting rules from {request.url} for {jurisdiction.name}")
+
+        job.status = ScrapeStatus.SEARCHING
+        job.started_at = datetime.utcnow()
+        db.commit()
+
+        try:
+            scraped = await rule_extraction_service.scrape_url_content(request.url)
+        except ValueError as e:
+            job.status = ScrapeStatus.FAILED
+            job.error_message = f"Failed to scrape URL: {str(e)}"
+            job.completed_at = datetime.utcnow()
+            db.commit()
+            raise HTTPException(status_code=400, detail=f"Failed to scrape URL: {str(e)}")
+
+        # Step 2: Extract rules
+        job.status = ScrapeStatus.EXTRACTING
+        db.commit()
+
+        if request.use_extended_thinking:
+            extracted_rules = await rule_extraction_service.extract_with_extended_thinking(
+                content=scraped.raw_text,
+                jurisdiction_name=jurisdiction.name,
+                source_url=request.url
+            )
+        else:
+            extracted_rules = await rule_extraction_service.extract_from_content(
+                content=scraped.raw_text,
+                jurisdiction_name=jurisdiction.name,
+                source_url=request.url
+            )
+
+        # Step 3: Create proposals for each rule
+        proposals_created = 0
+        for rule_data in extracted_rules:
+            try:
+                proposal = await service.create_proposal(
+                    extracted_data=rule_data,
+                    scrape_job_id=job.id,
+                    jurisdiction_id=request.jurisdiction_id,
+                    user_id=str(current_user.id)
+                )
+                proposals_created += 1
+
+                # Check if should auto-approve
+                auto_approved = False
+                if request.auto_approve_high_confidence and rule_data.confidence_score >= 0.85:
+                    try:
+                        await service.approve_proposal(
+                            proposal_id=proposal.id,
+                            user_id=str(current_user.id),
+                            notes="Auto-approved due to high confidence score"
+                        )
+                        auto_approved = True
+                    except Exception as e:
+                        errors.append(f"Auto-approve failed for {rule_data.rule_code}: {str(e)}")
+
+                harvested_rules.append(HarvestedRule(
+                    proposal_id=proposal.id,
+                    rule_code=rule_data.rule_code,
+                    rule_name=rule_data.rule_name,
+                    trigger_type=rule_data.trigger_type,
+                    citation=rule_data.citation,
+                    deadlines_count=len(rule_data.deadlines),
+                    confidence_score=rule_data.confidence_score,
+                    auto_approved=auto_approved,
+                    extraction_reasoning=rule_data.extraction_reasoning
+                ))
+
+            except Exception as e:
+                errors.append(f"Failed to create proposal for {rule_data.rule_code}: {str(e)}")
+                logger.warning(f"Failed to create proposal: {e}")
+
+        # Update job with results
+        job.status = ScrapeStatus.COMPLETED
+        job.rules_found = len(extracted_rules)
+        job.proposals_created = proposals_created
+        job.urls_processed = [request.url]
+        job.completed_at = datetime.utcnow()
+        job.progress_pct = 100
+        db.commit()
+
+        processing_time_ms = int((time.time() - start_time) * 1000)
+
+        return HarvestResponse(
+            job_id=job.id,
+            status="completed",
+            jurisdiction_id=request.jurisdiction_id,
+            jurisdiction_name=jurisdiction.name,
+            url=request.url,
+            content_hash=scraped.content_hash,
+            rules_found=len(extracted_rules),
+            proposals_created=proposals_created,
+            rules=harvested_rules,
+            errors=errors,
+            processing_time_ms=processing_time_ms
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Harvest failed: {e}")
+        job.status = ScrapeStatus.FAILED
+        job.error_message = str(e)
+        job.completed_at = datetime.utcnow()
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Harvest failed: {str(e)}")
+
+
+@router.post("/discover-urls", response_model=DiscoverUrlsResponse)
+async def discover_court_rule_urls(
+    request: DiscoverUrlsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Discover URLs that may contain court rules for a jurisdiction.
+
+    Uses AI and known patterns to find official court rule pages.
+    Returns a ranked list of URLs to potentially harvest.
+    """
+    from anthropic import Anthropic
+
+    # Verify jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == request.jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Build search context
+    search_query = request.search_query or "local rules civil procedure"
+    full_query = f"{jurisdiction.name} {search_query} official court rules PDF"
+
+    # Known court URL patterns
+    known_patterns = {
+        "federal": [
+            "https://www.uscourts.gov",
+            "https://www.{district}.uscourts.gov/local-rules",
+        ],
+        "state": [
+            "https://www.{state}courts.gov",
+            "https://www.{state}bar.org/rules",
+        ]
+    }
+
+    # Use Claude to discover URLs
+    try:
+        anthropic = Anthropic(api_key=settings.ANTHROPIC_API_KEY.strip())
+
+        prompt = f"""You are a legal research assistant. Find official court rule URLs for:
+
+JURISDICTION: {jurisdiction.name}
+JURISDICTION TYPE: {jurisdiction.jurisdiction_type.value if jurisdiction.jurisdiction_type else 'unknown'}
+STATE: {jurisdiction.state or 'N/A'}
+SEARCH CONTEXT: {search_query}
+
+Provide a JSON array of the most likely official URLs where court rules can be found.
+For each URL, include:
+- url: The full URL
+- title: What rules are likely at this URL
+- description: Brief description of expected content
+- confidence: 0.0-1.0 confidence this contains official rules
+
+Focus on:
+1. Official court websites (.gov, .uscourts.gov)
+2. State bar association rule compilations
+3. Official PDF rule documents
+
+Return ONLY a JSON array, no other text. Example:
+[
+  {{
+    "url": "https://www.flmd.uscourts.gov/local-rules",
+    "title": "Middle District of Florida Local Rules",
+    "description": "Official local rules for civil and criminal procedure",
+    "confidence": 0.95
+  }}
+]"""
+
+        response = anthropic.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        # Parse the response
+        import re
+        response_text = response.content[0].text.strip()
+
+        # Try to find JSON array in response
+        json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+        if json_match:
+            discovered = json.loads(json_match.group())
+        else:
+            discovered = []
+
+        urls = [
+            DiscoveredUrl(
+                url=item.get("url", ""),
+                title=item.get("title", "Unknown"),
+                description=item.get("description", ""),
+                confidence=min(max(float(item.get("confidence", 0.5)), 0), 1),
+                source="ai_discovery"
+            )
+            for item in discovered
+            if item.get("url")
+        ]
+
+        # Sort by confidence
+        urls.sort(key=lambda x: x.confidence, reverse=True)
+
+        return DiscoverUrlsResponse(
+            jurisdiction_id=request.jurisdiction_id,
+            jurisdiction_name=jurisdiction.name,
+            urls=urls[:10],  # Limit to top 10
+            search_query_used=full_query
+        )
+
+    except Exception as e:
+        logger.error(f"URL discovery failed: {e}")
+        raise HTTPException(status_code=500, detail=f"URL discovery failed: {str(e)}")
+
+
+@router.post("/harvest-batch", response_model=BatchHarvestResponse)
+async def harvest_rules_batch(
+    request: BatchHarvestRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Harvest rules from multiple URLs.
+
+    Processes each URL sequentially and returns combined results.
+    Use this for comprehensive jurisdiction coverage.
+    """
+    # Verify jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == request.jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Create a master job ID
+    master_job_id = str(uuid.uuid4())
+
+    results = []
+    total_rules = 0
+    total_proposals = 0
+    failed_urls = 0
+
+    for url in request.urls:
+        try:
+            # Create individual harvest request
+            harvest_req = HarvestRequest(
+                url=url,
+                jurisdiction_id=request.jurisdiction_id,
+                use_extended_thinking=request.use_extended_thinking,
+                auto_approve_high_confidence=request.auto_approve_high_confidence
+            )
+
+            # Process (this reuses the harvest endpoint logic)
+            result = await harvest_rules_from_url(
+                request=harvest_req,
+                db=db,
+                current_user=current_user,
+                service=service
+            )
+
+            results.append(result)
+            total_rules += result.rules_found
+            total_proposals += result.proposals_created
+
+        except Exception as e:
+            logger.error(f"Batch harvest failed for {url}: {e}")
+            failed_urls += 1
+            # Create a failed result
+            results.append(HarvestResponse(
+                job_id="",
+                status="failed",
+                jurisdiction_id=request.jurisdiction_id,
+                jurisdiction_name=jurisdiction.name,
+                url=url,
+                content_hash="",
+                rules_found=0,
+                proposals_created=0,
+                rules=[],
+                errors=[str(e)],
+                processing_time_ms=0
+            ))
+
+    return BatchHarvestResponse(
+        job_id=master_job_id,
+        total_urls=len(request.urls),
+        completed_urls=len(request.urls) - failed_urls,
+        failed_urls=failed_urls,
+        total_rules_found=total_rules,
+        total_proposals_created=total_proposals,
+        results=results
+    )
+
+
+@router.get("/harvest/{job_id}/status")
+async def get_harvest_status(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    service: AuthorityCoreService = Depends(get_authority_service)
+):
+    """
+    Get the status of a harvest job.
+
+    Returns current progress and any results if completed.
+    """
+    job = service.get_scrape_job(job_id, str(current_user.id))
+    if not job:
+        raise HTTPException(status_code=404, detail="Harvest job not found")
+
+    jurisdiction = None
+    if job.jurisdiction_id:
+        jurisdiction = db.query(Jurisdiction).filter(
+            Jurisdiction.id == job.jurisdiction_id
+        ).first()
+
+    return {
+        "job_id": job.id,
+        "status": job.status.value if job.status else "unknown",
+        "progress_pct": job.progress_pct or 0,
+        "jurisdiction_name": jurisdiction.name if jurisdiction else None,
+        "rules_found": job.rules_found or 0,
+        "proposals_created": job.proposals_created or 0,
+        "urls_processed": job.urls_processed or [],
+        "error_message": job.error_message,
+        "created_at": job.created_at,
+        "started_at": job.started_at,
+        "completed_at": job.completed_at
+    }
