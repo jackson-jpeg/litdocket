@@ -5,8 +5,8 @@
  *
  * Combines three modes:
  * 1. Quick Add - Manual deadline with optional rule citation
- * 2. Apply Rule - Search Authority Core database and apply rule
- * 3. From Trigger - Full trigger wizard for cascade generation
+ * 2. Apply Rule - Search Authority Core database and apply single rule
+ * 3. Rule Chain - Apply rule template to generate full deadline chain
  *
  * Replaces: SimpleDeadlineModal + AddTriggerModal + duplicate UI
  */
@@ -156,7 +156,7 @@ export default function UnifiedAddEventModal({
       setTemplates(response.data);
     } catch (err) {
       console.error('Failed to fetch templates:', err);
-      showError('Failed to load trigger templates');
+      showError('Failed to load rule templates');
     } finally {
       setTemplatesLoading(false);
     }
@@ -313,13 +313,13 @@ export default function UnifiedAddEventModal({
       });
 
       const { dependent_deadlines_created } = response.data;
-      showSuccess(`Created trigger with ${dependent_deadlines_created} deadlines`);
+      showSuccess(`Rule applied - ${dependent_deadlines_created} deadlines created`);
       onSuccess();
       onClose();
     } catch (err: unknown) {
       console.error('Failed to create trigger:', err);
       const errorDetail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      showError(errorDetail || 'Failed to create trigger');
+      showError(errorDetail || 'Failed to apply rule');
     } finally {
       setTriggerCreating(false);
     }
@@ -354,7 +354,7 @@ export default function UnifiedAddEventModal({
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">Add Event</h2>
                 <p className="text-sm text-slate-600">
-                  Create a deadline or trigger
+                  Create a deadline or apply a rule
                 </p>
               </div>
             </div>
@@ -403,7 +403,7 @@ export default function UnifiedAddEventModal({
               }`}
             >
               <Zap className="w-4 h-4" />
-              From Trigger
+              Rule Chain
             </button>
           </div>
         </div>
@@ -535,7 +535,7 @@ export default function UnifiedAddEventModal({
               <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700">
-                  This creates a manual deadline. For automatic deadline chains based on court rules, use the &quot;From Trigger&quot; tab.
+                  This creates a manual deadline. For automatic deadline chains based on court rules, use the &quot;Rule Chain&quot; tab.
                 </p>
               </div>
             </form>
@@ -649,7 +649,7 @@ export default function UnifiedAddEventModal({
                     <div className="text-center py-12">
                       <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
                       <p className="text-slate-600">
-                        No trigger templates available for {jurisdiction.replace('_', ' ')} {courtType}
+                        No rule templates available for {jurisdiction.replace('_', ' ')} {courtType}
                       </p>
                     </div>
                   ) : (
@@ -716,10 +716,10 @@ export default function UnifiedAddEventModal({
                     </div>
                   </div>
 
-                  {/* Trigger Date */}
+                  {/* Event Date */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Trigger Date <span className="text-red-500">*</span>
+                      Event Date <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -774,7 +774,7 @@ export default function UnifiedAddEventModal({
                     <textarea
                       value={triggerNotes}
                       onChange={(e) => setTriggerNotes(e.target.value)}
-                      placeholder="Add any notes about this trigger event..."
+                      placeholder="Add any notes about this event..."
                       rows={3}
                       className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
                     />
@@ -794,7 +794,7 @@ export default function UnifiedAddEventModal({
                       </span>
                     </div>
                     <div className="mt-2 text-sm text-green-600">
-                      Trigger: {TRIGGER_TYPE_LABELS[selectedTemplate.trigger_type]} on{' '}
+                      Event: {TRIGGER_TYPE_LABELS[selectedTemplate.trigger_type]} on{' '}
                       {new Date(triggerDate).toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -832,7 +832,7 @@ export default function UnifiedAddEventModal({
                       <li className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                         <span>
-                          If you change the trigger date later, all <strong>dependent deadlines
+                          If you change the event date later, all <strong>dependent deadlines
                           automatically recalculate</strong>
                         </span>
                       </li>
@@ -940,7 +940,7 @@ export default function UnifiedAddEventModal({
 
               {triggerStep === 'select' && (
                 <div className="text-sm text-slate-500">
-                  Select a trigger type to continue
+                  Select a rule to continue
                 </div>
               )}
 
