@@ -78,6 +78,17 @@ from app.models.court_holiday import (
     HarvestScheduleRun,
 )
 
+# Case Intelligence
+from app.models.case_intelligence import (
+    CaseHealthScore,
+    CasePrediction,
+    JudgeProfile,
+    CaseEvent,
+    DiscoveryRequest,
+    CaseFact,
+    BriefDraft,
+)
+
 __all__ = [
     "Base",
     "User",
@@ -140,4 +151,12 @@ __all__ = [
     "HolidayPattern",
     "HarvestSchedule",
     "HarvestScheduleRun",
+    # Case Intelligence
+    "CaseHealthScore",
+    "CasePrediction",
+    "JudgeProfile",
+    "CaseEvent",
+    "DiscoveryRequest",
+    "CaseFact",
+    "BriefDraft",
 ]
