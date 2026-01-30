@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import RuleDependencyGraph from '@/components/authority-core/RuleDependencyGraph';
-import { apiClient } from '@/lib/api-client';
+import apiClient from '@/lib/api-client';
 
 interface Jurisdiction {
   id: string;

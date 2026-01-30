@@ -88,11 +88,18 @@ const IconTools = () => (
   </svg>
 );
 
+const IconBrain = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-4h2v2h-2v-2zm0-2h2c0-3.25 3-3 3-5 0-1.66-1.34-3-3-3S9 7.34 9 9h2c0-.55.45-1 1-1s1 .45 1 1c0 1.25-3 1.125-3 5z"/>
+  </svg>
+);
+
 // Core navigation items
 const coreNavItems = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, shortcut: '⌘D' },
   { label: 'Cases', href: '/cases', icon: <IconCases />, shortcut: '⌘1' },
   { label: 'Docket', href: '/calendar', icon: <IconDocket />, shortcut: '⌘2' },
+  { label: 'Intelligence', href: '/intelligence', icon: <IconBrain />, shortcut: '⌘I' },
 ];
 
 // Tool items with shortcuts

@@ -14,7 +14,7 @@ import ReactFlow, {
   ConnectionMode,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { apiClient } from '@/lib/api-client';
+import apiClient from '@/lib/api-client';
 
 interface RuleNode {
   id: string;

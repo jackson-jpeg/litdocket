@@ -13,6 +13,10 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { FileText, Upload, Calendar, Clock, AlertTriangle, Building, User, Search, Sparkles, Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import ChainBadge from '@/components/cases/deadlines/ChainBadge';
+import CaseIntelligencePanel from '@/components/cases/CaseIntelligencePanel';
+import DiscoveryTracker from '@/components/cases/DiscoveryTracker';
+import BriefDraftingAssistant from '@/components/cases/BriefDraftingAssistant';
+import CaseTimeline from '@/components/cases/CaseTimeline';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -353,6 +357,11 @@ export default function CaseRoomPage() {
           )}
         </div>
 
+        {/* AI Case Intelligence Panel */}
+        <CaseIntelligencePanel
+          caseId={caseId}
+          judgeName={caseData.judge}
+        />
 
         {/* Actions Row - Single Add Event button */}
         <div className="flex gap-2">
@@ -587,6 +596,19 @@ export default function CaseRoomPage() {
             </div>
           )}
         </div>
+
+        {/* Case Timeline */}
+        <CaseTimeline caseId={caseId} className="card" />
+
+        {/* Discovery Tracker */}
+        <DiscoveryTracker caseId={caseId} />
+
+        {/* Brief Drafting Assistant */}
+        <BriefDraftingAssistant
+          caseId={caseId}
+          caseTitle={caseData.title}
+          jurisdiction={caseData.jurisdiction}
+        />
 
         {/* Documents Section */}
         <div className="card">
