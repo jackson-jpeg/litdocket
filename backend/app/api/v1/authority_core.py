@@ -529,8 +529,12 @@ async def update_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update a rule (requires ownership or admin)"""
-    rule = db.query(AuthorityRule).filter(AuthorityRule.id == rule_id).first()
+    """Update a rule (requires ownership)"""
+    # SECURITY: Always filter by user_id to prevent IDOR
+    rule = db.query(AuthorityRule).filter(
+        AuthorityRule.id == rule_id,
+        AuthorityRule.user_id == str(current_user.id)
+    ).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
 
@@ -564,8 +568,12 @@ async def deactivate_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Deactivate a rule (soft delete)"""
-    rule = db.query(AuthorityRule).filter(AuthorityRule.id == rule_id).first()
+    """Deactivate a rule (soft delete, requires ownership)"""
+    # SECURITY: Always filter by user_id to prevent IDOR
+    rule = db.query(AuthorityRule).filter(
+        AuthorityRule.id == rule_id,
+        AuthorityRule.user_id == str(current_user.id)
+    ).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
 

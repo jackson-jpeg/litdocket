@@ -12,7 +12,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import apiClient from '@/lib/api-client';
-import { deadlineEvents, filterEvents } from '@/lib/eventBus';
+import { deadlineEvents, filterEvents, eventBus, caseEvents } from '@/lib/eventBus';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 import { ProposalCard, StreamingIndicator } from '@/components/chat/ProposalCard';
 import {
@@ -84,6 +84,19 @@ export function AITerminal() {
 
   const { caseId, casePath } = useCaseContext();
 
+  // Quick View case selection (overrides URL-based context)
+  const [quickViewCaseId, setQuickViewCaseId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = eventBus.on('case:selected', (data: { id: string | null }) => {
+      setQuickViewCaseId(data?.id || null);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Priority: Quick View selection > URL-based detection
+  const activeCaseId = quickViewCaseId || caseId;
+
   // Streaming state
   const [currentAIMessageId, setCurrentAIMessageId] = useState<string | null>(null);
 
@@ -99,7 +112,7 @@ export function AITerminal() {
     isAwaitingApproval,
     hasError
   } = useStreamingChat({
-    caseId: caseId || '',
+    caseId: activeCaseId || '',
     onToken: (token: string) => {
       // Tokens are accumulated in currentMessage state by the hook
     },
@@ -132,6 +145,15 @@ export function AITerminal() {
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, aiMsg]);
+      } else {
+        // Handle empty response - provide user feedback
+        const emptyMsg: Message = {
+          id: `system-${Date.now()}`,
+          type: 'system',
+          content: 'No response generated. Try rephrasing your question or providing more context.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, emptyMsg]);
       }
 
       setCurrentAIMessageId(null);
@@ -153,16 +175,16 @@ export function AITerminal() {
 
   // Load chat history when modal opens with case context
   useEffect(() => {
-    if (isOpen && caseId && !hasHistory) {
+    if (isOpen && activeCaseId && !hasHistory) {
       loadChatHistory();
     }
-  }, [isOpen, caseId, hasHistory]);
+  }, [isOpen, activeCaseId, hasHistory]);
 
   const loadChatHistory = async () => {
-    if (!caseId) return;
+    if (!activeCaseId) return;
 
     try {
-      const response = await apiClient.get(`/api/v1/chat/case/${caseId}/history?limit=20`);
+      const response = await apiClient.get(`/api/v1/chat/case/${activeCaseId}/history?limit=20`);
 
       if (response.data && response.data.length > 0) {
         const historyMessages: Message[] = response.data.map((msg: any) => ({
@@ -215,7 +237,7 @@ export function AITerminal() {
 
   // Upload document
   const uploadDocument = async () => {
-    if (!stagedFile || !caseId || isUploading) return;
+    if (!stagedFile || !activeCaseId || isUploading) return;
 
     setIsUploading(true);
     setUploadProgress(10);
@@ -233,7 +255,7 @@ export function AITerminal() {
 
       const formData = new FormData();
       formData.append('file', stagedFile);
-      formData.append('case_id', caseId);
+      formData.append('case_id', activeCaseId);
 
       setUploadProgress(50);
 
@@ -279,7 +301,7 @@ export function AITerminal() {
       setUploadProgress(100);
 
       if (response.data.deadlines_extracted > 0) {
-        deadlineEvents.created({ case_id: caseId });
+        deadlineEvents.created({ case_id: activeCaseId });
       }
 
     } catch (err: any) {
@@ -299,10 +321,10 @@ export function AITerminal() {
 
   // Auto-upload when file is staged
   useEffect(() => {
-    if (stagedFile && caseId && !isUploading) {
+    if (stagedFile && activeCaseId && !isUploading) {
       uploadDocument();
     }
-  }, [stagedFile, caseId]);
+  }, [stagedFile, activeCaseId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,7 +488,7 @@ export function AITerminal() {
               <div className="flex items-center gap-3">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
                 <h2 className="text-lg font-semibold text-slate-900">AI Assistant</h2>
-                {caseId && (
+                {activeCaseId && (
                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
                     Case Active
                   </span>
@@ -598,13 +620,13 @@ export function AITerminal() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={!caseId || isUploading}
+                disabled={!activeCaseId || isUploading}
                 className={`p-2 rounded-lg transition-colors ${
-                  caseId && !isUploading
+                  activeCaseId && !isUploading
                     ? 'text-slate-600 hover:bg-slate-100'
                     : 'text-slate-300 cursor-not-allowed'
                 }`}
-                title={caseId ? 'Upload document' : 'Navigate to a case first'}
+                title={activeCaseId ? 'Upload document' : 'Navigate to a case first'}
               >
                 <Paperclip className="w-5 h-5" />
               </button>
@@ -614,7 +636,7 @@ export function AITerminal() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={caseId ? "Ask a question or type a command..." : "Navigate to a case first..."}
+                placeholder={activeCaseId ? "Ask a question or type a command..." : "Navigate to a case first..."}
                 className="flex-1 input"
                 disabled={isUploading || isStreaming}
                 autoComplete="off"

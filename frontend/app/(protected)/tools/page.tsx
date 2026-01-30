@@ -28,6 +28,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface Tool {
   id: string;
@@ -154,6 +155,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export default function ToolsHubPage() {
   const router = useRouter();
+  const { showInfo } = useToast();
   const [comingSoonExpanded, setComingSoonExpanded] = useState(false);
 
   const getStatusBadge = (status: Tool['status']) => {
@@ -267,17 +269,10 @@ export default function ToolsHubPage() {
                     <ArrowRight className="w-4 h-4" />
                   </div>
                   {tool.docsLink && (
-                    <a
-                      href={tool.docsLink}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        alert(`Documentation: ${tool.name}\n\nDocs will be available soon at: ${tool.docsLink}`);
-                      }}
-                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100"
-                    >
+                    <span className="flex items-center gap-1 text-xs text-slate-400 opacity-0 group-hover:opacity-100">
                       <Info className="w-3 h-3" />
-                      <span>Learn more</span>
-                    </a>
+                      <span>Docs coming soon</span>
+                    </span>
                   )}
                 </div>
               </button>
@@ -328,17 +323,10 @@ export default function ToolsHubPage() {
                       {tool.description}
                     </p>
                     {tool.docsLink && (
-                      <a
-                        href={tool.docsLink}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          alert(`Documentation: ${tool.name}\n\nDocs will be available soon at: ${tool.docsLink}`);
-                        }}
-                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100"
-                      >
+                      <span className="flex items-center gap-1 text-xs text-slate-400 opacity-0 group-hover:opacity-100">
                         <Info className="w-3 h-3" />
-                        <span>Learn more</span>
-                      </a>
+                        <span>Docs coming soon</span>
+                      </span>
                     )}
                   </button>
                 ))}

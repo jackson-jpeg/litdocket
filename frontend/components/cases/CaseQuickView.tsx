@@ -27,6 +27,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
+import { caseEvents } from '@/lib/eventBus';
 
 interface Case {
   id: string;
@@ -65,6 +66,7 @@ export default function CaseQuickView({ isOpen, caseData, onClose }: CaseQuickVi
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && caseData) {
@@ -72,34 +74,79 @@ export default function CaseQuickView({ isOpen, caseData, onClose }: CaseQuickVi
     }
   }, [isOpen, caseData?.id]);
 
+  // Emit case selection events for AI Terminal
+  useEffect(() => {
+    if (isOpen && caseData) {
+      caseEvents.selected({
+        id: caseData.id,
+        case_number: caseData.case_number,
+        title: caseData.title,
+      });
+    }
+    return () => {
+      // Emit deselection when drawer closes or unmounts
+      if (isOpen) {
+        caseEvents.deselected();
+      }
+    };
+  }, [isOpen, caseData?.id]);
+
   const fetchCaseDetails = async () => {
     if (!caseData) return;
     setLoading(true);
+    setError(null);
+
+    let deadlinesError = false;
+    let docsError = false;
+
     try {
-      const [deadlinesRes, docsRes] = await Promise.all([
-        apiClient.get(`/api/v1/deadlines/case/${caseData.id}`).catch(() => ({ data: [] })),
-        apiClient.get(`/api/v1/cases/${caseData.id}/documents`).catch(() => ({ data: [] })),
+      // Fetch deadlines and documents separately to handle partial failures
+      const [deadlinesResult, docsResult] = await Promise.allSettled([
+        apiClient.get(`/api/v1/deadlines/case/${caseData.id}`),
+        apiClient.get(`/api/v1/cases/${caseData.id}/documents`),
       ]);
 
-      // Get pending deadlines sorted by date
-      const pendingDeadlines = (deadlinesRes.data || [])
-        .filter((d: Deadline) => d.status === 'pending')
-        .sort((a: Deadline, b: Deadline) =>
-          new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime()
-        )
-        .slice(0, 3);
+      // Handle deadlines result
+      let pendingDeadlines: Deadline[] = [];
+      if (deadlinesResult.status === 'fulfilled') {
+        pendingDeadlines = (deadlinesResult.value.data || [])
+          .filter((d: Deadline) => d.status === 'pending')
+          .sort((a: Deadline, b: Deadline) =>
+            new Date(a.deadline_date).getTime() - new Date(b.deadline_date).getTime()
+          )
+          .slice(0, 3);
+      } else {
+        deadlinesError = true;
+        console.error('Failed to fetch deadlines:', deadlinesResult.reason);
+      }
 
-      // Get recent documents sorted by date
-      const recentDocs = (docsRes.data || [])
-        .sort((a: Document, b: Document) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
-        .slice(0, 3);
+      // Handle documents result
+      let recentDocs: Document[] = [];
+      if (docsResult.status === 'fulfilled') {
+        recentDocs = (docsResult.value.data || [])
+          .sort((a: Document, b: Document) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+          .slice(0, 3);
+      } else {
+        docsError = true;
+        console.error('Failed to fetch documents:', docsResult.reason);
+      }
 
       setDeadlines(pendingDeadlines);
       setDocuments(recentDocs);
+
+      // Set error message if any requests failed
+      if (deadlinesError && docsError) {
+        setError('Failed to load case details. Please try again.');
+      } else if (deadlinesError) {
+        setError('Failed to load deadlines. Documents loaded successfully.');
+      } else if (docsError) {
+        setError('Failed to load documents. Deadlines loaded successfully.');
+      }
     } catch (err) {
       console.error('Failed to fetch case details:', err);
+      setError('Failed to load case details. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -139,7 +186,7 @@ export default function CaseQuickView({ isOpen, caseData, onClose }: CaseQuickVi
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col transform transition-transform">
+      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col transform transition-transform">
         {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -197,6 +244,21 @@ export default function CaseQuickView({ isOpen, caseData, onClose }: CaseQuickVi
                 </div>
               ) : (
                 <>
+                  {/* Error Banner */}
+                  {error && (
+                    <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm text-red-700">{error}</p>
+                        <button
+                          onClick={fetchCaseDetails}
+                          className="text-sm text-red-600 hover:text-red-800 underline mt-1"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {/* Critical Deadlines */}
                   <div className="p-6 border-b border-slate-200">
                     <div className="flex items-center justify-between mb-4">

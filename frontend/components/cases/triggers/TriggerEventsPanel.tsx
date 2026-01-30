@@ -59,14 +59,14 @@ export default function TriggerEventsPanel({
     return (
       <div className="border border-slate-300 bg-slate-50 p-8 text-center">
         <div className="font-mono text-xs text-slate-500 mb-2 uppercase tracking-widest">System Status</div>
-        <h3 className="text-slate-900 font-serif text-lg mb-4">No Active Triggers</h3>
+        <h3 className="text-slate-900 font-serif text-lg mb-4">No Active Rules</h3>
         {onAddTrigger && (
           <button
             onClick={onAddTrigger}
             className="bg-slate-900 text-white px-4 py-2 hover:bg-slate-800 transition-colors text-sm font-medium flex items-center gap-2 mx-auto"
           >
             <Plus className="w-4 h-4" />
-            INITIALIZE TRIGGER
+            ADD EVENT
           </button>
         )}
       </div>
@@ -81,7 +81,7 @@ export default function TriggerEventsPanel({
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-slate-600" />
           <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-            Active Triggers ({activeTriggers.length})
+            Active Rules ({activeTriggers.length})
           </span>
         </div>
         {onAddTrigger && (

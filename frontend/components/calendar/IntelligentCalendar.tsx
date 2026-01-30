@@ -438,9 +438,7 @@ export default function IntelligentCalendar({ userId, showAISuggestions = true }
 
 // Simple toast notification helper
 function showToast(message: string, type: 'success' | 'error') {
-  // This would integrate with your toast notification system
-  console.log(`[${type.toUpperCase()}] ${message}`);
-  // For now, use browser alert as fallback
+  // For now, use browser alert as fallback for errors
   if (type === 'error') {
     alert(message);
   }

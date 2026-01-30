@@ -23,6 +23,7 @@ import apiClient from '@/lib/api-client';
 import GlobalSearch from '@/components/GlobalSearch';
 import CaseQuickView from '@/components/cases/CaseQuickView';
 import ContextMenu from '@/components/cases/ContextMenu';
+import { useToast } from '@/components/Toast';
 
 interface Case {
   id: string;
@@ -46,6 +47,7 @@ interface Case {
 
 export default function CasesListPage() {
   const router = useRouter();
+  const { showInfo, showError, showSuccess } = useToast();
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState<Case[]>([]);
   const [filteredCases, setFilteredCases] = useState<Case[]>([]);
@@ -376,7 +378,7 @@ export default function CasesListPage() {
       setContextMenu(null);
     } catch (err) {
       console.error('Failed to archive case:', err);
-      alert('Failed to archive case. Please try again.');
+      showError('Failed to archive case. Please try again.');
     }
   };
 
@@ -397,7 +399,7 @@ export default function CasesListPage() {
       setContextMenu(null);
     } catch (err) {
       console.error('Failed to export case:', err);
-      alert('Failed to export case. Please try again.');
+      showError('Failed to export case. Please try again.');
     }
   };
 
@@ -407,19 +409,19 @@ export default function CasesListPage() {
     try {
       const response = await apiClient.get(`/api/v1/cases/${contextMenu.caseItem.id}/summary`);
       const summary = response.data;
-      // Display summary in an alert for now (could be a modal)
-      alert(`Case Report: ${contextMenu.caseItem.case_number}\n\n${summary.summary || 'No summary available.'}`);
+      // Show summary in toast - full report modal can be added later
+      showSuccess(`Report generated for ${contextMenu.caseItem.case_number}. ${summary.summary ? 'Summary available.' : 'No summary available.'}`);
       setContextMenu(null);
     } catch (err) {
       console.error('Failed to generate report:', err);
-      alert('Failed to generate report. Please try again.');
+      showError('Failed to generate report. Please try again.');
     }
   };
 
   const handleAssignAttorney = async () => {
     if (!contextMenu) return;
     // Multi-user feature - show placeholder for now
-    alert(`Assign Attorney: ${contextMenu.caseItem.case_number}\n\nThis feature requires multi-user collaboration (Phase 3).`);
+    showInfo('Assign Attorney: Coming soon in Phase 3 (multi-user collaboration)');
     setContextMenu(null);
   };
 
@@ -455,12 +457,6 @@ export default function CasesListPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="btn-ghost"
-          >
-            Dashboard
-          </button>
           <button
             onClick={() => router.push('/')}
             className="btn-primary"
@@ -551,7 +547,7 @@ export default function CasesListPage() {
                 {selectionMode ? 'Cancel Selection' : 'Select Cases'}
               </button>
               {viewMode === 'list' && (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500">
                   <kbd className="px-1.5 py-0.5 bg-slate-200 rounded border border-slate-300">↑↓</kbd>
                   <span>Navigate</span>
                   <kbd className="px-1.5 py-0.5 bg-slate-200 rounded border border-slate-300">Enter</kbd>
@@ -879,21 +875,21 @@ export default function CasesListPage() {
             <div className="h-8 w-px bg-slate-700" />
             <div className="flex items-center gap-2">
               <button
-                onClick={() => alert('Generate Docket Report - Coming soon')}
+                onClick={() => showInfo('Generate Docket Report: Coming soon')}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <FileDown className="w-4 h-4" />
                 Generate Report
               </button>
               <button
-                onClick={() => alert('Assign Attorney - Coming soon')}
+                onClick={() => showInfo('Assign Attorney: Coming soon in Phase 3')}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <Users className="w-4 h-4" />
                 Assign Attorney
               </button>
               <button
-                onClick={() => alert('Archive Cases - Coming soon')}
+                onClick={() => showInfo('Bulk Archive: Coming soon')}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <Archive className="w-4 h-4" />

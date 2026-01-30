@@ -16,6 +16,7 @@ export type AppEvent =
   | 'document:analyzed'
   | 'document:updated'
   | 'case:updated'
+  | 'case:selected'
   | 'chat:message-sent'
   | 'chat:action-taken'
   | 'trigger:created'
@@ -227,4 +228,13 @@ export const filterEvents = {
   filterByPriority: (priority: string) => eventBus.emit('filter:apply', { type: 'priority', value: priority }),
   search: (query: string) => eventBus.emit('filter:apply', { type: 'search', value: query }),
   clear: () => eventBus.emit('filter:clear'),
+};
+
+/**
+ * Convenience functions for case selection events (Quick View -> AI Terminal)
+ */
+export const caseEvents = {
+  selected: (caseData: { id: string; case_number?: string; title?: string }) =>
+    eventBus.emit('case:selected', caseData),
+  deselected: () => eventBus.emit('case:selected', { id: null }),
 };

@@ -44,6 +44,7 @@ DESTRUCTIVE_TOOLS = {
 }
 
 SAFE_TOOLS = {
+    # Read-only query tools
     'query_deadlines',
     'search_documents',
     'get_case_statistics',
@@ -52,10 +53,22 @@ SAFE_TOOLS = {
     'preview_cascade_update',  # Read-only preview
     'get_dependency_tree',
     'get_available_templates',
+    'export_deadlines',
     # Authority Core tools (read-only)
     'search_court_rules',
     'get_rule_details',
-    'calculate_from_rule'
+    'calculate_from_rule',
+    # Create/update tools (non-destructive)
+    'create_deadline',
+    'update_deadline',
+    'create_trigger_deadline',
+    'update_case_info',
+    'add_party',
+    'rename_document',
+    'move_deadline',
+    'duplicate_deadline',
+    'link_deadlines',
+    'create_case',
 }
 
 

@@ -263,7 +263,7 @@ export default function SimpleDeadlineModal({
           <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
             <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700">
-              This will create a manual deadline that won't auto-update. For deadline chains, use Add Trigger instead.
+              This will create a manual deadline that won't auto-update. For deadline chains, use Add Event instead.
             </p>
           </div>
 

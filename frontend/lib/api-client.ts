@@ -32,9 +32,6 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expired or invalid - clear it and redirect to login
       localStorage.removeItem('accessToken');
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        console.log('Authentication failed - token may be expired');
-      }
     }
     return Promise.reject(error);
   }

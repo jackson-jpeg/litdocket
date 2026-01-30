@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useNotifications } from '@/hooks/useNotifications';
-import { Download, User, Bell, Settings as SettingsIcon, Plug } from 'lucide-react';
+import { Download, User, Bell, Settings as SettingsIcon, Plug, AlertTriangle, Mail } from 'lucide-react';
+import apiClient from '@/lib/api-client';
 
 type TabType = 'notifications' | 'preferences' | 'account' | 'integrations';
 
@@ -27,6 +28,12 @@ interface NotificationPreferences {
 
 const validTabs: TabType[] = ['notifications', 'preferences', 'account', 'integrations'];
 
+interface EmailHealthStatus {
+  enabled: boolean;
+  status: string;
+  message: string;
+}
+
 export default function SettingsPage() {
   const { preferences, fetchPreferences, updatePreferences } = useNotifications();
   const searchParams = useSearchParams();
@@ -34,6 +41,7 @@ export default function SettingsPage() {
   const [localPrefs, setLocalPrefs] = useState<NotificationPreferences | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [emailHealth, setEmailHealth] = useState<EmailHealthStatus | null>(null);
 
   // Get active tab from URL hash or query param, default to 'notifications'
   const getActiveTab = (): TabType => {
@@ -78,7 +86,23 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchPreferences();
+    checkEmailHealth();
   }, [fetchPreferences]);
+
+  const checkEmailHealth = async () => {
+    try {
+      const response = await apiClient.get('/api/v1/health/email');
+      setEmailHealth(response.data);
+    } catch (err) {
+      console.error('Failed to check email health:', err);
+      // If we can't check, assume it might not be configured
+      setEmailHealth({
+        enabled: false,
+        status: 'unknown',
+        message: 'Unable to check email service status.'
+      });
+    }
+  };
 
   useEffect(() => {
     if (preferences) {
@@ -163,21 +187,21 @@ export default function SettingsPage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 bg-slate-100 rounded-lg p-1 border border-slate-200 mb-6">
+        <div className="flex gap-1 sm:gap-2 bg-slate-100 rounded-lg p-1 border border-slate-200 mb-6 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-semibold text-sm transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 rounded-md font-semibold text-sm transition-all duration-200 min-w-0 ${
                   activeTab === tab.id
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-600 hover:bg-slate-200 hover:text-slate-800'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden sm:inline truncate">{tab.label}</span>
               </button>
             );
           })}
@@ -236,6 +260,39 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-semibold text-slate-900">Email Notifications</h2>
                 <p className="text-sm text-slate-500 mt-1">Choose which notifications to receive via email</p>
               </div>
+
+              {/* Email Service Status */}
+              {emailHealth && emailHealth.enabled && (
+                <div className="mx-6 mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-green-800">Email Service Active</p>
+                      <p className="text-sm text-green-700 mt-1">
+                        Email notifications are configured and ready to deliver.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {emailHealth && !emailHealth.enabled && (
+                <div className="mx-6 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-amber-800">Email Service Not Configured</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        {emailHealth.message} Your email notification preferences will be saved, but emails will not be delivered until the service is configured.
+                      </p>
+                      <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                        <Mail className="w-3 h-3" />
+                        Contact your administrator to enable email notifications.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="px-6 py-4 space-y-4">
                 <ToggleRow
                   label="Enable Email Notifications"

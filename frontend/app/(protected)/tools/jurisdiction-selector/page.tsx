@@ -73,10 +73,8 @@ export default function JurisdictionSelectorPage() {
                   showRuleCounts={true}
                   expandedByDefault={false}
                   maxHeight="500px"
-                  onValidationWarning={(warnings) => {
-                    if (warnings.length > 0) {
-                      console.log('Validation warnings:', warnings);
-                    }
+                  onValidationWarning={() => {
+                    // Validation warnings are handled by the component UI
                   }}
                 />
               </div>

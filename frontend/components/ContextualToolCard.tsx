@@ -28,7 +28,7 @@ const tools: Record<ToolType, ToolConfig> = {
   calculator: {
     id: 'calculator',
     name: 'Deadline Calculator',
-    description: 'Calculate deadlines from any trigger event',
+    description: 'Calculate deadlines from any event',
     href: '/tools/deadline-calculator',
     icon: <Calculator className="w-5 h-5" />,
     shortcut: 'Alt+C',

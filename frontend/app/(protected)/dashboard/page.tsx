@@ -19,6 +19,17 @@ import { HeatMapSkeleton, MatterHealthSkeleton } from '@/components/Skeleton';
 import { QuickToolsGrid, ToolSuggestionBanner } from '@/components/ContextualToolCard';
 import { useAuth } from '@/lib/auth/auth-context';
 
+// Helper to format time ago
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return date.toLocaleDateString();
+}
+
 interface DashboardData {
   case_statistics: {
     total_cases: number;
@@ -62,6 +73,7 @@ export default function DashboardPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeView, setActiveView] = useState<'overview' | 'heatmap' | 'cases'>('overview');
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const handleLogout = async () => {
     try {
@@ -111,6 +123,7 @@ export default function DashboardPage() {
     try {
       const response = await apiClient.get('/api/v1/dashboard');
       setDashboardData(response.data);
+      setLastUpdated(new Date());
       setError(null);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
@@ -199,7 +212,14 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
-          <p className="text-sm text-slate-500">Overview of all cases and deadlines</p>
+          <p className="text-sm text-slate-500">
+            Overview of all cases and deadlines
+            {lastUpdated && (
+              <span className="ml-2 text-slate-400">
+                · Updated {formatTimeAgo(lastUpdated)}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -651,7 +671,7 @@ export default function DashboardPage() {
             {activeView === 'overview' && (
               <div className="mt-8">
                 <div className="card">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Upload New Document</h3>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Upload More Documents</h3>
                   <div
                     {...getRootProps()}
                     className={`

@@ -324,7 +324,7 @@ export default function DeadlineDetailModal({
                   )}
                   {deadline.is_calculated && (
                     <div className="text-xs text-cyan-600 mt-1">
-                      Auto-calculated from trigger event
+                      Auto-calculated from event
                     </div>
                   )}
                 </div>

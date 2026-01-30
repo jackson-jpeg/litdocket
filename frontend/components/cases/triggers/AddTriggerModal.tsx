@@ -227,12 +227,12 @@ export default function AddTriggerModal({
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">
-                  {step === 'select' && 'Add Trigger Event'}
+                  {step === 'select' && 'Add Event'}
                   {step === 'configure' && `Configure: ${selectedTemplate?.name}`}
                   {step === 'preview' && 'Preview Deadlines'}
                 </h2>
                 <p className="text-sm text-slate-600">
-                  {step === 'select' && 'Select a trigger type to auto-generate deadlines'}
+                  {step === 'select' && 'Select an event type to auto-generate deadlines'}
                   {step === 'configure' && 'Set the date and service method'}
                   {step === 'preview' && `${selectedTemplate?.num_dependent_deadlines} deadlines will be created`}
                 </p>
@@ -500,7 +500,7 @@ export default function AddTriggerModal({
 
           {step === 'select' ? (
             <div className="text-sm text-slate-500">
-              Select a trigger type to continue
+              Select an event type to continue
             </div>
           ) : step === 'configure' ? (
             <button
