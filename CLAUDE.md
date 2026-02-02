@@ -71,10 +71,12 @@ litdocket/
 │
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/            # API route handlers (16 routers)
+│   │   ├── api/v1/            # API route handlers (18 routers)
 │   │   │   ├── auth.py        # Login/signup/token
 │   │   │   ├── cases.py       # Case CRUD
-│   │   │   ├── documents.py   # Document upload/viewing
+│   │   │   ├── case_access.py # Case sharing & access control
+│   │   │   ├── case_intelligence.py # AI intelligence & action plans
+│   │   │   ├── documents.py   # Document upload/viewing + deadline suggestions
 │   │   │   ├── deadlines.py   # Deadline CRUD
 │   │   │   ├── triggers.py    # Trigger events → deadline generation
 │   │   │   ├── chat.py        # Non-streaming chat
@@ -227,6 +229,12 @@ The rules engine (`services/rules_engine.py`) implements CompuLaw-style deadline
 - **AIExtractionFeedback** - Feedback for AI quality improvement
 - **Notification** / **NotificationPreferences** - Alert system
 - **CaseTemplate** - Quick case creation templates
+- **DocumentDeadlineSuggestion** - AI-extracted deadline suggestions with confidence scoring
+- **CaseRecommendation** - Action plan recommendations with urgency levels
+
+### Collaboration Models
+- **CaseAccess** - Role-based case sharing (owner/editor/viewer)
+- **ActiveSession** - Real-time presence tracking for collaboration
 
 ## API Patterns
 
@@ -378,21 +386,22 @@ NEXT_PUBLIC_FIREBASE_APP_ID=...
 - Deadline verification (Case OS)
 - Workload analytics
 - Multi-jurisdiction support (14 jurisdictions seeded)
+- Document → Deadline Auto-Generation (AI-extracted deadline suggestions with confidence scoring)
+- Enhanced Case Intelligence (action plan with urgency-grouped recommendations, rule citations)
+- Case Sharing & Multi-User Collaboration (share cases by email, role-based access, presence tracking)
 
 ### Disabled/Incomplete
 - WebSocket real-time collaboration (commented out in main.py)
 - Pinecone vector database (not implemented)
 
-### Future (Phase 3)
-- Multi-user case access (models exist: CaseAccess, ActiveSession)
-- Real-time collaboration
+### Future
 - Advanced RAG search
 
 ## Known Issues / Tech Debt
 1. Some `any` types remain in event handlers - migrate to proper types
 2. Calendar DnD library typing issues - use type assertion as workaround
 3. Firebase auth bypass exists for local dev - ensure DEV_AUTH_BYPASS is never true in production
-4. WebSocket routes disabled pending production testing
+4. WebSocket routes disabled pending production testing (presence uses HTTP polling as fallback)
 
 ## Key Documentation Files
 - `UPDATED_RULES_ARCHITECTURE.md` - Rules engine deep dive
