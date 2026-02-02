@@ -24,6 +24,8 @@ from app.models.case_intelligence import (
     CaseFact,
     BriefDraft,
 )
+from app.models.case_recommendation import CaseRecommendation
+from app.models.deadline import Deadline
 from app.services.case_intelligence_service import CaseIntelligenceService
 from pydantic import BaseModel
 
@@ -981,3 +983,386 @@ Provide a comprehensive settlement analysis in JSON format:
     except Exception as e:
         logger.error(f"Settlement calculation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Action Plan Endpoints (Enhanced Recommendations)
+# ============================================================
+
+@router.get("/cases/{case_id}/action-plan")
+async def get_case_action_plan(
+    case_id: str,
+    include_completed: bool = False,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the enhanced action plan for a case.
+
+    Returns prioritized, actionable recommendations with full context
+    including rule citations, consequences, and suggested tools.
+    """
+    import uuid
+    from datetime import timedelta
+
+    # Verify case ownership
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Get existing recommendations
+    query = db.query(CaseRecommendation).filter(
+        CaseRecommendation.case_id == case_id,
+        CaseRecommendation.user_id == str(current_user.id)
+    )
+
+    if not include_completed:
+        query = query.filter(CaseRecommendation.status.in_(['pending', 'in_progress']))
+
+    existing_recs = query.order_by(
+        CaseRecommendation.priority.asc(),
+        CaseRecommendation.urgency_level.desc()
+    ).limit(limit).all()
+
+    # If we have enough recent recommendations, return them
+    if existing_recs and len(existing_recs) >= 3:
+        # Check if any are stale (> 1 hour old)
+        recent_enough = all(
+            r.created_at and (datetime.utcnow() - r.created_at).total_seconds() < 3600
+            for r in existing_recs[:5]
+        )
+        if recent_enough:
+            return _format_action_plan(case_id, existing_recs)
+
+    # Generate fresh recommendations
+    now = datetime.utcnow()
+    new_recommendations = []
+    priority = 1
+
+    # =====================================================================
+    # RULE 1: Fatal/Critical Deadlines Within 7 Days
+    # =====================================================================
+    urgent_deadlines = db.query(Deadline).filter(
+        Deadline.case_id == case_id,
+        Deadline.user_id == str(current_user.id),
+        Deadline.deadline_date.between(now.date(), now.date() + timedelta(days=7)),
+        Deadline.priority.in_(['fatal', 'critical']),
+        Deadline.status.notin_(['completed', 'cancelled'])
+    ).order_by(Deadline.deadline_date.asc()).all()
+
+    for deadline in urgent_deadlines:
+        days_until = (deadline.deadline_date - now.date()).days if deadline.deadline_date else None
+
+        # Check if recommendation already exists
+        existing = db.query(CaseRecommendation).filter(
+            CaseRecommendation.case_id == case_id,
+            CaseRecommendation.triggered_by_deadline_id == deadline.id,
+            CaseRecommendation.status == 'pending'
+        ).first()
+
+        if existing:
+            continue
+
+        consequence = "Case dismissal or default judgment" if deadline.priority == 'fatal' else "Court sanctions or adverse ruling"
+
+        rec = CaseRecommendation(
+            id=str(uuid.uuid4()),
+            case_id=case_id,
+            user_id=str(current_user.id),
+            priority=priority,
+            action=f"Complete '{deadline.title}' - {days_until} day(s) remaining",
+            reasoning=f"This is a {deadline.priority} deadline that requires immediate attention.",
+            category="deadlines",
+            triggered_by_deadline_id=deadline.id,
+            rule_citations=[deadline.rule_citation] if deadline.rule_citation else [],
+            consequence_if_ignored=consequence,
+            urgency_level="critical" if deadline.priority == 'fatal' else "high",
+            days_until_consequence=days_until,
+            suggested_tools=[
+                {"tool": "deadline-calculator", "action": "Verify deadline calculation"},
+                {"tool": "ai-assistant", "action": f"Draft {deadline.title}"}
+            ],
+            suggested_document_types=[deadline.title] if 'response' in deadline.title.lower() or 'answer' in deadline.title.lower() else [],
+            expires_at=deadline.deadline_date,
+            status='pending'
+        )
+        db.add(rec)
+        new_recommendations.append(rec)
+        priority += 1
+
+    # =====================================================================
+    # RULE 2: Overdue Deadlines
+    # =====================================================================
+    overdue_deadlines = db.query(Deadline).filter(
+        Deadline.case_id == case_id,
+        Deadline.user_id == str(current_user.id),
+        Deadline.deadline_date < now.date(),
+        Deadline.status.notin_(['completed', 'cancelled'])
+    ).all()
+
+    if overdue_deadlines:
+        fatal_overdue = [d for d in overdue_deadlines if d.priority == 'fatal']
+
+        if fatal_overdue:
+            # Check for existing
+            existing = db.query(CaseRecommendation).filter(
+                CaseRecommendation.case_id == case_id,
+                CaseRecommendation.category == "risk",
+                CaseRecommendation.action.like("%URGENT: Fatal deadline%"),
+                CaseRecommendation.status == 'pending'
+            ).first()
+
+            if not existing:
+                rec = CaseRecommendation(
+                    id=str(uuid.uuid4()),
+                    case_id=case_id,
+                    user_id=str(current_user.id),
+                    priority=0,  # Highest priority
+                    action=f"URGENT: Fatal deadline '{fatal_overdue[0].title}' is OVERDUE",
+                    reasoning="A fatal deadline has passed. Immediate action required to prevent case dismissal or default.",
+                    category="risk",
+                    triggered_by_deadline_id=fatal_overdue[0].id,
+                    rule_citations=[fatal_overdue[0].rule_citation] if fatal_overdue[0].rule_citation else [],
+                    consequence_if_ignored="Case dismissal, default judgment, or malpractice exposure",
+                    urgency_level="critical",
+                    days_until_consequence=0,
+                    suggested_tools=[
+                        {"tool": "ai-assistant", "action": "Draft motion for extension or relief from default"}
+                    ],
+                    suggested_document_types=["Motion for Extension of Time", "Motion to Set Aside Default"],
+                    status='pending'
+                )
+                db.add(rec)
+                new_recommendations.append(rec)
+
+    # =====================================================================
+    # RULE 3: Pending Discovery Responses Due Soon
+    # =====================================================================
+    pending_discovery = db.query(DiscoveryRequest).filter(
+        DiscoveryRequest.case_id == case_id,
+        DiscoveryRequest.user_id == str(current_user.id),
+        DiscoveryRequest.direction == "incoming",
+        DiscoveryRequest.status == "pending",
+        DiscoveryRequest.response_due_date < now.date() + timedelta(days=14)
+    ).all()
+
+    if pending_discovery:
+        existing = db.query(CaseRecommendation).filter(
+            CaseRecommendation.case_id == case_id,
+            CaseRecommendation.category == "discovery",
+            CaseRecommendation.status == 'pending'
+        ).first()
+
+        if not existing:
+            rec = CaseRecommendation(
+                id=str(uuid.uuid4()),
+                case_id=case_id,
+                user_id=str(current_user.id),
+                priority=priority,
+                action=f"Prepare {len(pending_discovery)} discovery response(s) due within 14 days",
+                reasoning="Discovery responses require timely completion to avoid sanctions.",
+                category="discovery",
+                rule_citations=["Fla. R. Civ. P. 1.340", "Fla. R. Civ. P. 1.350"],
+                consequence_if_ignored="Motion to compel, sanctions, or adverse inference",
+                urgency_level="high",
+                days_until_consequence=14,
+                suggested_tools=[
+                    {"tool": "ai-assistant", "action": "Draft discovery responses"},
+                    {"tool": "document-analyzer", "action": "Review relevant documents"}
+                ],
+                status='pending'
+            )
+            db.add(rec)
+            new_recommendations.append(rec)
+            priority += 1
+
+    # =====================================================================
+    # RULE 4: Case Health Recommendations
+    # =====================================================================
+    latest_health = db.query(CaseHealthScore).filter(
+        CaseHealthScore.case_id == case_id
+    ).order_by(CaseHealthScore.calculated_at.desc()).first()
+
+    if latest_health:
+        if latest_health.deadline_compliance_score and latest_health.deadline_compliance_score < 70:
+            existing = db.query(CaseRecommendation).filter(
+                CaseRecommendation.case_id == case_id,
+                CaseRecommendation.action.like("%deadline compliance%"),
+                CaseRecommendation.status == 'pending'
+            ).first()
+
+            if not existing:
+                rec = CaseRecommendation(
+                    id=str(uuid.uuid4()),
+                    case_id=case_id,
+                    user_id=str(current_user.id),
+                    priority=priority,
+                    action="Review and improve deadline compliance",
+                    reasoning=f"Current deadline compliance score is {latest_health.deadline_compliance_score}%. Improving compliance reduces risk of adverse rulings.",
+                    category="compliance",
+                    urgency_level="medium",
+                    suggested_tools=[
+                        {"tool": "calendar", "action": "Review upcoming deadlines"},
+                        {"tool": "deadline-calculator", "action": "Verify all deadline calculations"}
+                    ],
+                    status='pending'
+                )
+                db.add(rec)
+                new_recommendations.append(rec)
+                priority += 1
+
+        if latest_health.document_completeness_score and latest_health.document_completeness_score < 50:
+            existing = db.query(CaseRecommendation).filter(
+                CaseRecommendation.case_id == case_id,
+                CaseRecommendation.action.like("%Upload%document%"),
+                CaseRecommendation.status == 'pending'
+            ).first()
+
+            if not existing:
+                rec = CaseRecommendation(
+                    id=str(uuid.uuid4()),
+                    case_id=case_id,
+                    user_id=str(current_user.id),
+                    priority=priority,
+                    action="Upload key case documents",
+                    reasoning=f"Document completeness score is {latest_health.document_completeness_score}%. Complete documentation enables better case management.",
+                    category="documents",
+                    urgency_level="low",
+                    suggested_document_types=["Complaint", "Answer", "Discovery Requests", "Discovery Responses"],
+                    status='pending'
+                )
+                db.add(rec)
+                new_recommendations.append(rec)
+                priority += 1
+
+    # Commit new recommendations
+    try:
+        db.commit()
+        for r in new_recommendations:
+            db.refresh(r)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save recommendations: {e}")
+
+    # Fetch all current recommendations
+    all_recs = db.query(CaseRecommendation).filter(
+        CaseRecommendation.case_id == case_id,
+        CaseRecommendation.user_id == str(current_user.id),
+        CaseRecommendation.status.in_(['pending', 'in_progress'])
+    ).order_by(
+        CaseRecommendation.priority.asc()
+    ).limit(limit).all()
+
+    return _format_action_plan(case_id, all_recs)
+
+
+def _format_action_plan(case_id: str, recommendations: List[CaseRecommendation]) -> dict:
+    """Format recommendations into an action plan response."""
+    # Group by urgency
+    critical = [r for r in recommendations if r.urgency_level == 'critical']
+    high = [r for r in recommendations if r.urgency_level == 'high']
+    medium = [r for r in recommendations if r.urgency_level == 'medium']
+    low = [r for r in recommendations if r.urgency_level == 'low']
+
+    return {
+        "case_id": case_id,
+        "total_recommendations": len(recommendations),
+        "by_urgency": {
+            "critical": len(critical),
+            "high": len(high),
+            "medium": len(medium),
+            "low": len(low)
+        },
+        "recommendations": [r.to_dict() for r in recommendations],
+        "grouped": {
+            "critical": [r.to_dict() for r in critical],
+            "high": [r.to_dict() for r in high],
+            "medium": [r.to_dict() for r in medium],
+            "low": [r.to_dict() for r in low]
+        }
+    }
+
+
+@router.patch("/recommendations/{recommendation_id}")
+async def update_recommendation(
+    recommendation_id: str,
+    update_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update a recommendation's status.
+
+    Request body:
+    {
+        "status": "completed" | "dismissed" | "in_progress",
+        "dismissed_reason": "Optional reason for dismissal"
+    }
+    """
+    rec = db.query(CaseRecommendation).filter(
+        CaseRecommendation.id == recommendation_id,
+        CaseRecommendation.user_id == str(current_user.id)
+    ).first()
+
+    if not rec:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+
+    new_status = update_data.get('status')
+    if new_status:
+        if new_status not in ['pending', 'in_progress', 'completed', 'dismissed']:
+            raise HTTPException(status_code=400, detail="Invalid status")
+
+        rec.status = new_status
+
+        if new_status == 'completed':
+            rec.completed_at = datetime.utcnow()
+        elif new_status == 'dismissed':
+            rec.dismissed_at = datetime.utcnow()
+            rec.dismissed_reason = update_data.get('dismissed_reason')
+
+    try:
+        db.commit()
+        db.refresh(rec)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update recommendation: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update recommendation")
+
+    return {
+        "success": True,
+        "recommendation": rec.to_dict(),
+        "message": f"Recommendation marked as {new_status}"
+    }
+
+
+@router.delete("/recommendations/{recommendation_id}")
+async def delete_recommendation(
+    recommendation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a recommendation.
+    """
+    rec = db.query(CaseRecommendation).filter(
+        CaseRecommendation.id == recommendation_id,
+        CaseRecommendation.user_id == str(current_user.id)
+    ).first()
+
+    if not rec:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+
+    try:
+        db.delete(rec)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete recommendation: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete recommendation")
+
+    return {"success": True, "message": "Recommendation deleted"}

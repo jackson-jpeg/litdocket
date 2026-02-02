@@ -2,7 +2,8 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth, documents, cases, deadlines, chat, chat_stream, dashboard, triggers,
     search, insights, verification, notifications, jurisdictions,
-    rag_search, workload, rules, audit, authority_core, health, case_intelligence
+    rag_search, workload, rules, audit, authority_core, health, case_intelligence,
+    case_access
 )
 
 api_router = APIRouter()
@@ -45,3 +46,6 @@ api_router.include_router(health.router, tags=["health"])
 
 # Case Intelligence - AI-Powered Analysis
 api_router.include_router(case_intelligence.router, tags=["case-intelligence"])
+
+# Case Access & Sharing
+api_router.include_router(case_access.router, tags=["case-access"])

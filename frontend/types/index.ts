@@ -351,3 +351,221 @@ export interface CalculatedDeadline {
   citation?: string;
   rule_name: string;
 }
+
+// =============================================================================
+// DOCUMENT DEADLINE SUGGESTIONS
+// =============================================================================
+
+export type SuggestionStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+export type ExtractionMethod = 'ai_key_dates' | 'ai_deadlines_mentioned' | 'trigger_detected';
+
+export interface ConfidenceFactors {
+  has_specific_date?: boolean;
+  has_description?: boolean;
+  has_rule_citation?: boolean;
+  trigger_matched?: boolean;
+  extraction_method?: string;
+  matched_trigger?: string;
+  expected_deadlines?: number;
+  rejection_notes?: string;
+}
+
+export interface DeadlineSuggestion {
+  id: string;
+  document_id: string;
+  case_id: string;
+  title: string;
+  description?: string;
+  suggested_date?: string;
+  deadline_type?: string;
+  extraction_method: ExtractionMethod;
+  source_text?: string;
+  matched_trigger_type?: string;
+  rule_citation?: string;
+  confidence_score: number;
+  confidence_factors: ConfidenceFactors;
+  status: SuggestionStatus;
+  reviewed_at?: string;
+  created_deadline_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SuggestionListResponse {
+  suggestions: DeadlineSuggestion[];
+  total: number;
+  pending_count: number;
+  document_id: string;
+}
+
+export interface ApplySuggestionItem {
+  suggestion_id: string;
+  apply_as_trigger?: boolean;
+  override_date?: string;
+  override_title?: string;
+}
+
+export interface ApplySuggestionsRequest {
+  suggestions: ApplySuggestionItem[];
+}
+
+export interface ApplySuggestionsResult {
+  suggestion_id: string;
+  success: boolean;
+  deadline_id?: string;
+  cascade_count?: number;
+  error?: string;
+  message?: string;
+}
+
+export interface ApplySuggestionsResponse {
+  success: boolean;
+  results: ApplySuggestionsResult[];
+  total_deadlines_created: number;
+  total_cascade_deadlines: number;
+  message: string;
+}
+
+export interface CasePendingSuggestions {
+  case_id: string;
+  total_pending: number;
+  suggestions: DeadlineSuggestion[];
+  by_document: Record<string, DeadlineSuggestion[]>;
+}
+
+// =============================================================================
+// ENHANCED CASE RECOMMENDATIONS (Action Plan)
+// =============================================================================
+
+export type RecommendationStatus = 'pending' | 'in_progress' | 'completed' | 'dismissed' | 'expired';
+export type UrgencyLevel = 'critical' | 'high' | 'medium' | 'low';
+
+export interface SuggestedTool {
+  tool: string;
+  action: string;
+  params?: Record<string, unknown>;
+}
+
+export interface TriggeredByDeadline {
+  id: string;
+  title: string;
+  deadline_date?: string;
+  priority: string;
+}
+
+export interface EnhancedRecommendation {
+  id: string;
+  case_id: string;
+  priority: number;
+  action: string;
+  reasoning?: string;
+  category: string;
+  triggered_by_deadline_id?: string;
+  triggered_by_deadline?: TriggeredByDeadline;
+  triggered_by_document_id?: string;
+  rule_citations: string[];
+  consequence_if_ignored?: string;
+  urgency_level: UrgencyLevel;
+  days_until_consequence?: number;
+  suggested_tools: SuggestedTool[];
+  suggested_document_types: string[];
+  status: RecommendationStatus;
+  completed_at?: string;
+  dismissed_at?: string;
+  dismissed_reason?: string;
+  expires_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ActionPlanResponse {
+  case_id: string;
+  total_recommendations: number;
+  by_urgency: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  recommendations: EnhancedRecommendation[];
+  grouped: {
+    critical: EnhancedRecommendation[];
+    high: EnhancedRecommendation[];
+    medium: EnhancedRecommendation[];
+    low: EnhancedRecommendation[];
+  };
+}
+
+// =============================================================================
+// CASE SHARING & ACCESS CONTROL
+// =============================================================================
+
+export type CaseAccessRole = 'owner' | 'editor' | 'viewer';
+
+export interface CaseAccessUser {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+export interface CaseAccess {
+  id: string;
+  case_id: string;
+  user_id?: string;
+  role: CaseAccessRole;
+  is_active: boolean;
+  invited_email?: string;
+  invitation_accepted_at?: string;
+  created_at: string;
+  updated_at?: string;
+  user?: CaseAccessUser;
+}
+
+export interface CaseAccessListResponse {
+  case_id: string;
+  owner_id: string;
+  access_grants: CaseAccess[];
+  total: number;
+}
+
+export interface ShareCaseRequest {
+  email: string;
+  role: CaseAccessRole;
+}
+
+export interface ShareCaseResponse {
+  success: boolean;
+  message: string;
+  access: CaseAccess;
+  user_exists: boolean;
+}
+
+export interface CasePresenceUser {
+  user_id: string;
+  name: string;
+  email?: string;
+  last_activity?: string;
+  is_current_user: boolean;
+}
+
+export interface CasePresenceResponse {
+  case_id: string;
+  active_users: CasePresenceUser[];
+  total: number;
+}
+
+export interface SharedCaseItem {
+  access: CaseAccess;
+  case: {
+    id: string;
+    case_number: string;
+    title: string;
+    court?: string;
+    status: string;
+  };
+}
+
+export interface SharedCasesResponse {
+  shared_cases: SharedCaseItem[];
+  total: number;
+}

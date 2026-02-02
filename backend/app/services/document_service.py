@@ -1023,3 +1023,285 @@ class DocumentService:
             self.db.rollback()
             logger.error(f"✗ Critical error deleting document {document_id}: {e}")
             raise
+
+    # =========================================================================
+    # DEADLINE SUGGESTION EXTRACTION
+    # =========================================================================
+
+    def extract_deadline_suggestions(
+        self,
+        document: Document,
+        analysis: Dict
+    ) -> List[Dict]:
+        """
+        Extract deadline suggestions from document analysis.
+
+        Creates DocumentDeadlineSuggestion records from:
+        1. key_dates array (from AI extraction)
+        2. deadlines_mentioned array (from AI extraction)
+        3. Detected trigger events (matched to rule templates)
+
+        Args:
+            document: The Document model instance
+            analysis: The AI analysis dict from analyze_document
+
+        Returns:
+            List of created suggestion dictionaries
+        """
+        from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
+        from datetime import datetime as dt
+
+        suggestions_created = []
+
+        # Helper to calculate confidence score
+        def calculate_confidence(
+            has_date: bool,
+            has_description: bool,
+            has_rule: bool,
+            extraction_method: str
+        ) -> Tuple[int, Dict]:
+            """Calculate confidence score and factors."""
+            score = 40  # Base score
+            factors = {}
+
+            if has_date:
+                score += 25
+                factors['has_specific_date'] = True
+            else:
+                factors['has_specific_date'] = False
+
+            if has_description:
+                score += 15
+                factors['has_description'] = True
+
+            if has_rule:
+                score += 20
+                factors['has_rule_citation'] = True
+
+            if extraction_method == 'trigger_detected':
+                score = min(score + 10, 100)
+                factors['trigger_matched'] = True
+
+            factors['extraction_method'] = extraction_method
+            return score, factors
+
+        # Helper to parse date string
+        def parse_date(date_str: Optional[str]):
+            """Parse various date formats."""
+            if not date_str:
+                return None
+            try:
+                # Try ISO format first
+                if isinstance(date_str, str):
+                    return dt.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+            try:
+                # Try common US format
+                if isinstance(date_str, str):
+                    return dt.strptime(date_str, '%m/%d/%Y').date()
+            except ValueError:
+                pass
+            return None
+
+        # =====================================================================
+        # EXTRACT FROM key_dates
+        # =====================================================================
+        key_dates = analysis.get('key_dates', [])
+        for kd in key_dates:
+            if not isinstance(kd, dict):
+                continue
+
+            date_val = parse_date(kd.get('date'))
+            description = kd.get('description', '')
+
+            # Skip if no meaningful data
+            if not description and not date_val:
+                continue
+
+            # Determine deadline type from description
+            desc_lower = description.lower() if description else ''
+            deadline_type = 'general'
+            if 'hearing' in desc_lower:
+                deadline_type = 'hearing'
+            elif 'trial' in desc_lower:
+                deadline_type = 'trial'
+            elif 'mediation' in desc_lower:
+                deadline_type = 'mediation'
+            elif 'deposition' in desc_lower:
+                deadline_type = 'deposition'
+            elif 'filing' in desc_lower or 'file' in desc_lower:
+                deadline_type = 'filing'
+            elif 'response' in desc_lower or 'respond' in desc_lower:
+                deadline_type = 'response'
+
+            # Calculate confidence
+            conf_score, conf_factors = calculate_confidence(
+                has_date=date_val is not None,
+                has_description=bool(description),
+                has_rule=False,
+                extraction_method='ai_key_dates'
+            )
+
+            # Check for duplicates
+            existing = self.db.query(DocumentDeadlineSuggestion).filter(
+                DocumentDeadlineSuggestion.document_id == str(document.id),
+                DocumentDeadlineSuggestion.title == description[:500] if description else '',
+                DocumentDeadlineSuggestion.suggested_date == date_val
+            ).first()
+
+            if existing:
+                continue
+
+            suggestion = DocumentDeadlineSuggestion(
+                document_id=str(document.id),
+                case_id=str(document.case_id),
+                user_id=str(document.user_id),
+                title=description[:500] if description else f"Date: {date_val}",
+                description=description,
+                suggested_date=date_val,
+                deadline_type=deadline_type,
+                extraction_method='ai_key_dates',
+                source_text=f"Key date extracted: {description}",
+                confidence_score=conf_score,
+                confidence_factors=conf_factors,
+                status='pending'
+            )
+
+            self.db.add(suggestion)
+            suggestions_created.append(suggestion)
+
+        # =====================================================================
+        # EXTRACT FROM deadlines_mentioned
+        # =====================================================================
+        deadlines_mentioned = analysis.get('deadlines_mentioned', [])
+        for dm in deadlines_mentioned:
+            if not isinstance(dm, dict):
+                continue
+
+            title = dm.get('title') or dm.get('deadline_type', '')
+            date_val = parse_date(dm.get('date'))
+            rule = dm.get('rule', '')
+            description = dm.get('description', '')
+            deadline_type = dm.get('deadline_type', 'general')
+
+            # Skip if no meaningful data
+            if not title and not description:
+                continue
+
+            # Calculate confidence
+            conf_score, conf_factors = calculate_confidence(
+                has_date=date_val is not None,
+                has_description=bool(description),
+                has_rule=bool(rule),
+                extraction_method='ai_deadlines_mentioned'
+            )
+
+            # Check for duplicates
+            existing = self.db.query(DocumentDeadlineSuggestion).filter(
+                DocumentDeadlineSuggestion.document_id == str(document.id),
+                DocumentDeadlineSuggestion.title == (title or description)[:500],
+                DocumentDeadlineSuggestion.suggested_date == date_val
+            ).first()
+
+            if existing:
+                continue
+
+            suggestion = DocumentDeadlineSuggestion(
+                document_id=str(document.id),
+                case_id=str(document.case_id),
+                user_id=str(document.user_id),
+                title=(title or description)[:500],
+                description=description or title,
+                suggested_date=date_val,
+                deadline_type=deadline_type,
+                extraction_method='ai_deadlines_mentioned',
+                source_text=f"Deadline mentioned: {title}. {description}",
+                rule_citation=rule if rule else None,
+                confidence_score=conf_score,
+                confidence_factors=conf_factors,
+                status='pending'
+            )
+
+            self.db.add(suggestion)
+            suggestions_created.append(suggestion)
+
+        # =====================================================================
+        # DETECT TRIGGER EVENTS
+        # =====================================================================
+        # Check if document type matches a known trigger
+        document_type = document.document_type or analysis.get('document_type', '')
+        jurisdiction = analysis.get('jurisdiction', 'florida_state')
+        court_type = analysis.get('case_type', 'civil')
+
+        if jurisdiction in ['state', 'State', 'florida', 'Florida']:
+            jurisdiction = 'florida_state'
+
+        rule_check = self.deadline_service.check_rules_for_trigger(
+            document_type=document_type,
+            jurisdiction=jurisdiction,
+            court_type=court_type
+        )
+
+        if rule_check.get('matches_trigger'):
+            # Get trigger date
+            trigger_date = parse_date(
+                analysis.get('service_date') or analysis.get('filing_date')
+            )
+
+            # Calculate high confidence for matched triggers
+            conf_score, conf_factors = calculate_confidence(
+                has_date=trigger_date is not None,
+                has_description=True,
+                has_rule=True,
+                extraction_method='trigger_detected'
+            )
+            conf_factors['matched_trigger'] = rule_check.get('trigger_type')
+            conf_factors['expected_deadlines'] = rule_check.get('expected_deadlines', 0)
+
+            # Check for duplicate
+            existing = self.db.query(DocumentDeadlineSuggestion).filter(
+                DocumentDeadlineSuggestion.document_id == str(document.id),
+                DocumentDeadlineSuggestion.matched_trigger_type == rule_check.get('trigger_type')
+            ).first()
+
+            if not existing:
+                suggestion = DocumentDeadlineSuggestion(
+                    document_id=str(document.id),
+                    case_id=str(document.case_id),
+                    user_id=str(document.user_id),
+                    title=f"Trigger: {rule_check.get('trigger_description', rule_check.get('trigger_type'))}",
+                    description=(
+                        f"This document triggers {rule_check.get('expected_deadlines', 0)} deadline(s) "
+                        f"under {rule_check.get('rule_set_code', 'applicable rules')}. "
+                        f"Apply as trigger to auto-calculate all dependent deadlines."
+                    ),
+                    suggested_date=trigger_date,
+                    deadline_type='trigger',
+                    extraction_method='trigger_detected',
+                    source_text=f"Document type '{document_type}' matches trigger '{rule_check.get('trigger_type')}'",
+                    matched_trigger_type=rule_check.get('trigger_type'),
+                    rule_citation=rule_check.get('rule_set_code'),
+                    confidence_score=conf_score,
+                    confidence_factors=conf_factors,
+                    status='pending'
+                )
+
+                self.db.add(suggestion)
+                suggestions_created.append(suggestion)
+
+        # Commit all suggestions
+        try:
+            self._safe_commit()
+            for s in suggestions_created:
+                try:
+                    self.db.refresh(s)
+                except Exception:
+                    pass
+        except SQLAlchemyError as e:
+            self._safe_rollback()
+            logger.error(f"Failed to save deadline suggestions: {e}")
+            raise
+
+        logger.info(f"Created {len(suggestions_created)} deadline suggestion(s) for document {document.id}")
+        return [s.to_dict() for s in suggestions_created]

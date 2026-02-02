@@ -89,6 +89,12 @@ from app.models.case_intelligence import (
     BriefDraft,
 )
 
+# Document Deadline Suggestions
+from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
+
+# Case Recommendations
+from app.models.case_recommendation import CaseRecommendation
+
 __all__ = [
     "Base",
     "User",
@@ -159,4 +165,8 @@ __all__ = [
     "DiscoveryRequest",
     "CaseFact",
     "BriefDraft",
+    # Document Deadline Suggestions
+    "DocumentDeadlineSuggestion",
+    # Case Recommendations
+    "CaseRecommendation",
 ]

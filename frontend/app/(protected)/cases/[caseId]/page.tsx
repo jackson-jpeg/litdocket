@@ -11,13 +11,17 @@
 
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { FileText, Upload, Calendar, Clock, AlertTriangle, Building, User, Search, Sparkles, Trash2, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileText, Upload, Calendar, Clock, AlertTriangle, Building, User, Search, Sparkles, Trash2, Plus, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import ChainBadge from '@/components/cases/deadlines/ChainBadge';
 import CaseIntelligencePanel from '@/components/cases/CaseIntelligencePanel';
 import DiscoveryTracker from '@/components/cases/DiscoveryTracker';
 import BriefDraftingAssistant from '@/components/cases/BriefDraftingAssistant';
 import CaseTimeline from '@/components/cases/CaseTimeline';
 import SettlementCalculator from '@/components/cases/SettlementCalculator';
+import DocumentSuggestionReview from '@/components/cases/DocumentSuggestionReview';
+import ActionPlanPanel from '@/components/cases/ActionPlanPanel';
+import ShareCaseModal from '@/components/cases/ShareCaseModal';
+import PresenceIndicator from '@/components/cases/PresenceIndicator';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -72,6 +76,9 @@ export default function CaseRoomPage() {
 
   // Document upload state
   const [uploading, setUploading] = useState(false);
+
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Document search state
   const [documentSearchQuery, setDocumentSearchQuery] = useState('');
@@ -340,6 +347,16 @@ export default function CaseRoomPage() {
                 )}
               </div>
             </div>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="btn-ghost flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                Share
+              </button>
+              <PresenceIndicator caseId={caseId} />
+            </div>
           </div>
 
           {/* Parties */}
@@ -358,10 +375,29 @@ export default function CaseRoomPage() {
           )}
         </div>
 
+        {/* Action Plan - Enhanced Recommendations */}
+        <ActionPlanPanel
+          caseId={caseId}
+          onActionTaken={() => {
+            refetch.deadlines();
+            refetch.caseSummary();
+          }}
+        />
+
         {/* AI Case Intelligence Panel */}
         <CaseIntelligencePanel
           caseId={caseId}
           judgeName={caseData.judge}
+        />
+
+        {/* Pending Deadline Suggestions */}
+        <DocumentSuggestionReview
+          caseId={caseId}
+          onSuggestionsApplied={() => {
+            refetch.deadlines();
+            refetch.caseSummary();
+          }}
+          compact={true}
         />
 
         {/* Actions Row - Single Add Event button */}
@@ -895,6 +931,14 @@ export default function CaseRoomPage() {
           </div>
         </div>
       )}
+
+      {/* Share Case Modal */}
+      <ShareCaseModal
+        caseId={caseId}
+        caseTitle={caseData?.title || 'Case'}
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+      />
     </div>
   );
 }

@@ -184,6 +184,20 @@ async def upload_document(
         extraction_method = extraction_result['extraction_method']
         docketing_message = extraction_result['message']
 
+        # FEATURE 1: Extract deadline suggestions for user review
+        # These are potential deadlines that weren't auto-created but may be relevant
+        suggestions_created = []
+        try:
+            suggestions_created = doc_service.extract_deadline_suggestions(
+                document=document,
+                analysis=analysis_result['analysis']
+            )
+            if suggestions_created:
+                logger.info(f"Created {len(suggestions_created)} deadline suggestions for document {document.id}")
+        except Exception as e:
+            # Don't fail upload if suggestion extraction fails
+            logger.warning(f"Suggestion extraction failed (non-critical): {e}")
+
         # Auto-update case summary
         case = db.query(Case).filter(Case.id == analysis_result['case_id']).first()
         if case:
@@ -219,6 +233,7 @@ async def upload_document(
             'extraction_method': extraction_method,  # "trigger" or "manual"
             'docketing_message': docketing_message,  # Message for chatbot
             'trigger_info': extraction_result.get('trigger_info'),  # Trigger details if PATH A
+            'suggestions_created': len(suggestions_created),  # Pending suggestions for review
             'redirect_url': f"/cases/{analysis_result['case_id']}",
             'message': docketing_message or f'{status_message}. {len(deadlines)} deadline(s) extracted.'
         }
@@ -987,3 +1002,373 @@ Respond with only the summary, no additional formatting."""
 
 # Add datetime import at top if not present
 from datetime import datetime
+
+
+# ============================================================
+# Deadline Suggestion Endpoints
+# ============================================================
+
+@router.get("/{document_id}/suggestions")
+async def get_document_suggestions(
+    document_id: str,
+    status: Optional[str] = Query(None, description="Filter by status: pending, approved, rejected"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get deadline suggestions extracted from a document.
+
+    Returns AI-extracted deadline suggestions that can be approved
+    and converted to actual deadlines.
+    """
+    from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
+
+    # SECURITY: Verify document ownership
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Query suggestions
+    query = db.query(DocumentDeadlineSuggestion).filter(
+        DocumentDeadlineSuggestion.document_id == document_id,
+        DocumentDeadlineSuggestion.user_id == str(current_user.id)
+    )
+
+    if status:
+        query = query.filter(DocumentDeadlineSuggestion.status == status)
+
+    # Order by confidence score descending
+    suggestions = query.order_by(DocumentDeadlineSuggestion.confidence_score.desc()).all()
+
+    # Count pending
+    pending_count = db.query(DocumentDeadlineSuggestion).filter(
+        DocumentDeadlineSuggestion.document_id == document_id,
+        DocumentDeadlineSuggestion.user_id == str(current_user.id),
+        DocumentDeadlineSuggestion.status == 'pending'
+    ).count()
+
+    return {
+        "suggestions": [s.to_dict() for s in suggestions],
+        "total": len(suggestions),
+        "pending_count": pending_count,
+        "document_id": document_id
+    }
+
+
+@router.post("/{document_id}/apply-deadlines")
+@limiter.limit("20/minute")
+async def apply_deadline_suggestions(
+    request: Request,
+    document_id: str,
+    apply_request: dict,  # Using dict for flexibility
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Apply selected deadline suggestions as actual deadlines.
+
+    Request body:
+    {
+        "suggestions": [
+            {
+                "suggestion_id": "uuid",
+                "apply_as_trigger": false,  // If true, trigger cascade calculation
+                "override_date": "2024-03-15",  // Optional date override
+                "override_title": "Custom title"  // Optional title override
+            }
+        ]
+    }
+    """
+    from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
+    from app.models.deadline import Deadline
+    from app.services.deadline_service import DeadlineService
+
+    # SECURITY: Verify document ownership
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == str(current_user.id)
+    ).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    suggestions_to_apply = apply_request.get('suggestions', [])
+    if not suggestions_to_apply:
+        raise HTTPException(status_code=400, detail="No suggestions provided")
+
+    results = []
+    total_deadlines = 0
+    total_cascade = 0
+    deadline_service = DeadlineService()
+
+    for item in suggestions_to_apply:
+        suggestion_id = item.get('suggestion_id')
+        apply_as_trigger = item.get('apply_as_trigger', False)
+        override_date = item.get('override_date')
+        override_title = item.get('override_title')
+
+        # Get suggestion with ownership check
+        suggestion = db.query(DocumentDeadlineSuggestion).filter(
+            DocumentDeadlineSuggestion.id == suggestion_id,
+            DocumentDeadlineSuggestion.user_id == str(current_user.id)
+        ).first()
+
+        if not suggestion:
+            results.append({
+                "suggestion_id": suggestion_id,
+                "success": False,
+                "error": "Suggestion not found"
+            })
+            continue
+
+        if suggestion.status != 'pending':
+            results.append({
+                "suggestion_id": suggestion_id,
+                "success": False,
+                "error": f"Suggestion already {suggestion.status}"
+            })
+            continue
+
+        try:
+            cascade_count = 0
+
+            # Parse override date if provided
+            deadline_date = suggestion.suggested_date
+            if override_date:
+                try:
+                    deadline_date = datetime.strptime(override_date, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+
+            if apply_as_trigger and suggestion.matched_trigger_type:
+                # Apply as trigger - generate cascade deadlines
+                trigger_type = suggestion.matched_trigger_type
+                jurisdiction = 'florida_state'  # TODO: Get from case
+                court_type = 'civil'
+
+                # Get case for jurisdiction info
+                case = db.query(Case).filter(Case.id == suggestion.case_id).first()
+                if case:
+                    jurisdiction = case.jurisdiction or 'florida_state'
+                    court_type = case.case_type or 'civil'
+
+                # Generate deadline chains
+                chain_deadlines = await deadline_service.generate_deadline_chains(
+                    trigger_event=trigger_type,
+                    trigger_date=deadline_date or datetime.now().date(),
+                    jurisdiction=jurisdiction,
+                    court_type=court_type,
+                    case_id=suggestion.case_id,
+                    user_id=str(current_user.id),
+                    service_method='electronic'
+                )
+
+                # Create all chain deadlines
+                for chain_dl in chain_deadlines:
+                    deadline = Deadline(
+                        case_id=chain_dl['case_id'],
+                        user_id=chain_dl['user_id'],
+                        document_id=document_id,
+                        title=chain_dl['title'],
+                        description=chain_dl.get('description'),
+                        deadline_date=chain_dl.get('deadline_date'),
+                        deadline_type=chain_dl.get('deadline_type', 'general'),
+                        applicable_rule=chain_dl.get('rule_citation'),
+                        rule_citation=chain_dl.get('rule_citation'),
+                        calculation_basis=chain_dl.get('calculation_basis'),
+                        priority=chain_dl.get('priority', 'medium'),
+                        status='pending',
+                        trigger_event=trigger_type,
+                        trigger_date=deadline_date,
+                        is_calculated=True,
+                        extraction_method='rule-based',
+                        verification_status='pending'
+                    )
+                    db.add(deadline)
+                    cascade_count += 1
+
+                total_cascade += cascade_count
+
+                # Mark suggestion as approved
+                suggestion.status = 'approved'
+                suggestion.reviewed_at = datetime.utcnow()
+
+                results.append({
+                    "suggestion_id": suggestion_id,
+                    "success": True,
+                    "cascade_count": cascade_count,
+                    "message": f"Trigger applied, {cascade_count} deadlines created"
+                })
+                total_deadlines += cascade_count
+
+            else:
+                # Apply as single deadline
+                title = override_title or suggestion.title
+
+                deadline = Deadline(
+                    case_id=suggestion.case_id,
+                    user_id=str(current_user.id),
+                    document_id=document_id,
+                    title=title,
+                    description=suggestion.description,
+                    deadline_date=deadline_date,
+                    deadline_type=suggestion.deadline_type or 'general',
+                    applicable_rule=suggestion.rule_citation,
+                    rule_citation=suggestion.rule_citation,
+                    priority='medium',
+                    status='pending',
+                    is_calculated=False,
+                    extraction_method='ai',
+                    verification_status='pending',
+                    confidence_score=suggestion.confidence_score,
+                    confidence_level='medium' if suggestion.confidence_score >= 50 else 'low'
+                )
+                db.add(deadline)
+                db.flush()
+
+                # Update suggestion
+                suggestion.status = 'approved'
+                suggestion.reviewed_at = datetime.utcnow()
+                suggestion.created_deadline_id = deadline.id
+
+                results.append({
+                    "suggestion_id": suggestion_id,
+                    "success": True,
+                    "deadline_id": deadline.id,
+                    "cascade_count": 0
+                })
+                total_deadlines += 1
+
+        except Exception as e:
+            logger.error(f"Error applying suggestion {suggestion_id}: {e}")
+            results.append({
+                "suggestion_id": suggestion_id,
+                "success": False,
+                "error": str(e)
+            })
+
+    # Commit all changes
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to commit deadline suggestions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to apply suggestions")
+
+    successful = sum(1 for r in results if r.get('success'))
+
+    return {
+        "success": True,
+        "results": results,
+        "total_deadlines_created": total_deadlines,
+        "total_cascade_deadlines": total_cascade,
+        "message": f"Applied {successful} of {len(suggestions_to_apply)} suggestions. {total_deadlines} deadline(s) created."
+    }
+
+
+@router.patch("/suggestions/{suggestion_id}")
+async def update_suggestion_status(
+    suggestion_id: str,
+    update_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a suggestion's status (reject, etc.).
+
+    Request body:
+    {
+        "status": "rejected",
+        "notes": "Optional rejection reason"
+    }
+    """
+    from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
+
+    # SECURITY: Verify ownership
+    suggestion = db.query(DocumentDeadlineSuggestion).filter(
+        DocumentDeadlineSuggestion.id == suggestion_id,
+        DocumentDeadlineSuggestion.user_id == str(current_user.id)
+    ).first()
+
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    new_status = update_data.get('status')
+    if new_status not in ['pending', 'approved', 'rejected', 'expired']:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    # Update status
+    suggestion.status = new_status
+    suggestion.reviewed_at = datetime.utcnow()
+
+    # Store notes in confidence_factors if provided
+    notes = update_data.get('notes')
+    if notes:
+        if not suggestion.confidence_factors:
+            suggestion.confidence_factors = {}
+        suggestion.confidence_factors['rejection_notes'] = notes
+
+    try:
+        db.commit()
+        db.refresh(suggestion)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update suggestion: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update suggestion")
+
+    return {
+        "success": True,
+        "suggestion": suggestion.to_dict(),
+        "message": f"Suggestion marked as {new_status}"
+    }
+
+
+@router.get("/cases/{case_id}/pending-suggestions")
+async def get_case_pending_suggestions(
+    case_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all pending deadline suggestions for a case.
+
+    Returns suggestions across all documents in the case.
+    """
+    from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
+
+    # SECURITY: Verify case ownership
+    case = db.query(Case).filter(
+        Case.id == case_id,
+        Case.user_id == str(current_user.id)
+    ).first()
+
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # Get all pending suggestions for this case
+    suggestions = db.query(DocumentDeadlineSuggestion).filter(
+        DocumentDeadlineSuggestion.case_id == case_id,
+        DocumentDeadlineSuggestion.user_id == str(current_user.id),
+        DocumentDeadlineSuggestion.status == 'pending'
+    ).order_by(
+        DocumentDeadlineSuggestion.confidence_score.desc()
+    ).all()
+
+    # Group by document
+    by_document = {}
+    for s in suggestions:
+        doc_id = s.document_id
+        if doc_id not in by_document:
+            by_document[doc_id] = []
+        by_document[doc_id].append(s.to_dict())
+
+    return {
+        "case_id": case_id,
+        "total_pending": len(suggestions),
+        "suggestions": [s.to_dict() for s in suggestions],
+        "by_document": by_document
+    }
