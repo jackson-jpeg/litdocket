@@ -399,7 +399,7 @@ export default function QuickCalculatorModal({ isOpen, onClose }: QuickCalculato
                       <tbody>
                         {results.map((deadline, idx) => (
                           <tr
-                            key={idx}
+                            key={`${deadline.title}-${deadline.deadline_date || idx}`}
                             className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
                           >
                             <td className="px-4 py-3">

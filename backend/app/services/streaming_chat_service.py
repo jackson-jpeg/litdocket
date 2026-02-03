@@ -363,6 +363,7 @@ class StreamingChatService:
                                                 # PAUSE and wait for approval
                                                 approval = await approval_manager.request_approval(
                                                     tool_call=tool_call,
+                                                    user_id=user_id,
                                                     timeout=60.0
                                                 )
 

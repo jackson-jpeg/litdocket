@@ -139,7 +139,7 @@ async def get_chat_history(
     limit: int = 50,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> list:
     """Get chat message history for a case"""
 
     # Verify case belongs to user
@@ -174,7 +174,7 @@ async def delete_message(
     message_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """Delete a chat message"""
 
     message = db.query(ChatMessage).filter(

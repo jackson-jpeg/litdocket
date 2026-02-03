@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 @router.get("/stream-test")
-async def stream_test():
+async def stream_test() -> EventSourceResponse:
     """
     Simple SSE test endpoint to verify streaming works.
     Visit this endpoint in a browser to see a countdown.
@@ -66,7 +66,7 @@ async def stream_chat(
     case_id: Optional[str] = Query(None, description="Case UUID (optional for general queries)"),
     current_user: User = Depends(get_current_user_from_query),
     db: Session = Depends(get_db)
-):
+) -> EventSourceResponse:
     """
     Stream AI chat responses via Server-Sent Events (SSE).
 
@@ -183,7 +183,7 @@ async def approve_tool_use(
     approval_id: str,
     request: ApprovalRequest,
     current_user: User = Depends(get_current_user)
-):
+) -> dict:
     """
     Approve a tool execution.
 
@@ -201,11 +201,23 @@ async def approve_tool_use(
 
     Raises:
         404: If approval_id not found (already processed or expired)
+        403: If approval does not belong to current user
     """
     logger.info(
         f"Approval request from user {current_user.id} "
         f"for approval {approval_id}: approved={request.approved}"
     )
+
+    # Security: Verify user owns this approval
+    if not approval_manager.verify_approval_ownership(approval_id, str(current_user.id)):
+        logger.warning(
+            f"User {current_user.id} attempted to approve {approval_id} "
+            "which they do not own"
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to approve this request"
+        )
 
     success = approval_manager.submit_approval(
         approval_id=approval_id,
@@ -233,7 +245,7 @@ async def reject_tool_use(
     approval_id: str,
     reason: Optional[str] = None,
     current_user: User = Depends(get_current_user)
-):
+) -> dict:
     """
     Reject a tool execution.
 
@@ -248,11 +260,23 @@ async def reject_tool_use(
 
     Raises:
         404: If approval_id not found
+        403: If approval does not belong to current user
     """
     logger.info(
         f"Rejection request from user {current_user.id} "
         f"for approval {approval_id}"
     )
+
+    # Security: Verify user owns this approval
+    if not approval_manager.verify_approval_ownership(approval_id, str(current_user.id)):
+        logger.warning(
+            f"User {current_user.id} attempted to reject {approval_id} "
+            "which they do not own"
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to reject this request"
+        )
 
     success = approval_manager.submit_approval(
         approval_id=approval_id,
@@ -276,9 +300,11 @@ async def reject_tool_use(
 @router.get("/approvals/pending")
 async def get_pending_approvals(
     current_user: User = Depends(get_current_user)
-):
+) -> dict:
     """
-    Get all pending approvals (for debugging/monitoring).
+    Get pending approvals for the current user.
+
+    Security: Only returns approvals belonging to the authenticated user.
 
     Returns:
         {
@@ -289,7 +315,8 @@ async def get_pending_approvals(
             ]
         }
     """
-    pending = approval_manager.get_pending_approvals()
+    # Security: Filter by current user only
+    pending = approval_manager.get_pending_approvals(user_id=str(current_user.id))
 
     approvals_list = [
         {

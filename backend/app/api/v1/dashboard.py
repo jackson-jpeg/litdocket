@@ -17,7 +17,7 @@ router = APIRouter()
 def get_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """
     Get comprehensive dashboard data for the current user
 
@@ -43,7 +43,7 @@ def get_dashboard(
 def get_morning_report(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """
     MODULE 1: Get Morning Agent Report (Intelligence Briefing)
 
@@ -76,7 +76,7 @@ def get_morning_report(
 def get_dashboard_alerts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """
     Get deadline alerts (critical path - loads first).
 
@@ -172,7 +172,7 @@ def get_dashboard_alerts(
 def get_dashboard_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """
     Get case statistics (high priority).
 
@@ -244,7 +244,7 @@ def get_dashboard_upcoming(
     db: Session = Depends(get_db),
     days: int = 30,
     limit: int = 20
-):
+) -> dict:
     """
     Get upcoming deadlines (high priority).
 
@@ -304,7 +304,7 @@ def get_dashboard_upcoming(
 def get_dashboard_heatmap(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """
     Get heat map data (lazy loaded - only when tab selected).
 
@@ -396,7 +396,7 @@ def get_dashboard_activity(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     limit: int = 10
-):
+) -> dict:
     """
     Get recent activity feed (lazy loaded).
 
@@ -435,7 +435,7 @@ def get_dashboard_activity(
 def get_dashboard_health(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+) -> dict:
     """
     Get matter health cards (lazy loaded).
 

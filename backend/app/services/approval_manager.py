@@ -38,6 +38,7 @@ class ApprovalEvent:
     """Internal state for pending approval."""
     tool_call: ToolCall
     event: asyncio.Event
+    user_id: str  # Track which user owns this approval
     result: Optional[Approval] = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
@@ -68,6 +69,7 @@ class ApprovalManager:
     async def request_approval(
         self,
         tool_call: ToolCall,
+        user_id: str,
         timeout: float = 60.0
     ) -> Approval:
         """
@@ -92,6 +94,7 @@ class ApprovalManager:
         approval_event = ApprovalEvent(
             tool_call=tool_call,
             event=event,
+            user_id=user_id,
             result=None
         )
 
@@ -177,17 +180,41 @@ class ApprovalManager:
 
         return True
 
-    def get_pending_approvals(self) -> Dict[str, ToolCall]:
+    def get_pending_approvals(self, user_id: Optional[str] = None) -> Dict[str, ToolCall]:
         """
-        Get all pending approvals (for debugging/monitoring).
+        Get pending approvals, optionally filtered by user.
+
+        Args:
+            user_id: If provided, only return approvals for this user
 
         Returns:
             Dict mapping approval_id to ToolCall
         """
+        if user_id:
+            return {
+                approval_id: event.tool_call
+                for approval_id, event in self.pending_approvals.items()
+                if event.user_id == user_id
+            }
         return {
             approval_id: event.tool_call
             for approval_id, event in self.pending_approvals.items()
         }
+
+    def verify_approval_ownership(self, approval_id: str, user_id: str) -> bool:
+        """
+        Verify that an approval belongs to a specific user.
+
+        Args:
+            approval_id: The approval ID to check
+            user_id: The user ID to verify against
+
+        Returns:
+            True if approval exists and belongs to user, False otherwise
+        """
+        if approval_id not in self.pending_approvals:
+            return False
+        return self.pending_approvals[approval_id].user_id == user_id
 
     def cancel_approval(self, approval_id: str) -> bool:
         """

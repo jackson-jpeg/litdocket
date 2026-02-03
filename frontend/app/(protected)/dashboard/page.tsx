@@ -769,9 +769,6 @@ export default function DashboardPage() {
                     Cases
                   </button>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Auto-refresh: 30s
-                </p>
               </div>
             </div>
 

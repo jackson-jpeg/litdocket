@@ -57,7 +57,7 @@ function extractCitations(text: string): string[] {
 
 // Generate unique session ID
 function generateSessionId(): string {
-  return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `chat_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps) {
@@ -97,8 +97,8 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
             timestamp: new Date(m.timestamp),
           }))
         );
-      } catch (e) {
-        console.error('Failed to parse chat history:', e);
+      } catch {
+        // Invalid stored chat history, ignore
       }
     }
   }, []);
@@ -188,10 +188,8 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
     let accumulatedContent = '';
     let citations: string[] = [];
 
-    eventSource.addEventListener('status', (e) => {
-      // Status events (thinking, building_context, etc.)
-      const data = JSON.parse(e.data);
-      console.log('[Chat] Status:', data.status, data.message);
+    eventSource.addEventListener('status', () => {
+      // Status events (thinking, building_context, etc.) - handled silently
     });
 
     eventSource.addEventListener('token', (e) => {
@@ -202,7 +200,6 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
 
     eventSource.addEventListener('done', (e) => {
       const data = JSON.parse(e.data);
-      console.log('[Chat] Done:', data);
 
       // Extract citations from the content
       citations = extractCitations(accumulatedContent);
@@ -240,7 +237,6 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
         // Not a JSON error event
       }
 
-      console.error('[Chat] Error:', errorMessage);
       setError(errorMessage);
       setIsStreaming(false);
       setStreamingContent('');
@@ -248,7 +244,6 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
     });
 
     eventSource.onerror = () => {
-      console.error('[Chat] EventSource error');
       if (eventSource.readyState === EventSource.CLOSED) {
         setIsStreaming(false);
         if (!accumulatedContent) {
