@@ -229,7 +229,7 @@ export default function UnifiedAddEventModal({
       });
 
       showSuccess('Deadline created successfully');
-      deadlineEvents.created({ case_id: caseId });
+      deadlineEvents.created({ id: 'new', case_id: caseId });
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -283,7 +283,7 @@ export default function UnifiedAddEventModal({
       });
 
       showSuccess(`Deadline created from ${selectedRule.rule_name}`);
-      deadlineEvents.created({ case_id: caseId });
+      deadlineEvents.created({ id: 'new', case_id: caseId });
       onSuccess();
       onClose();
     } catch (err: unknown) {

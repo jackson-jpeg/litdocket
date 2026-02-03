@@ -172,7 +172,7 @@ export default function IntelligentCalendar({ userId, showAISuggestions = true }
       await fetchCalendarData();
 
       // Emit event
-      eventBus.emit('deadline:updated', { deadlineId: draggedDeadline.id });
+      eventBus.emit('deadline:updated', { id: draggedDeadline.id });
 
       // Show success message
       showToast(`Deadline moved to ${new Date(newDate).toLocaleDateString()}`, 'success');

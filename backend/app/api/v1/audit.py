@@ -88,6 +88,25 @@ async def verify_audit_chain(
     trail. This endpoint verifies that no entries have been modified.
     """
     try:
+        # SECURITY: Verify ownership before accessing audit data
+        # Check if this record belongs to the current user by checking
+        # if any audit entries for this record were made by this user
+        ownership_check = db.execute(
+            text("""
+                SELECT 1 FROM audit_log
+                WHERE record_id = :record_id
+                  AND changed_by = :user_id
+                LIMIT 1
+            """),
+            {"record_id": record_id, "user_id": str(current_user.id)}
+        ).fetchone()
+
+        if not ownership_check:
+            raise HTTPException(
+                status_code=404,
+                detail="Record not found or access denied"
+            )
+
         # Call the database function to verify the chain
         result = db.execute(
             text("SELECT * FROM verify_audit_chain(:record_id)"),
@@ -131,6 +150,23 @@ async def get_record_history(
     Get the full audit history for a record, including chain validity status.
     """
     try:
+        # SECURITY: Verify ownership before accessing audit history
+        ownership_check = db.execute(
+            text("""
+                SELECT 1 FROM audit_log
+                WHERE record_id = :record_id
+                  AND changed_by = :user_id
+                LIMIT 1
+            """),
+            {"record_id": record_id, "user_id": str(current_user.id)}
+        ).fetchone()
+
+        if not ownership_check:
+            raise HTTPException(
+                status_code=404,
+                detail="Record not found or access denied"
+            )
+
         results = db.execute(
             text("SELECT * FROM get_record_history(:record_id, :limit)"),
             {"record_id": record_id, "limit": limit}

@@ -77,7 +77,7 @@ export default function SimpleDeadlineModal({
       });
 
       showSuccess('Deadline created successfully');
-      deadlineEvents.created({ case_id: caseId });
+      deadlineEvents.created({ id: response.data?.id || response.data?.data?.id || 'new', case_id: caseId });
 
       // Reset form
       setTitle('');

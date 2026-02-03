@@ -2984,9 +2984,11 @@ class DatabaseRulesEngine:
             Jurisdiction.is_active == True
         ).all()
 
-        for juris in base_jurisdictions:
+        # Collect all jurisdiction IDs first, then do a single query
+        base_jurisdiction_ids = [juris.id for juris in base_jurisdictions]
+        if base_jurisdiction_ids:
             juris_rule_sets = self.db.query(RuleSet).filter(
-                RuleSet.jurisdiction_id == juris.id,
+                RuleSet.jurisdiction_id.in_(base_jurisdiction_ids),
                 RuleSet.is_active == True,
                 RuleSet.is_local == False
             ).all()
@@ -2994,19 +2996,22 @@ class DatabaseRulesEngine:
 
         # 2. Load local rules for circuit/district
         if circuit or district:
-            local_jurisdictions = self.db.query(Jurisdiction).filter(
+            local_jurisdictions_query = self.db.query(Jurisdiction).filter(
                 Jurisdiction.jurisdiction_type == JurisdictionType.LOCAL,
                 Jurisdiction.is_active == True
             )
 
             if circuit:
-                local_jurisdictions = local_jurisdictions.filter(
+                local_jurisdictions_query = local_jurisdictions_query.filter(
                     Jurisdiction.code.like(f'%{circuit}%')
                 )
 
-            for local_juris in local_jurisdictions.all():
+            local_jurisdictions = local_jurisdictions_query.all()
+            local_jurisdiction_ids = [local_juris.id for local_juris in local_jurisdictions]
+
+            if local_jurisdiction_ids:
                 local_rule_sets = self.db.query(RuleSet).filter(
-                    RuleSet.jurisdiction_id == local_juris.id,
+                    RuleSet.jurisdiction_id.in_(local_jurisdiction_ids),
                     RuleSet.is_active == True,
                     RuleSet.is_local == True
                 ).all()

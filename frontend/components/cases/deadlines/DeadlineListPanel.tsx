@@ -184,7 +184,7 @@ export default function DeadlineListPanel({
           apiClient.patch(`/api/v1/deadlines/${id}/status?status=completed`)
         )
       );
-      deadlineEvents.bulkUpdated(Array.from(selectedIds));
+      deadlineEvents.bulkUpdated(Array.from(selectedIds).map(id => ({ id })));
       showSuccess(`${selectedIds.size} deadline(s) completed`);
       clearSelection();
       onRefresh?.();

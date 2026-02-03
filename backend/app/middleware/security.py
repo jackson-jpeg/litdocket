@@ -107,6 +107,7 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) 
     Returns JSON response with proper CORS headers.
     """
     from fastapi.responses import JSONResponse
+    from app.config import settings
 
     logger.warning(f"Rate limit exceeded for IP {get_real_client_ip(request)} on {request.url.path}")
 
@@ -119,14 +120,9 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) 
         }
     )
 
-    # Add CORS headers for rate limit responses
+    # Add CORS headers for rate limit responses using centralized config
     origin = request.headers.get("origin", "")
-    allowed_origins = [
-        "http://localhost:3000",
-        "https://litdocket.com",
-        "https://www.litdocket.com",
-    ]
-    if origin in allowed_origins:
+    if origin in settings.ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
 

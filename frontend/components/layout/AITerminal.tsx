@@ -301,7 +301,7 @@ export function AITerminal() {
       setUploadProgress(100);
 
       if (response.data.deadlines_extracted > 0) {
-        deadlineEvents.created({ case_id: activeCaseId });
+        deadlineEvents.created({ id: 'batch', case_id: activeCaseId });
       }
 
     } catch (err: any) {

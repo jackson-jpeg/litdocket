@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import os
 import uuid
 import logging
+import httpx
 
 from app.database import get_db
 from app.services.document_service import DocumentService
@@ -303,7 +304,6 @@ async def download_document(
     from app.models.document import Document
     from app.services.firebase_service import firebase_service
     from fastapi.responses import StreamingResponse
-    import requests
 
     # CRITICAL: Verify ownership before serving file
     document = db.query(Document).filter(
@@ -324,24 +324,27 @@ async def download_document(
             # Get signed URL (this works server-side, no CORS)
             signed_url = firebase_service.get_download_url(document.storage_path)
 
-            # Fetch the file from Firebase using the signed URL
-            response = requests.get(signed_url, stream=True)
+            # Fetch the file from Firebase using async httpx client
+            async with httpx.AsyncClient() as client:
+                response = await client.get(signed_url)
 
-            if response.status_code != 200:
-                raise HTTPException(status_code=500, detail="Failed to fetch document from storage")
+                if response.status_code != 200:
+                    raise HTTPException(status_code=500, detail="Failed to fetch document from storage")
 
-            # Stream the file to the client with proper CORS headers
-            return StreamingResponse(
-                response.iter_content(chunk_size=8192),
-                media_type='application/pdf',
-                headers={
-                    'Content-Disposition': f'inline; filename="{document.file_name}"',
-                    'Cache-Control': 'private, max-age=3600',
-                    'Access-Control-Allow-Origin': '*',  # Allow all origins for PDF viewing
-                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-                }
-            )
+                # Stream the file to the client with proper CORS headers
+                return StreamingResponse(
+                    iter([response.content]),
+                    media_type='application/pdf',
+                    headers={
+                        'Content-Disposition': f'inline; filename="{document.file_name}"',
+                        'Cache-Control': 'private, max-age=3600',
+                        'Access-Control-Allow-Origin': '*',  # Allow all origins for PDF viewing
+                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+                    }
+                )
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to proxy Firebase document {document_id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to download document")

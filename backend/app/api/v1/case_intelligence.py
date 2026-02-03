@@ -113,14 +113,29 @@ async def get_intelligence_dashboard(
 
     case_ids = [c.id for c in cases]
 
-    # Get latest health scores for each case
+    # Get latest health scores for each case using a single query with window function
+    # This avoids N+1 queries by fetching all latest scores at once
     health_scores = {}
-    for case_id in case_ids:
-        score = db.query(CaseHealthScore).filter(
-            CaseHealthScore.case_id == case_id
-        ).order_by(CaseHealthScore.calculated_at.desc()).first()
-        if score:
-            health_scores[case_id] = score
+    if case_ids:
+        from sqlalchemy import func as sa_func
+        from sqlalchemy.orm import aliased
+
+        # Subquery to get the max calculated_at for each case
+        latest_scores_subq = db.query(
+            CaseHealthScore.case_id,
+            sa_func.max(CaseHealthScore.calculated_at).label('max_calculated_at')
+        ).filter(
+            CaseHealthScore.case_id.in_(case_ids)
+        ).group_by(CaseHealthScore.case_id).subquery()
+
+        # Join to get the full records for the latest scores
+        latest_scores = db.query(CaseHealthScore).join(
+            latest_scores_subq,
+            (CaseHealthScore.case_id == latest_scores_subq.c.case_id) &
+            (CaseHealthScore.calculated_at == latest_scores_subq.c.max_calculated_at)
+        ).all()
+
+        health_scores = {score.case_id: score for score in latest_scores}
 
     # Calculate aggregates
     scores_list = list(health_scores.values())

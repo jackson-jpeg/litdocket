@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -60,16 +60,32 @@ export default function CalendarGrid({
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<View>('month');
   const [highlightedDate, setHighlightedDate] = useState<Date | null>(null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update current date when navigateToDate changes
-  if (navigateToDate && navigateToDate.getTime() !== currentDate.getTime()) {
-    setCurrentDate(navigateToDate);
-    // Set highlighted date and clear after 2 seconds
-    setHighlightedDate(navigateToDate);
-    setTimeout(() => {
-      setHighlightedDate(null);
-    }, 2000);
-  }
+  useEffect(() => {
+    if (navigateToDate && navigateToDate.getTime() !== currentDate.getTime()) {
+      setCurrentDate(navigateToDate);
+      // Set highlighted date and clear after 2 seconds
+      setHighlightedDate(navigateToDate);
+
+      // Clear any existing timeout
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedDate(null);
+      }, 2000);
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, [navigateToDate, currentDate]);
 
   // Convert deadlines to calendar events with filtering
   const events: CalendarEvent[] = useMemo(() => {

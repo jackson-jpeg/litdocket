@@ -1296,8 +1296,8 @@ class DocumentService:
             for s in suggestions_created:
                 try:
                     self.db.refresh(s)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to refresh suggestion {s.id}: {e}")
         except SQLAlchemyError as e:
             self._safe_rollback()
             logger.error(f"Failed to save deadline suggestions: {e}")

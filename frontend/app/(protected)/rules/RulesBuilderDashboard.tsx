@@ -13,7 +13,6 @@ import {
   PlusCircle,
   CheckCircle,
   Play,
-  FileText,
   Save,
   Eye,
   X
@@ -21,9 +20,99 @@ import {
 
 type TabType = 'my-rules' | 'marketplace' | 'create' | 'history';
 
+// Type definitions for rules
+interface RuleTemplate {
+  id: string;
+  rule_name: string;
+  slug: string;
+  jurisdiction: string;
+  trigger_type: string;
+  status: 'draft' | 'active' | 'deprecated' | 'archived';
+  version_count: number;
+  usage_count: number;
+  is_public: boolean;
+  is_official: boolean;
+  created_at: string;
+  description?: string;
+  tags?: string[];
+}
+
+interface RuleExecution {
+  id: string;
+  rule_template_id: string;
+  case_id: string;
+  trigger_data: Record<string, unknown>;
+  deadlines_created: number;
+  execution_time_ms: number;
+  status: string;
+  error_message?: string;
+  executed_at: string;
+  deadline_ids?: string[];
+}
+
+interface RuleDeadline {
+  id: string;
+  title: string;
+  offset_days: number;
+  offset_direction: 'before' | 'after';
+  priority: 'FATAL' | 'CRITICAL' | 'IMPORTANT' | 'STANDARD' | 'INFORMATIONAL';
+  description?: string;
+  applicable_rule?: string;
+  add_service_days?: boolean;
+}
+
+interface CreateRuleRequest {
+  rule_name: string;
+  slug: string;
+  jurisdiction: string;
+  trigger_type: string;
+  description?: string;
+  tags?: string[];
+  is_public?: boolean;
+  rule_schema: RuleSchema;
+}
+
+interface RuleSchema {
+  metadata: {
+    name: string;
+    description: string;
+    effective_date: string;
+  };
+  trigger: {
+    type: string;
+    required_fields: Array<{
+      name: string;
+      type: string;
+      label: string;
+      required: boolean;
+    }>;
+  };
+  deadlines: Array<{
+    id: string;
+    title: string;
+    offset_days: number;
+    offset_direction: string;
+    priority: string;
+    description?: string;
+    applicable_rule?: string;
+    add_service_days?: boolean;
+  }>;
+  dependencies: unknown[];
+  validation: {
+    min_deadlines: number;
+    max_deadlines: number;
+    require_citations: boolean;
+  };
+  settings: {
+    auto_cascade_updates: boolean;
+    allow_manual_override: boolean;
+    notification_lead_days: number[];
+  };
+}
+
 export default function RulesBuilderDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('my-rules');
-  const [testingRule, setTestingRule] = useState<any | null>(null);
+  const [testingRule, setTestingRule] = useState<RuleTemplate | null>(null);
 
   // Lift the hook to parent so all tabs share the same state
   const {
@@ -154,7 +243,7 @@ export default function RulesBuilderDashboard() {
 // MY RULES TAB
 // ============================================
 
-function MyRulesTab({ rules, loading, onTestRule }: { rules: any[]; loading: boolean; onTestRule: (rule: any) => void }) {
+function MyRulesTab({ rules, loading, onTestRule }: { rules: RuleTemplate[]; loading: boolean; onTestRule: (rule: RuleTemplate) => void }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -187,7 +276,7 @@ function MyRulesTab({ rules, loading, onTestRule }: { rules: any[]; loading: boo
   );
 }
 
-function RuleCard({ rule, onTest }: { rule: any; onTest: () => void }) {
+function RuleCard({ rule, onTest }: { rule: RuleTemplate; onTest: () => void }) {
   const statusColors = {
     draft: 'bg-gray-100 text-gray-700',
     active: 'bg-green-100 text-green-700',
@@ -275,7 +364,7 @@ function MarketplaceTab() {
 // ============================================
 
 interface CreateRuleTabProps {
-  createRule: (request: any) => Promise<any>;
+  createRule: (request: CreateRuleRequest) => Promise<RuleTemplate | null>;
   loading: boolean;
   onRuleCreated: () => Promise<void>;
 }
@@ -290,7 +379,7 @@ function CreateRuleTab({ createRule, loading, onRuleCreated }: CreateRuleTabProp
     tags: [] as string[],
     is_public: false
   });
-  const [deadlines, setDeadlines] = useState<any[]>([]);
+  const [deadlines, setDeadlines] = useState<RuleDeadline[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
@@ -597,7 +686,7 @@ function ExecutionHistoryTab() {
 
   const filteredExecutions = selectedRuleFilter === 'all'
     ? executions
-    : executions.filter((e: any) => e.rule_template_id === selectedRuleFilter);
+    : executions.filter((e: RuleExecution) => e.rule_template_id === selectedRuleFilter);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -636,7 +725,7 @@ function ExecutionHistoryTab() {
         </div>
       ) : (
         <div className="divide-y divide-gray-200">
-          {filteredExecutions.map((execution: any) => (
+          {filteredExecutions.map((execution: RuleExecution) => (
             <ExecutionHistoryItem key={execution.id} execution={execution} />
           ))}
         </div>
@@ -645,7 +734,7 @@ function ExecutionHistoryTab() {
   );
 }
 
-function ExecutionHistoryItem({ execution }: { execution: any }) {
+function ExecutionHistoryItem({ execution }: { execution: RuleExecution }) {
   const [expanded, setExpanded] = React.useState(false);
 
   const statusColors = {

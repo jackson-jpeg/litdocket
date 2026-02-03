@@ -117,7 +117,7 @@ export function useCaseSync({
     emitDeadlineDeleted: (deadlineId: string) => eventBus.emit('deadline:deleted', deadlineId),
     emitDeadlineCompleted: (deadline: any) => eventBus.emit('deadline:completed', deadline),
     emitDocumentUploaded: (document: any) => eventBus.emit('document:uploaded', document),
-    emitCaseUpdated: () => eventBus.emit('case:updated'),
+    emitCaseUpdated: () => eventBus.emit('case:updated', { id: '' }),
     refreshAll: () => {
       onDeadlinesUpdate?.();
       onDocumentsUpdate?.();
