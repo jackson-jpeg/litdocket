@@ -558,7 +558,9 @@ export function SovereignTreeGrid({
         setLoading(false);
       } catch (err) {
         console.error('Failed to load jurisdiction data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load data');
+        const axiosErr = err as { response?: { data?: { detail?: string } } };
+        const message = axiosErr?.response?.data?.detail || 'Unable to load jurisdiction data. Please refresh the page.';
+        setError(message);
         setLoading(false);
       }
     }

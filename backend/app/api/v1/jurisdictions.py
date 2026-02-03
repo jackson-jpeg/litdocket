@@ -608,63 +608,72 @@ async def get_jurisdiction_tree(
     Returns all active jurisdictions and rule sets with their dependencies,
     formatted for the JurisdictionTreeSelector component.
     """
-    # Build jurisdiction query
-    j_query = db.query(Jurisdiction).filter(Jurisdiction.is_active == True)
+    try:
+        # Build jurisdiction query
+        j_query = db.query(Jurisdiction).filter(Jurisdiction.is_active == True)
 
-    if filter_by_state:
-        # Include federal + matching state
-        j_query = j_query.filter(
-            (Jurisdiction.state == filter_by_state.upper()) |
-            (Jurisdiction.jurisdiction_type == JurisdictionType.FEDERAL)
+        if filter_by_state:
+            # Include federal + matching state
+            j_query = j_query.filter(
+                (Jurisdiction.state == filter_by_state.upper()) |
+                (Jurisdiction.jurisdiction_type == JurisdictionType.FEDERAL)
+            )
+
+        jurisdictions = j_query.order_by(Jurisdiction.name).all()
+
+        # Build rule sets query with dependencies
+        rs_query = db.query(RuleSet).filter(RuleSet.is_active == True)
+        rule_sets = rs_query.order_by(RuleSet.code).all()
+
+        # Get dependencies
+        dependencies = db.query(RuleSetDependency).all()
+        dep_by_rule_set = {}
+        for dep in dependencies:
+            if dep.rule_set_id not in dep_by_rule_set:
+                dep_by_rule_set[dep.rule_set_id] = []
+            dep_by_rule_set[dep.rule_set_id].append(RuleSetDependencySimple(
+                required_rule_set_id=dep.required_rule_set_id,
+                dependency_type=dep.dependency_type.value if dep.dependency_type else "concurrent",
+                priority=dep.priority or 0
+            ))
+
+        # Convert to response format
+        jurisdiction_items = [
+            JurisdictionTreeItem(
+                id=j.id,
+                code=j.code,
+                name=j.name,
+                jurisdiction_type=j.jurisdiction_type.value if j.jurisdiction_type else "state",
+                parent_jurisdiction_id=j.parent_jurisdiction_id
+            )
+            for j in jurisdictions
+        ]
+
+        rule_set_items = [
+            RuleSetTreeItem(
+                id=rs.id,
+                code=rs.code,
+                name=rs.name,
+                jurisdiction_id=rs.jurisdiction_id,
+                court_type=rs.court_type.value if rs.court_type else None,
+                is_local=rs.is_local or False,
+                dependencies=dep_by_rule_set.get(rs.id, [])
+            )
+            for rs in rule_sets
+        ]
+
+        return JurisdictionTreeResponse(
+            jurisdictions=jurisdiction_items,
+            rule_sets=rule_set_items
         )
-
-    jurisdictions = j_query.order_by(Jurisdiction.name).all()
-
-    # Build rule sets query with dependencies
-    rs_query = db.query(RuleSet).filter(RuleSet.is_active == True)
-    rule_sets = rs_query.order_by(RuleSet.code).all()
-
-    # Get dependencies
-    dependencies = db.query(RuleSetDependency).all()
-    dep_by_rule_set = {}
-    for dep in dependencies:
-        if dep.rule_set_id not in dep_by_rule_set:
-            dep_by_rule_set[dep.rule_set_id] = []
-        dep_by_rule_set[dep.rule_set_id].append(RuleSetDependencySimple(
-            required_rule_set_id=dep.required_rule_set_id,
-            dependency_type=dep.dependency_type.value if dep.dependency_type else "concurrent",
-            priority=dep.priority or 0
-        ))
-
-    # Convert to response format
-    jurisdiction_items = [
-        JurisdictionTreeItem(
-            id=j.id,
-            code=j.code,
-            name=j.name,
-            jurisdiction_type=j.jurisdiction_type.value if j.jurisdiction_type else "state",
-            parent_jurisdiction_id=j.parent_jurisdiction_id
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to load jurisdiction tree: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to load jurisdiction data. Please refresh or try again shortly."
         )
-        for j in jurisdictions
-    ]
-
-    rule_set_items = [
-        RuleSetTreeItem(
-            id=rs.id,
-            code=rs.code,
-            name=rs.name,
-            jurisdiction_id=rs.jurisdiction_id,
-            court_type=rs.court_type.value if rs.court_type else None,
-            is_local=rs.is_local or False,
-            dependencies=dep_by_rule_set.get(rs.id, [])
-        )
-        for rs in rule_sets
-    ]
-
-    return JurisdictionTreeResponse(
-        jurisdictions=jurisdiction_items,
-        rule_sets=rule_set_items
-    )
 
 
 # ============================================================

@@ -105,84 +105,93 @@ async def get_intelligence_dashboard(
     Returns aggregated health scores, at-risk cases, and recommendations
     across all user cases.
     """
-    # Get all active cases
-    cases = db.query(Case).filter(
-        Case.user_id == str(current_user.id),
-        Case.status.in_(['active', 'discovery', 'trial', 'pending'])
-    ).all()
-
-    case_ids = [c.id for c in cases]
-
-    # Get latest health scores for each case using a single query with window function
-    # This avoids N+1 queries by fetching all latest scores at once
-    health_scores = {}
-    if case_ids:
-        from sqlalchemy import func as sa_func
-        from sqlalchemy.orm import aliased
-
-        # Subquery to get the max calculated_at for each case
-        latest_scores_subq = db.query(
-            CaseHealthScore.case_id,
-            sa_func.max(CaseHealthScore.calculated_at).label('max_calculated_at')
-        ).filter(
-            CaseHealthScore.case_id.in_(case_ids)
-        ).group_by(CaseHealthScore.case_id).subquery()
-
-        # Join to get the full records for the latest scores
-        latest_scores = db.query(CaseHealthScore).join(
-            latest_scores_subq,
-            (CaseHealthScore.case_id == latest_scores_subq.c.case_id) &
-            (CaseHealthScore.calculated_at == latest_scores_subq.c.max_calculated_at)
+    try:
+        # Get all active cases
+        cases = db.query(Case).filter(
+            Case.user_id == str(current_user.id),
+            Case.status.in_(['active', 'discovery', 'trial', 'pending'])
         ).all()
 
-        health_scores = {score.case_id: score for score in latest_scores}
+        case_ids = [c.id for c in cases]
 
-    # Calculate aggregates
-    scores_list = list(health_scores.values())
-    avg_health = sum(s.overall_score for s in scores_list) / len(scores_list) if scores_list else 0
+        # Get latest health scores for each case using a single query with window function
+        # This avoids N+1 queries by fetching all latest scores at once
+        health_scores = {}
+        if case_ids:
+            from sqlalchemy import func as sa_func
+            from sqlalchemy.orm import aliased
 
-    # Find at-risk cases (score < 60)
-    at_risk_cases = [
-        {
-            "case_id": case_id,
-            "case_title": next((c.title for c in cases if c.id == case_id), "Unknown"),
-            "health_score": score.overall_score,
-            "top_risk": score.risk_factors[0] if score.risk_factors else None
+            # Subquery to get the max calculated_at for each case
+            latest_scores_subq = db.query(
+                CaseHealthScore.case_id,
+                sa_func.max(CaseHealthScore.calculated_at).label('max_calculated_at')
+            ).filter(
+                CaseHealthScore.case_id.in_(case_ids)
+            ).group_by(CaseHealthScore.case_id).subquery()
+
+            # Join to get the full records for the latest scores
+            latest_scores = db.query(CaseHealthScore).join(
+                latest_scores_subq,
+                (CaseHealthScore.case_id == latest_scores_subq.c.case_id) &
+                (CaseHealthScore.calculated_at == latest_scores_subq.c.max_calculated_at)
+            ).all()
+
+            health_scores = {score.case_id: score for score in latest_scores}
+
+        # Calculate aggregates
+        scores_list = list(health_scores.values())
+        avg_health = sum(s.overall_score for s in scores_list) / len(scores_list) if scores_list else 0
+
+        # Find at-risk cases (score < 60)
+        at_risk_cases = [
+            {
+                "case_id": case_id,
+                "case_title": next((c.title for c in cases if c.id == case_id), "Unknown"),
+                "health_score": score.overall_score,
+                "top_risk": score.risk_factors[0] if score.risk_factors else None
+            }
+            for case_id, score in health_scores.items()
+            if score.overall_score < 60
+        ]
+
+        # Aggregate recommendations (deduplicated by action)
+        all_recommendations = []
+        seen_actions = set()
+        for score in scores_list:
+            for rec in (score.recommendations or []):
+                action = rec.get('action', '')
+                if action not in seen_actions:
+                    seen_actions.add(action)
+                    all_recommendations.append(rec)
+
+        # Sort by priority
+        all_recommendations.sort(key=lambda x: x.get('priority', 99))
+
+        return {
+            "summary": {
+                "total_cases": len(cases),
+                "cases_with_scores": len(scores_list),
+                "average_health_score": round(avg_health, 1),
+                "at_risk_count": len(at_risk_cases),
+                "healthy_count": sum(1 for s in scores_list if s.overall_score >= 70)
+            },
+            "at_risk_cases": at_risk_cases[:10],
+            "top_recommendations": all_recommendations[:10],
+            "score_distribution": {
+                "critical": sum(1 for s in scores_list if s.overall_score < 40),
+                "warning": sum(1 for s in scores_list if 40 <= s.overall_score < 60),
+                "fair": sum(1 for s in scores_list if 60 <= s.overall_score < 80),
+                "good": sum(1 for s in scores_list if s.overall_score >= 80)
+            }
         }
-        for case_id, score in health_scores.items()
-        if score.overall_score < 60
-    ]
-
-    # Aggregate recommendations (deduplicated by action)
-    all_recommendations = []
-    seen_actions = set()
-    for score in scores_list:
-        for rec in (score.recommendations or []):
-            action = rec.get('action', '')
-            if action not in seen_actions:
-                seen_actions.add(action)
-                all_recommendations.append(rec)
-
-    # Sort by priority
-    all_recommendations.sort(key=lambda x: x.get('priority', 99))
-
-    return {
-        "summary": {
-            "total_cases": len(cases),
-            "cases_with_scores": len(scores_list),
-            "average_health_score": round(avg_health, 1),
-            "at_risk_count": len(at_risk_cases),
-            "healthy_count": sum(1 for s in scores_list if s.overall_score >= 70)
-        },
-        "at_risk_cases": at_risk_cases[:10],
-        "top_recommendations": all_recommendations[:10],
-        "score_distribution": {
-            "critical": sum(1 for s in scores_list if s.overall_score < 40),
-            "warning": sum(1 for s in scores_list if 40 <= s.overall_score < 60),
-            "fair": sum(1 for s in scores_list if 60 <= s.overall_score < 80),
-            "good": sum(1 for s in scores_list if s.overall_score >= 80)
-        }
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate intelligence dashboard: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to load intelligence dashboard. Please try again shortly."
+        )
 
 
 # ============================================================
