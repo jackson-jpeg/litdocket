@@ -45,7 +45,7 @@ class EnhancedChatService:
 
     def __init__(self):
         self.client = Anthropic(
-            api_key=settings.ANTHROPIC_API_KEY,
+            api_key=settings.ANTHROPIC_API_KEY.strip() if settings.ANTHROPIC_API_KEY else None,
             timeout=API_TIMEOUT
         )
         self.model = settings.DEFAULT_AI_MODEL

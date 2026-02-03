@@ -12,10 +12,10 @@ import 'react-pdf/dist/Page/TextLayer.css';
 // ============================================================================
 // PDF.js Worker Configuration
 // CRITICAL FIX: Use CDN with version matching react-pdf's pdfjs-dist dependency
-// React-pdf uses pdfjs-dist@4.4.168, so worker must match exactly
+// React-pdf 10.x uses pdfjs-dist@5.4.296, so worker must match exactly
 // Using unpkg.com CDN ensures version compatibility and no CORS issues
 // ============================================================================
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs`;
 
 interface DocumentViewerProps {
   isOpen: boolean;

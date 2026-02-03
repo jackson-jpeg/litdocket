@@ -38,7 +38,9 @@ class RAGService:
     """
 
     def __init__(self):
-        self.anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self.anthropic_client = Anthropic(
+            api_key=settings.ANTHROPIC_API_KEY.strip() if settings.ANTHROPIC_API_KEY else None
+        )
         self.chunk_size = 1000  # Characters per chunk
         self.chunk_overlap = 200  # Overlap between chunks
 
@@ -48,7 +50,9 @@ class RAGService:
 
         if OPENAI_AVAILABLE and settings.OPENAI_API_KEY:
             try:
-                self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                self.openai_client = OpenAI(
+                    api_key=settings.OPENAI_API_KEY.strip() if settings.OPENAI_API_KEY else None
+                )
                 self.use_openai_embeddings = True
                 logger.info("OpenAI embeddings enabled (text-embedding-3-small)")
             except Exception as e:
@@ -371,6 +375,175 @@ class RAGService:
         # Sort by similarity and return top_k
         results.sort(key=lambda x: x['similarity'], reverse=True)
         return results[:top_k]
+
+    async def _bm25_search(
+        self,
+        query: str,
+        case_id: str,
+        db: Session,
+        top_k: int
+    ) -> List[Dict[str, Any]]:
+        """
+        BM25-style keyword search using PostgreSQL full-text search.
+
+        Uses ts_rank_cd (cover density ranking) for better phrase matching.
+        Scores are normalized to [0, 1] range by dividing by max score.
+
+        Args:
+            query: Search query text
+            case_id: Case ID to search within
+            db: Database session
+            top_k: Number of results to return
+
+        Returns:
+            List of relevant document chunks with BM25 scores
+        """
+        from sqlalchemy import text
+
+        # Convert query to tsquery format
+        # plainto_tsquery handles natural language queries
+        search_query = text("""
+            WITH ranked AS (
+                SELECT
+                    id,
+                    chunk_text,
+                    chunk_index,
+                    document_id,
+                    chunk_metadata,
+                    ts_rank_cd(chunk_text_search, plainto_tsquery('english', :query)) as raw_score
+                FROM document_embeddings
+                WHERE case_id = :case_id
+                    AND chunk_text_search @@ plainto_tsquery('english', :query)
+            ),
+            max_score AS (
+                SELECT COALESCE(MAX(raw_score), 1) as max_val FROM ranked
+            )
+            SELECT
+                r.id,
+                r.chunk_text,
+                r.chunk_index,
+                r.document_id,
+                r.chunk_metadata,
+                r.raw_score,
+                CASE WHEN m.max_val > 0
+                    THEN r.raw_score / m.max_val
+                    ELSE 0
+                END as bm25_score
+            FROM ranked r, max_score m
+            ORDER BY r.raw_score DESC
+            LIMIT :top_k
+        """)
+
+        result = db.execute(search_query, {
+            "query": query,
+            "case_id": case_id,
+            "top_k": top_k
+        })
+
+        results = []
+        for row in result:
+            results.append({
+                'chunk_text': row.chunk_text,
+                'chunk_index': row.chunk_index,
+                'document_id': row.document_id,
+                'bm25_score': float(row.bm25_score),
+                'metadata': row.chunk_metadata
+            })
+
+        logger.debug(f"BM25 search returned {len(results)} results for case {case_id}")
+        return results
+
+    async def hybrid_search(
+        self,
+        query: str,
+        case_id: str,
+        db: Session,
+        top_k: int = 5,
+        alpha: float = 0.5
+    ) -> List[Dict[str, Any]]:
+        """
+        Hybrid search combining semantic and BM25 keyword search.
+
+        Formula: hybrid_score = alpha * semantic_score + (1 - alpha) * bm25_score
+
+        Args:
+            query: Search query text
+            case_id: Case ID to search within
+            db: Database session
+            top_k: Number of final results to return
+            alpha: Weight for semantic search (0.0 = BM25 only, 1.0 = semantic only)
+
+        Returns:
+            List of document chunks with hybrid scores, semantic scores, and BM25 scores
+        """
+        # Fetch 3x top_k from each method to ensure good coverage
+        fetch_k = top_k * 3
+
+        # Run semantic search
+        semantic_results = await self.semantic_search(
+            query=query,
+            case_id=case_id,
+            db=db,
+            top_k=fetch_k
+        )
+
+        # Run BM25 search
+        bm25_results = await self._bm25_search(
+            query=query,
+            case_id=case_id,
+            db=db,
+            top_k=fetch_k
+        )
+
+        # Create lookup dictionaries by (document_id, chunk_index)
+        semantic_lookup: Dict[tuple, Dict] = {}
+        for r in semantic_results:
+            key = (r['document_id'], r['chunk_index'])
+            semantic_lookup[key] = r
+
+        bm25_lookup: Dict[tuple, Dict] = {}
+        for r in bm25_results:
+            key = (r['document_id'], r['chunk_index'])
+            bm25_lookup[key] = r
+
+        # Get all unique keys
+        all_keys = set(semantic_lookup.keys()) | set(bm25_lookup.keys())
+
+        # Merge results
+        merged_results = []
+        for key in all_keys:
+            sem_result = semantic_lookup.get(key)
+            bm25_result = bm25_lookup.get(key)
+
+            # Get scores (default to 0 if not found in one method)
+            semantic_score = sem_result['similarity'] if sem_result else 0.0
+            bm25_score = bm25_result['bm25_score'] if bm25_result else 0.0
+
+            # Calculate hybrid score
+            hybrid_score = alpha * semantic_score + (1 - alpha) * bm25_score
+
+            # Use data from whichever result is available (prefer semantic for text)
+            base_result = sem_result or bm25_result
+
+            merged_results.append({
+                'chunk_text': base_result['chunk_text'],
+                'chunk_index': base_result['chunk_index'],
+                'document_id': base_result['document_id'],
+                'hybrid_score': hybrid_score,
+                'semantic_score': semantic_score,
+                'bm25_score': bm25_score,
+                'metadata': base_result.get('metadata', {})
+            })
+
+        # Sort by hybrid score and return top_k
+        merged_results.sort(key=lambda x: x['hybrid_score'], reverse=True)
+
+        logger.debug(
+            f"Hybrid search (alpha={alpha}) returned {len(merged_results[:top_k])} "
+            f"results from {len(semantic_results)} semantic + {len(bm25_results)} BM25"
+        )
+
+        return merged_results[:top_k]
 
     async def get_case_context(
         self,

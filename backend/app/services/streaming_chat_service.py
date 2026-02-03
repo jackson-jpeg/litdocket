@@ -67,6 +67,8 @@ def extract_legal_citations(text: str) -> List[str]:
 # Configuration constants
 API_TIMEOUT = 120  # seconds
 MAX_TOOL_CALLS = 10  # Prevent infinite tool loops
+MAX_RETRIES = 3  # Retry attempts for transient API errors
+INITIAL_RETRY_DELAY = 1  # seconds
 
 # Tool safety classification
 DESTRUCTIVE_TOOLS = {
@@ -143,7 +145,7 @@ class StreamingChatService:
 
     def __init__(self):
         self.client = Anthropic(
-            api_key=settings.ANTHROPIC_API_KEY,
+            api_key=settings.ANTHROPIC_API_KEY.strip() if settings.ANTHROPIC_API_KEY else None,
             timeout=API_TIMEOUT
         )
         self.model = settings.DEFAULT_AI_MODEL
@@ -152,6 +154,32 @@ class StreamingChatService:
     def requires_approval(self, tool_name: str) -> bool:
         """Check if tool requires user approval before execution."""
         return tool_name in DESTRUCTIVE_TOOLS
+
+    def _should_retry_error(self, error: Exception, attempt: int) -> tuple[bool, float]:
+        """
+        Determine if an error should be retried and calculate delay.
+
+        Returns:
+            Tuple of (should_retry, delay_seconds)
+        """
+        if attempt >= MAX_RETRIES:
+            return False, 0
+
+        if isinstance(error, APITimeoutError):
+            return True, INITIAL_RETRY_DELAY * (2 ** attempt)
+        elif isinstance(error, APIConnectionError):
+            return True, INITIAL_RETRY_DELAY * (2 ** attempt)
+        elif isinstance(error, RateLimitError):
+            # Rate limits need longer waits
+            return True, 5 * (2 ** attempt)
+        elif isinstance(error, APIStatusError):
+            # Don't retry 4xx client errors
+            if 400 <= error.status_code < 500:
+                return False, 0
+            # Retry 5xx server errors
+            return True, INITIAL_RETRY_DELAY * (2 ** attempt)
+
+        return False, 0
 
     async def stream_message(
         self,
@@ -523,7 +551,12 @@ class StreamingChatService:
                                     return
 
                 except APITimeoutError as e:
-                    logger.error(f"Claude API timeout: {e}")
+                    logger.warning(f"Claude API timeout (attempt {tool_call_count + 1}): {e}")
+                    should_retry, delay = self._should_retry_error(e, tool_call_count)
+                    if should_retry:
+                        await asyncio.sleep(delay)
+                        continue
+                    logger.error(f"Claude API timeout after retries: {e}")
                     yield ServerSentEvent(
                         event="error",
                         data={
@@ -533,16 +566,67 @@ class StreamingChatService:
                     )
                     return
 
-                except (APIConnectionError, RateLimitError, APIStatusError) as e:
-                    logger.error(f"Claude API error: {e}")
+                except APIConnectionError as e:
+                    logger.warning(f"Claude API connection error (attempt {tool_call_count + 1}): {e}")
+                    should_retry, delay = self._should_retry_error(e, tool_call_count)
+                    if should_retry:
+                        await asyncio.sleep(delay)
+                        continue
+                    logger.error(f"Claude API connection error after retries: {e}")
                     yield ServerSentEvent(
                         event="error",
                         data={
                             "error": "AI service temporarily unavailable.",
-                            "code": "API_ERROR"
+                            "code": "API_CONNECTION_ERROR"
                         }
                     )
                     return
+
+                except RateLimitError as e:
+                    logger.warning(f"Claude API rate limited (attempt {tool_call_count + 1}): {e}")
+                    should_retry, delay = self._should_retry_error(e, tool_call_count)
+                    if should_retry:
+                        await asyncio.sleep(delay)
+                        continue
+                    logger.error(f"Claude API rate limited after retries: {e}")
+                    yield ServerSentEvent(
+                        event="error",
+                        data={
+                            "error": "AI service is busy. Please wait a moment and try again.",
+                            "code": "RATE_LIMITED"
+                        }
+                    )
+                    return
+
+                except APIStatusError as e:
+                    # Differentiate 4xx client errors from 5xx server errors
+                    if 400 <= e.status_code < 500:
+                        # Client errors - don't retry
+                        logger.error(f"Claude API client error (no retry): {e.status_code} - {e}")
+                        yield ServerSentEvent(
+                            event="error",
+                            data={
+                                "error": "Invalid request to AI service.",
+                                "code": "CLIENT_ERROR"
+                            }
+                        )
+                        return
+                    else:
+                        # Server errors - retry
+                        logger.warning(f"Claude API server error (attempt {tool_call_count + 1}): {e}")
+                        should_retry, delay = self._should_retry_error(e, tool_call_count)
+                        if should_retry:
+                            await asyncio.sleep(delay)
+                            continue
+                        logger.error(f"Claude API server error after retries: {e}")
+                        yield ServerSentEvent(
+                            event="error",
+                            data={
+                                "error": "AI service temporarily unavailable.",
+                                "code": "SERVER_ERROR"
+                            }
+                        )
+                        return
 
             # Max tool calls reached
             if tool_call_count >= MAX_TOOL_CALLS:

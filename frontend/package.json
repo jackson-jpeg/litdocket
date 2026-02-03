@@ -15,20 +15,20 @@
     "@types/react": "18.2.55",
     "@types/react-syntax-highlighter": "^15.5.13",
     "autoprefixer": "10.4.17",
-    "axios": "1.6.7",
+    "axios": "1.13.4",
     "date-fns": "^3.3.1",
     "firebase": "^12.7.0",
     "framer-motion": "^12.26.2",
     "lucide-react": "0.323.0",
-    "next": "14.1.0",
-    "pdfjs-dist": "4.4.168",
+    "next": "14.2.35",
+    "pdfjs-dist": "5.4.296",
     "postcss": "8.4.33",
     "react": "18.2.0",
     "react-big-calendar": "^1.19.4",
     "react-dom": "18.2.0",
     "react-dropzone": "14.2.3",
     "react-markdown": "^9.0.1",
-    "react-pdf": "9.1.1",
+    "react-pdf": "10.3.0",
     "react-syntax-highlighter": "^16.1.0",
     "reactflow": "^11.11.4",
     "recharts": "^3.6.0",
@@ -44,6 +44,6 @@
     "@types/react-dom": "18.2.19",
     "@types/uuid": "^10.0.0",
     "eslint": "8.56.0",
-    "eslint-config-next": "14.1.0"
+    "eslint-config-next": "14.2.35"
   }
 }
