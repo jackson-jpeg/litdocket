@@ -171,8 +171,9 @@ export default function DocumentAnalyzerPage() {
   const getPriorityColor = (priority?: string) => {
     switch (priority?.toLowerCase()) {
       case 'fatal': return 'text-red-600 bg-red-50';
-      case 'critical': return 'text-rose-600 bg-rose-50';
+      case 'critical': return 'text-orange-600 bg-orange-50';
       case 'important': return 'text-amber-600 bg-amber-50';
+      case 'standard': return 'text-blue-600 bg-blue-50';
       default: return 'text-slate-600 bg-slate-50';
     }
   };

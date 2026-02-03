@@ -60,7 +60,7 @@ interface RuleTemplate {
 // Priority options for quick add
 const PRIORITY_OPTIONS = [
   { value: 'fatal', label: 'Fatal', color: 'text-red-600', description: 'Jurisdictional - missing = dismissal' },
-  { value: 'critical', label: 'Critical', color: 'text-red-500', description: 'Court-ordered deadlines' },
+  { value: 'critical', label: 'Critical', color: 'text-orange-600', description: 'Court-ordered deadlines' },
   { value: 'important', label: 'Important', color: 'text-amber-600', description: 'Procedural with consequences' },
   { value: 'standard', label: 'Standard', color: 'text-blue-600', description: 'Best practice deadlines' },
   { value: 'informational', label: 'Informational', color: 'text-slate-500', description: 'Internal reminders' },
@@ -618,7 +618,9 @@ export default function UnifiedAddEventModal({
                                 </p>
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                                   deadline.priority === 'fatal' ? 'bg-red-100 text-red-700' :
-                                  deadline.priority === 'critical' ? 'bg-amber-100 text-amber-700' :
+                                  deadline.priority === 'critical' ? 'bg-orange-100 text-orange-700' :
+                                  deadline.priority === 'important' ? 'bg-amber-100 text-amber-700' :
+                                  deadline.priority === 'standard' ? 'bg-blue-100 text-blue-700' :
                                   'bg-slate-100 text-slate-600'
                                 }`}>
                                   {deadline.priority}

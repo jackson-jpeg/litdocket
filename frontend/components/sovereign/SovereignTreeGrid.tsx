@@ -19,6 +19,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase, isSupabaseAvailable } from '@/lib/supabase';
+import apiClient from '@/lib/api-client';
 import {
   Jurisdiction,
   RuleSet,
@@ -449,47 +450,93 @@ export function SovereignTreeGrid({
 
   useEffect(() => {
     async function loadData() {
-      if (!isSupabaseAvailable) {
-        setError('Supabase not configured');
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
 
-        // Fetch jurisdictions
-        const { data: jurisdictionsData, error: jurisdictionsError } = await supabase
-          .from('jurisdictions')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
+        let jurisdictionsData: Jurisdiction[] = [];
+        let ruleSetsData: RuleSet[] = [];
+        let depsData: Array<{ rule_set_id: string; required_rule_set_id: string; dependency_type: string; priority: number }> = [];
 
-        if (jurisdictionsError) throw jurisdictionsError;
+        // Try Supabase first if available, otherwise fall back to API
+        if (isSupabaseAvailable) {
+          // Fetch from Supabase directly
+          const [jResult, rsResult, depResult] = await Promise.all([
+            supabase.from('jurisdictions').select('*').eq('is_active', true).order('name'),
+            supabase.from('rule_sets').select('*').eq('is_active', true).order('name'),
+            supabase.from('rule_set_dependencies').select('*'),
+          ]);
 
-        // Fetch rule sets
-        const { data: ruleSetsData, error: ruleSetsError } = await supabase
-          .from('rule_sets')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
+          if (jResult.error) throw jResult.error;
+          if (rsResult.error) throw rsResult.error;
+          if (depResult.error) throw depResult.error;
 
-        if (ruleSetsError) throw ruleSetsError;
+          jurisdictionsData = jResult.data || [];
+          ruleSetsData = rsResult.data || [];
+          depsData = depResult.data || [];
+        } else {
+          // Fall back to API endpoint
+          const response = await apiClient.get('/api/v1/jurisdictions/tree');
+          const treeData = response.data;
 
-        // Fetch dependencies
-        const { data: depsData, error: depsError } = await supabase
-          .from('rule_set_dependencies')
-          .select('*');
+          // Transform API response to match Supabase format
+          jurisdictionsData = (treeData.jurisdictions || []).map((j: {
+            id: string;
+            code: string;
+            name: string;
+            jurisdiction_type: string;
+            parent_jurisdiction_id?: string;
+          }) => ({
+            id: j.id,
+            code: j.code,
+            name: j.name,
+            jurisdiction_type: j.jurisdiction_type,
+            parent_jurisdiction_id: j.parent_jurisdiction_id || null,
+            is_active: true,
+          }));
 
-        if (depsError) throw depsError;
+          ruleSetsData = (treeData.rule_sets || []).map((rs: {
+            id: string;
+            code: string;
+            name: string;
+            jurisdiction_id: string;
+            court_type?: string;
+            is_local: boolean;
+            dependencies: Array<{ required_rule_set_id: string; dependency_type: string; priority: number }>;
+          }) => ({
+            id: rs.id,
+            code: rs.code,
+            name: rs.name,
+            jurisdiction_id: rs.jurisdiction_id,
+            court_type: rs.court_type,
+            is_local: rs.is_local,
+            is_active: true,
+          }));
 
-        setJurisdictions(jurisdictionsData || []);
-        setRuleSets(ruleSetsData || []);
+          // Extract dependencies from rule sets
+          (treeData.rule_sets || []).forEach((rs: {
+            id: string;
+            dependencies: Array<{ required_rule_set_id: string; dependency_type: string; priority: number }>;
+          }) => {
+            if (rs.dependencies && rs.dependencies.length > 0) {
+              rs.dependencies.forEach((dep) => {
+                depsData.push({
+                  rule_set_id: rs.id,
+                  required_rule_set_id: dep.required_rule_set_id,
+                  dependency_type: dep.dependency_type,
+                  priority: dep.priority,
+                });
+              });
+            }
+          });
+        }
+
+        setJurisdictions(jurisdictionsData);
+        setRuleSets(ruleSetsData);
 
         // Build dependency map
         const depMap = new Map<string, RuleSetWithDependency[]>();
-        (depsData || []).forEach((dep) => {
-          const ruleSet = (ruleSetsData || []).find((rs) => rs.id === dep.required_rule_set_id);
+        depsData.forEach((dep) => {
+          const ruleSet = ruleSetsData.find((rs) => rs.id === dep.required_rule_set_id);
           if (ruleSet) {
             const existing = depMap.get(dep.rule_set_id) || [];
             existing.push({
@@ -505,8 +552,8 @@ export function SovereignTreeGrid({
         setDependencies(depMap);
 
         // Build tree
-        const treeData = buildJurisdictionTree(jurisdictionsData || [], ruleSetsData || []);
-        setTree(treeData);
+        const treeResult = buildJurisdictionTree(jurisdictionsData, ruleSetsData);
+        setTree(treeResult);
 
         setLoading(false);
       } catch (err) {

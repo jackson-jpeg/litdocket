@@ -94,20 +94,19 @@ const IconBrain = () => (
   </svg>
 );
 
-// Core navigation items
-const coreNavItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, shortcut: '⌘D' },
-  { label: 'Cases', href: '/cases', icon: <IconCases />, shortcut: '⌘1' },
-  { label: 'Docket', href: '/calendar', icon: <IconDocket />, shortcut: '⌘2' },
-  { label: 'Intelligence', href: '/intelligence', icon: <IconBrain />, shortcut: '⌘I' },
+// Primary navigation - core daily workflow
+const primaryNavItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, shortcut: '⌘H' },
+  { label: 'Cases', href: '/cases', icon: <IconCases />, shortcut: '⌘⇧C' },
+  { label: 'Calendar', href: '/calendar', icon: <IconDocket />, shortcut: '⌘D' },
 ];
 
-// Tool items with shortcuts
-const toolItems = [
-  { label: 'Calculator', href: '/tools/deadline-calculator', icon: <IconCalculator />, shortcut: 'Alt+C' },
-  { label: 'Jurisdiction', href: '/tools/jurisdiction-selector', icon: <IconJurisdiction />, shortcut: 'Alt+J' },
-  { label: 'Doc Analyzer', href: '/tools/document-analyzer', icon: <IconDocument />, shortcut: 'Alt+D' },
-  { label: 'Authority', href: '/tools/authority-core', icon: <IconAuthority />, shortcut: 'Alt+A' },
+// Utilities - tools and analyzers
+const utilityItems = [
+  { label: 'Calculator', href: '/tools/deadline-calculator', icon: <IconCalculator /> },
+  { label: 'Analyzer', href: '/tools/document-analyzer', icon: <IconDocument /> },
+  { label: 'Rules', href: '/tools/authority-core', icon: <IconAuthority /> },
+  { label: 'Intelligence', href: '/intelligence', icon: <IconBrain /> },
 ];
 
 export function EnhancedSidebar() {
@@ -136,13 +135,13 @@ export function EnhancedSidebar() {
 
       {/* Main Navigation */}
       <nav className="flex-1 px-4 overflow-y-auto">
-        {/* Core Section */}
+        {/* Primary Navigation */}
         <div className="mb-6">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">
-            Core
+            Primary
           </div>
           <ul className="space-y-1">
-            {coreNavItems.map((item) => {
+            {primaryNavItems.map((item) => {
               const active = isActive(item.href);
               return (
                 <li key={item.href}>
@@ -161,7 +160,9 @@ export function EnhancedSidebar() {
                       <span className="flex-shrink-0">{item.icon}</span>
                       <span>{item.label}</span>
                     </span>
-                    <kbd className="text-[10px] font-mono opacity-60">{item.shortcut}</kbd>
+                    {item.shortcut && (
+                      <kbd className="text-[10px] font-mono opacity-60">{item.shortcut}</kbd>
+                    )}
                   </Link>
                 </li>
               );
@@ -169,20 +170,20 @@ export function EnhancedSidebar() {
           </ul>
         </div>
 
-        {/* Tools Section */}
+        {/* Utilities Section */}
         <div className="mb-6">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">
-            Tools
+            Utilities
           </div>
           <ul className="space-y-1">
-            {toolItems.map((item) => {
+            {utilityItems.map((item) => {
               const active = isActive(item.href);
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center justify-between px-4 py-2 rounded-lg text-[13px] font-medium transition-all
+                      flex items-center gap-3 px-4 py-2 rounded-lg text-[13px] font-medium transition-all
                       ${active
                         ? 'bg-blue-600/80 text-white'
                         : 'text-slate-400 hover:bg-white/10 hover:text-white'
@@ -190,24 +191,12 @@ export function EnhancedSidebar() {
                     `}
                     aria-current={active ? 'page' : undefined}
                   >
-                    <span className="flex items-center gap-3">
-                      <span className="flex-shrink-0 opacity-80">{item.icon}</span>
-                      <span>{item.label}</span>
-                    </span>
-                    <kbd className="text-[10px] font-mono opacity-50">{item.shortcut}</kbd>
+                    <span className="flex-shrink-0 opacity-80">{item.icon}</span>
+                    <span>{item.label}</span>
                   </Link>
                 </li>
               );
             })}
-            <li>
-              <Link
-                href="/tools"
-                className="flex items-center gap-3 px-4 py-2 rounded-lg text-[13px] text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all"
-              >
-                <IconTools />
-                <span>All Tools...</span>
-              </Link>
-            </li>
           </ul>
         </div>
 

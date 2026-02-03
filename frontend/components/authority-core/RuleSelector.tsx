@@ -232,7 +232,9 @@ export default function RuleSelector({
                             </span>
                             <span className={`px-2 py-0.5 text-xs rounded-full ${
                               deadline.priority === 'fatal' ? 'bg-red-100 text-red-700' :
-                              deadline.priority === 'critical' ? 'bg-amber-100 text-amber-700' :
+                              deadline.priority === 'critical' ? 'bg-orange-100 text-orange-700' :
+                              deadline.priority === 'important' ? 'bg-amber-100 text-amber-700' :
+                              deadline.priority === 'standard' ? 'bg-blue-100 text-blue-700' :
                               'bg-slate-100 text-slate-600'
                             }`}>
                               {deadline.priority}

@@ -45,8 +45,8 @@ interface DeadlineRowProps {
 }
 
 const PRIORITY_COLORS: Record<string, { border: string; bg: string; text: string }> = {
-  fatal: { border: 'border-l-red-600', bg: 'bg-red-50', text: 'text-red-800' },
-  critical: { border: 'border-l-red-500', bg: 'bg-red-50', text: 'text-red-700' },
+  fatal: { border: 'border-l-red-600', bg: 'bg-red-50', text: 'text-red-700' },
+  critical: { border: 'border-l-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
   high: { border: 'border-l-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
   important: { border: 'border-l-amber-500', bg: 'bg-amber-50', text: 'text-amber-700' },
   medium: { border: 'border-l-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700' },

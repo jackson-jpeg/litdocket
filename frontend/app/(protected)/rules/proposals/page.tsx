@@ -151,7 +151,9 @@ function ProposalDetailModal({ proposal, onClose, onApprove, onReject, onEdit }:
                           <span className="font-medium text-slate-900">{deadline.title}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
                             deadline.priority === 'fatal' ? 'bg-red-100 text-red-700' :
-                            deadline.priority === 'critical' ? 'bg-amber-100 text-amber-700' :
+                            deadline.priority === 'critical' ? 'bg-orange-100 text-orange-700' :
+                            deadline.priority === 'important' ? 'bg-amber-100 text-amber-700' :
+                            deadline.priority === 'standard' ? 'bg-blue-100 text-blue-700' :
                             'bg-slate-100 text-slate-600'
                           }`}>
                             {deadline.priority}

@@ -200,8 +200,9 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
 
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
-    if (s === 'fatal' || s === 'critical') return 'text-red-600';
-    if (s === 'important' || s === 'high') return 'text-orange-600';
+    if (s === 'fatal') return 'text-red-600';
+    if (s === 'critical') return 'text-orange-600';
+    if (s === 'important' || s === 'high') return 'text-amber-600';
     if (s === 'active' || s === 'pending') return 'text-green-600';
     if (s === 'completed') return 'text-slate-500';
     return 'text-slate-400';

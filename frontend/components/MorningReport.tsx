@@ -117,11 +117,13 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
 
   const getPriorityDisplay = (priority: string) => {
     switch (priority?.toLowerCase()) {
-      case 'fatal': return { label: 'FATAL', class: 'badge-critical' };
+      case 'fatal': return { label: 'FATAL', class: 'badge-fatal' };
       case 'critical': return { label: 'CRITICAL', class: 'badge-critical' };
-      case 'high': return { label: 'HIGH', class: 'badge-warning' };
-      case 'medium': return { label: 'MEDIUM', class: 'badge-warning' };
-      default: return { label: 'STANDARD', class: 'badge-neutral' };
+      case 'high':
+      case 'important': return { label: priority?.toUpperCase() || 'IMPORTANT', class: 'badge-important' };
+      case 'medium':
+      case 'standard': return { label: priority?.toUpperCase() || 'STANDARD', class: 'badge-standard' };
+      default: return { label: 'INFO', class: 'badge-info' };
     }
   };
 

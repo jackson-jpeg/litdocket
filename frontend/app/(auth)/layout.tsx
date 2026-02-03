@@ -31,7 +31,7 @@ export default function AuthLayout({
 
         {/* Footer */}
         <p className="text-center text-sm text-slate-500 mt-6">
-          © 2026 LitDocket. All rights reserved.
+          © {new Date().getFullYear()} LitDocket. All rights reserved.
         </p>
       </div>
     </div>

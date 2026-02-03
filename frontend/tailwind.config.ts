@@ -18,56 +18,127 @@ const config: Config = {
       colors: {
         // ============================================
         // PAPER & STEEL SEMANTIC PALETTE
+        // "Bloomberg Law meets Linear"
         // ============================================
 
-        // Base Colors - Light Mode Foundation
+        // Paper Colors - Light background foundation
+        paper: {
+          DEFAULT: '#FDFBF7',   // Warm off-white (aged paper)
+          warm: '#FAF8F3',      // Slightly warmer
+          pure: '#FFFFFF',      // Pure white for cards
+        },
+
+        // Surface Colors - Card/modal backgrounds
+        surface: {
+          DEFAULT: '#F5F2EB',   // Light tan surface
+          elevated: '#FFFFFF',  // Elevated cards
+          muted: '#F8FAFC',     // slate-50 alternative
+        },
+
+        // Steel Colors - Dark accents
+        steel: {
+          DEFAULT: '#2C3E50',   // Primary steel blue-grey
+          dark: '#1A252F',      // Darker steel for sidebar
+          light: '#34495E',     // Lighter steel for hover
+        },
+
+        // Wax Colors - Legal accent (deep red/burgundy)
+        wax: {
+          DEFAULT: '#8B0000',   // Dark red (wax seal)
+          light: '#A52A2A',     // Brown-red
+          dark: '#660000',      // Darker burgundy
+        },
+
+        // Ink Colors - Text hierarchy
+        ink: {
+          DEFAULT: '#1A1A1A',   // Primary text (near black)
+          secondary: '#4A4A4A', // Secondary text
+          muted: '#6B7280',     // Muted/disabled text
+          subtle: '#9CA3AF',    // Subtle text
+        },
+
+        // Base Colors - Light Mode Foundation (legacy support)
         app: {
           bg: '#f8fafc',        // slate-50 - Main page background
-          surface: '#ffffff',    // white - Cards/Modals
+          surface: '#ffffff',   // white - Cards/Modals
         },
 
         // Text Hierarchy
         text: {
-          primary: '#0f172a',    // slate-900 - Primary text
-          secondary: '#64748b',  // slate-500 - Secondary text
-          muted: '#94a3b8',      // slate-400 - Muted text
+          primary: '#0f172a',   // slate-900 - Primary text
+          secondary: '#64748b', // slate-500 - Secondary text
+          muted: '#94a3b8',     // slate-400 - Muted text
         },
 
         // Borders
         border: {
-          subtle: '#e2e8f0',     // slate-200 - Subtle borders
-          emphasis: '#cbd5e1',   // slate-300 - Emphasis borders
+          subtle: '#e2e8f0',    // slate-200 - Subtle borders
+          emphasis: '#cbd5e1',  // slate-300 - Emphasis borders
         },
 
         // Sidebar - Dark Slate
         sidebar: {
-          bg: '#0f172a',         // slate-900 - Sidebar background
-          text: '#cbd5e1',       // slate-300 - Sidebar text
-          hover: '#1e293b',      // slate-800 - Hover state
-          active: '#1e293b',     // slate-800 - Active state
+          bg: '#0f172a',        // slate-900 - Sidebar background
+          text: '#cbd5e1',      // slate-300 - Sidebar text
+          hover: '#1e293b',     // slate-800 - Hover state
+          active: '#1e293b',    // slate-800 - Active state
         },
 
         // Priority Colors for Deadlines
         priority: {
-          fatal: '#dc2626',      // red-600 - Fatal/jurisdictional deadlines
-          critical: '#ea580c',   // orange-600 - Critical/court-ordered
-          important: '#f59e0b',  // amber-500 - Important procedural
-          standard: '#3b82f6',   // blue-500 - Standard deadlines
-          info: '#64748b',       // slate-500 - Informational
+          fatal: '#C0392B',     // Distinct red for fatal (different from critical)
+          critical: '#D35400',  // Orange for critical
+          important: '#E67E22', // Lighter orange/amber for important
+          standard: '#3498DB',  // Blue for standard
+          info: '#7F8C8D',      // Grey for informational
+        },
+
+        // Deadline display colors (explicit mapping)
+        fatal: {
+          DEFAULT: '#C0392B',
+          light: '#FADBD8',
+          border: '#E74C3C',
+        },
+        critical: {
+          DEFAULT: '#D35400',
+          light: '#FAE5D3',
+          border: '#E67E22',
+        },
+        important: {
+          DEFAULT: '#E67E22',
+          light: '#FEF5E7',
+          border: '#F39C12',
         },
 
         // Status Colors
         status: {
-          success: '#16a34a',    // green-600
-          warning: '#f59e0b',    // amber-500
-          error: '#dc2626',      // red-600
-          info: '#3b82f6',       // blue-500
+          success: '#16a34a',   // green-600
+          warning: '#f59e0b',   // amber-500
+          error: '#dc2626',     // red-600
+          info: '#3b82f6',      // blue-500
+        },
+
+        // Overdue text color
+        overdue: '#B91C1C',     // red-700 for overdue items
+
+        // Enterprise grey (legacy)
+        'enterprise-grey': {
+          50: '#F9FAFB',
+          100: '#F3F4F6',
+          200: '#E5E7EB',
+          300: '#D1D5DB',
+          400: '#9CA3AF',
+          500: '#6B7280',
+          600: '#4B5563',
+          700: '#374151',
+          800: '#1F2937',
+          900: '#111827',
         },
 
         // Legacy compatibility (for gradual migration)
         navy: '#3b82f6',
         alert: '#dc2626',
-        amber: colors.amber,  // Full palette for bg-amber-100, text-amber-700, etc.
+        amber: colors.amber,
         success: '#16a34a',
       },
 

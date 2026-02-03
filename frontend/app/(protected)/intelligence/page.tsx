@@ -107,13 +107,39 @@ export default function IntelligenceDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isEmptyState, setIsEmptyState] = useState(false);
 
   const fetchDashboard = async () => {
+    setError(null);
     try {
       const response = await apiClient.get('/api/v1/case-intelligence/dashboard');
-      setData(response.data);
-    } catch (error) {
-      console.error('Failed to fetch dashboard:', error);
+      const dashboardData = response.data;
+
+      // Check for empty state (no cases)
+      if (dashboardData.summary.total_cases === 0) {
+        setIsEmptyState(true);
+      } else {
+        setIsEmptyState(false);
+      }
+
+      setData(dashboardData);
+    } catch (err: unknown) {
+      console.error('Failed to fetch dashboard:', err);
+      // Check if it's a 404 or specific error indicating no data
+      const errorResponse = err as { response?: { status?: number; data?: { detail?: string } } };
+      if (errorResponse?.response?.status === 404) {
+        setIsEmptyState(true);
+        // Set empty data structure for new users
+        setData({
+          summary: { total_cases: 0, cases_with_scores: 0, average_health_score: 0, at_risk_count: 0, healthy_count: 0 },
+          at_risk_cases: [],
+          top_recommendations: [],
+          score_distribution: { critical: 0, warning: 0, fair: 0, good: 0 },
+        });
+      } else {
+        setError(errorResponse?.response?.data?.detail || 'Failed to load dashboard data. Please try again.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -140,10 +166,71 @@ export default function IntelligenceDashboard() {
     );
   }
 
-  if (!data) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-gray-500">Failed to load dashboard data</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Unable to Load Dashboard</h2>
+          <p className="text-slate-400 mb-6">{error}</p>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 mx-auto"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEmptyState || !data) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+        {/* Header */}
+        <div className="border-b border-slate-700">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                <Brain className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Case Intelligence</h1>
+                <p className="text-slate-400">AI-Powered Litigation Analytics</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="max-w-2xl mx-auto px-6 py-24 text-center">
+          <div className="p-4 bg-slate-800 rounded-2xl inline-block mb-6">
+            <Scale className="w-16 h-16 text-slate-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-4">No Cases Yet</h2>
+          <p className="text-slate-400 mb-8 leading-relaxed">
+            Case Intelligence analyzes your active cases to identify risks, track health scores,
+            and provide AI-powered recommendations. Create your first case to get started.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/cases"
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Scale className="w-5 h-5" />
+              Create Your First Case
+            </Link>
+            <Link
+              href="/tools/document-analyzer"
+              className="flex items-center gap-2 px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              <FileText className="w-5 h-5" />
+              Upload a Document
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

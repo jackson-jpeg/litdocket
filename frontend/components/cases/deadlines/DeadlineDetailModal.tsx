@@ -85,9 +85,10 @@ export default function DeadlineDetailModal({
   const getPriorityColor = (priority?: string) => {
     switch (priority?.toLowerCase()) {
       case 'fatal': return 'text-red-600 bg-red-100 border-red-300';
-      case 'critical': return 'text-red-500 bg-red-50 border-red-200';
+      case 'critical': return 'text-orange-600 bg-orange-50 border-orange-200';
       case 'high':
       case 'important': return 'text-amber-600 bg-amber-50 border-amber-200';
+      case 'standard': return 'text-blue-600 bg-blue-50 border-blue-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };

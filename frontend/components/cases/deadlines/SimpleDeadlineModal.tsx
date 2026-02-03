@@ -25,7 +25,7 @@ interface SimpleDeadlineModalProps {
 
 const PRIORITY_OPTIONS = [
   { value: 'fatal', label: 'Fatal', color: 'text-red-600' },
-  { value: 'critical', label: 'Critical', color: 'text-red-500' },
+  { value: 'critical', label: 'Critical', color: 'text-orange-600' },
   { value: 'important', label: 'Important', color: 'text-amber-600' },
   { value: 'standard', label: 'Standard', color: 'text-blue-600' },
   { value: 'informational', label: 'Informational', color: 'text-slate-500' },

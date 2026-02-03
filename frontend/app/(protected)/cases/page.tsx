@@ -289,7 +289,8 @@ export default function CasesListPage() {
 
     if (days === null || days === undefined) return 'bg-green-600';
     if (days < 0) return 'bg-red-600'; // Overdue
-    if (priority === 'fatal' || priority === 'critical') return 'bg-red-600';
+    if (priority === 'fatal') return 'bg-red-600';
+    if (priority === 'critical') return 'bg-orange-600';
     if (days <= 3) return 'bg-orange-600'; // < 3 days
     if (days <= 7) return 'bg-amber-500'; // < 7 days
     return 'bg-green-600'; // Safe

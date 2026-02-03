@@ -16,6 +16,7 @@ import { HeatMapSkeleton, MatterHealthSkeleton } from '@/components/Skeleton';
 import { QuickToolsGrid, ToolSuggestionBanner } from '@/components/ContextualToolCard';
 import { useAuth } from '@/lib/auth/auth-context';
 import QuickCalculatorModal from '@/components/tools/QuickCalculatorModal';
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 
 // Import progressive loading hooks
 import {
@@ -585,6 +586,9 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full">
+      {/* Onboarding Wizard - shows for new users */}
+      <OnboardingWizard />
+
       {/* Global Search Modal */}
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
