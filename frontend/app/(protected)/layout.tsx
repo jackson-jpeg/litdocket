@@ -3,15 +3,17 @@
  *
  * All routes inside this layout require authentication.
  * Uses the Sovereign Cockpit viewport layout with keyboard shortcuts.
+ * Includes global Case Assistant chat widget.
  */
 
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
 import { CockpitLayout } from '@/components/layout';
 import { KeyboardShortcutsProvider } from '@/providers/KeyboardShortcutsProvider';
+import CaseChatWidget from '@/components/chat/CaseChatWidget';
 
 export default function ProtectedLayout({
   children,
@@ -20,6 +22,10 @@ export default function ProtectedLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const params = useParams();
+
+  // Extract caseId from URL params if on a case page
+  const caseId = params?.caseId as string | undefined;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -48,10 +54,11 @@ export default function ProtectedLayout({
     return null;
   }
 
-  // Authenticated - show the Cockpit with keyboard shortcuts
+  // Authenticated - show the Cockpit with keyboard shortcuts and chat widget
   return (
     <KeyboardShortcutsProvider>
       <CockpitLayout>{children}</CockpitLayout>
+      <CaseChatWidget caseId={caseId} />
     </KeyboardShortcutsProvider>
   );
 }

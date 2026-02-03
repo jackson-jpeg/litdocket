@@ -1,23 +1,31 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import {
-  Upload, FileText, AlertTriangle, Clock, CheckCircle, TrendingUp,
-  Calendar, Folder, Scale, Loader2, AlertCircle, ChevronRight, Search, BarChart3, RefreshCw, LogOut, Settings
+  Upload, FileText, AlertTriangle, Clock, CheckCircle,
+  Calendar, Folder, Scale, Loader2, AlertCircle, ChevronRight, RefreshCw, Settings, Calculator
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import MorningReport from '@/components/MorningReport';
 import DeadlineHeatMap from '@/components/DeadlineHeatMap';
 import MatterHealthCards from '@/components/MatterHealthCards';
-import DashboardCharts from '@/components/DashboardCharts';
-import ActivityFeed from '@/components/ActivityFeed';
 import GlobalSearch from '@/components/GlobalSearch';
-import NotificationCenter from '@/components/NotificationCenter';
 import { HeatMapSkeleton, MatterHealthSkeleton } from '@/components/Skeleton';
 import { QuickToolsGrid, ToolSuggestionBanner } from '@/components/ContextualToolCard';
 import { useAuth } from '@/lib/auth/auth-context';
+import QuickCalculatorModal from '@/components/tools/QuickCalculatorModal';
+
+// Import progressive loading hooks
+import {
+  useDashboardAlerts,
+  useDashboardStats,
+  useDashboardUpcoming,
+  useHeatMap,
+  useActivityFeed,
+  useMatterHealth,
+} from '@/hooks/dashboard';
 
 // Helper to format time ago
 function formatTimeAgo(date: Date): string {
@@ -30,74 +38,484 @@ function formatTimeAgo(date: Date): string {
   return date.toLocaleDateString();
 }
 
-interface DashboardData {
-  case_statistics: {
-    total_cases: number;
-    total_documents: number;
-    total_pending_deadlines: number;
-    by_jurisdiction: {
-      state: number;
-      federal: number;
-      unknown: number;
-    };
-    by_case_type: {
-      civil: number;
-      criminal: number;
-      appellate: number;
-      other: number;
-    };
+// Skeleton components for progressive loading
+function StatsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="card animate-pulse">
+          <div className="h-4 bg-slate-200 rounded w-20 mb-3" />
+          <div className="h-10 bg-slate-200 rounded w-16 mb-2" />
+          <div className="h-4 bg-slate-200 rounded w-32" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UpcomingSkeleton() {
+  return (
+    <div className="card">
+      <div className="h-6 bg-slate-200 rounded w-48 mb-6" />
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex gap-4 animate-pulse">
+            <div className="w-3 h-3 bg-slate-200 rounded-full mt-2" />
+            <div className="flex-1 p-4 bg-slate-50 rounded-lg">
+              <div className="h-5 bg-slate-200 rounded w-3/4 mb-2" />
+              <div className="h-4 bg-slate-200 rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActivitySkeleton() {
+  return (
+    <div className="card">
+      <div className="h-5 bg-slate-200 rounded w-32 mb-4" />
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="flex gap-3 animate-pulse">
+            <div className="w-8 h-8 bg-slate-200 rounded-lg" />
+            <div className="flex-1">
+              <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+              <div className="h-3 bg-slate-200 rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Stats Section Component
+function StatsSection() {
+  const router = useRouter();
+  const { data: alerts } = useDashboardAlerts();
+  const { data: stats, isLoading } = useDashboardStats();
+
+  if (isLoading) {
+    return <StatsSkeleton />;
+  }
+
+  if (!stats) return null;
+
+  const overdueCount = alerts?.overdue.count || 0;
+  const urgentCount = alerts?.urgent.count || 0;
+  const upcomingWeekCount = alerts?.upcoming_week.count || 0;
+  const upcomingMonthCount = alerts?.upcoming_month.count || 0;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      {/* Critical/Overdue Card */}
+      <div
+        onClick={() => router.push('/calendar?filter=overdue')}
+        className="card-hover cursor-pointer group"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Critical</div>
+          {overdueCount > 0 ? (
+            <div className="w-2 h-2 rounded-full bg-red-600" />
+          ) : (
+            <CheckCircle className="w-4 h-4 text-green-600" />
+          )}
+        </div>
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className={`text-4xl font-bold ${
+            overdueCount > 0 ? 'text-red-600' : 'text-green-600'
+          }`}>
+            {overdueCount + urgentCount}
+          </span>
+        </div>
+        <p className="text-sm text-slate-600">
+          {overdueCount} overdue, {urgentCount} urgent
+        </p>
+      </div>
+
+      {/* Pending Deadlines */}
+      <div
+        onClick={() => router.push('/calendar?filter=pending')}
+        className="card-hover cursor-pointer group"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending</div>
+          <Clock className="w-4 h-4 text-amber-600" />
+        </div>
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-4xl font-bold text-amber-600">
+            {stats.total_pending_deadlines}
+          </span>
+        </div>
+        <p className="text-sm text-slate-600">
+          {upcomingWeekCount} this week · {upcomingMonthCount} this month
+        </p>
+      </div>
+
+      {/* Active Cases */}
+      <div
+        onClick={() => router.push('/cases')}
+        className="card-hover cursor-pointer group"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cases</div>
+          <Folder className="w-4 h-4 text-blue-600" />
+        </div>
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-4xl font-bold text-blue-600">
+            {stats.total_cases}
+          </span>
+        </div>
+        <p className="text-sm text-slate-600">
+          {stats.by_jurisdiction.state} State · {stats.by_jurisdiction.federal} Federal
+        </p>
+      </div>
+
+      {/* Documents */}
+      <div
+        onClick={() => router.push('/cases')}
+        className="card-hover cursor-pointer group"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Documents</div>
+          <FileText className="w-4 h-4 text-purple-600" />
+        </div>
+        <div className="flex items-baseline gap-2 mb-2">
+          <span className="text-4xl font-bold text-purple-600">
+            {stats.total_documents}
+          </span>
+        </div>
+        {stats.total_cases > 0 && (
+          <p className="text-sm text-slate-600">
+            ~{Math.round(stats.total_documents / stats.total_cases)} per case
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Upcoming Deadlines Section
+function UpcomingDeadlinesSection() {
+  const router = useRouter();
+  const { data, isLoading } = useDashboardUpcoming(30, 10);
+
+  if (isLoading) {
+    return <UpcomingSkeleton />;
+  }
+
+  return (
+    <div className="card">
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-blue-600" />
+          Upcoming Deadlines
+        </h3>
+      </div>
+
+      {data?.deadlines && data.deadlines.length > 0 ? (
+        <div className="timeline">
+          {data.deadlines.map((deadline) => (
+            <div
+              key={deadline.id}
+              className="timeline-item cursor-pointer group"
+              onClick={() => router.push(`/cases/${deadline.case_id}`)}
+            >
+              <div className={`timeline-dot ${
+                deadline.urgency_level === 'overdue' ? 'bg-red-600' :
+                deadline.urgency_level === 'urgent' ? 'bg-orange-600' :
+                deadline.urgency_level === 'upcoming-week' ? 'bg-amber-500' : 'bg-blue-500'
+              }`} />
+              <div className="bg-white border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 truncate group-hover:text-blue-600">{deadline.title}</p>
+                    <p className="text-sm text-slate-600 mt-1">
+                      {deadline.deadline_date} • {Math.abs(deadline.days_until || 0)} day{Math.abs(deadline.days_until || 0) !== 1 ? 's' : ''} {(deadline.days_until || 0) < 0 ? 'overdue' : 'remaining'}
+                    </p>
+                    {deadline.action_required && (
+                      <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
+                    )}
+                    {deadline.party_role && (
+                      <span className="inline-block mt-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
+                        {deadline.party_role}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`badge ${
+                    deadline.urgency_level === 'overdue' ? 'badge-fatal' :
+                    deadline.urgency_level === 'urgent' ? 'badge-critical' :
+                    deadline.urgency_level === 'upcoming-week' ? 'badge-important' : 'badge-standard'
+                  }`}>
+                    {deadline.urgency_level === 'overdue' ? 'OVERDUE' :
+                     deadline.urgency_level === 'urgent' ? 'URGENT' :
+                     deadline.urgency_level === 'upcoming-week' ? 'THIS WEEK' : 'UPCOMING'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-slate-500">
+          <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600" />
+          <p className="font-medium">All clear!</p>
+          <p className="text-sm mt-1">No upcoming deadlines</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Critical Cases Section (sidebar)
+function CriticalCasesSection() {
+  const router = useRouter();
+  const { data } = useMatterHealth(true);
+
+  if (!data?.critical_cases || data.critical_cases.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="card">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4">Critical Cases</h3>
+      <div className="space-y-3">
+        {data.critical_cases.slice(0, 5).map((caseItem) => (
+          <div
+            key={caseItem.case_id}
+            className="p-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all group"
+            onClick={() => router.push(`/cases/${caseItem.case_id}`)}
+          >
+            <p className="font-medium text-slate-900 group-hover:text-blue-600">{caseItem.case_number}</p>
+            <p className="text-sm text-slate-600 mt-1 truncate">{caseItem.title}</p>
+            <div className="mt-3 flex items-center justify-between">
+              <span className={`badge ${
+                caseItem.urgency_level === 'critical' ? 'badge-fatal' : 'badge-critical'
+              }`}>
+                {caseItem.days_until_deadline} days
+              </span>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Activity Feed Section
+function ActivityFeedSection() {
+  const { data, isLoading } = useActivityFeed(8);
+
+  if (isLoading) {
+    return <ActivitySkeleton />;
+  }
+
+  return (
+    <div className="card">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h3>
+      <div className="space-y-4">
+        {data?.activities.slice(0, 8).map((activity, idx) => (
+          <div key={idx} className="flex items-start gap-3 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <FileText className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate">
+                {activity.case_number}
+              </p>
+              <p className="text-xs text-slate-600 truncate mt-0.5">
+                {activity.description}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                {new Date(activity.timestamp).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {(!data?.activities || data.activities.length === 0) && (
+          <p className="text-center text-slate-500 py-4 text-sm">No recent activity</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Heat Map Section (lazy loaded)
+function HeatMapSection() {
+  const router = useRouter();
+  const { data, isLoading } = useHeatMap(true);
+
+  if (isLoading) {
+    return <HeatMapSkeleton />;
+  }
+
+  if (!data?.matrix || data.matrix.every(cell => cell.count === 0)) {
+    return (
+      <div className="card text-center py-16">
+        <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+          No Heat Map Data
+        </h3>
+        <p className="text-sm text-slate-600">
+          Add deadlines to cases to see the deadline heat map visualization
+        </p>
+      </div>
+    );
+  }
+
+  // Transform flat matrix to the format DeadlineHeatMap expects
+  type UrgencyKey = 'today' | '3_day' | '7_day' | '30_day';
+  type SeverityKey = 'fatal' | 'critical' | 'important' | 'standard' | 'informational';
+
+  interface HeatMapDeadline {
+    id: string;
+    case_id: string;
+    title: string;
+    deadline_date: string;
+    days_until: number;
+    action_required: string;
+    case_title: string;
+  }
+
+  // Initialize empty matrix
+  const emptyUrgency: Record<UrgencyKey, HeatMapDeadline[]> = {
+    today: [],
+    '3_day': [],
+    '7_day': [],
+    '30_day': [],
   };
-  deadline_alerts: {
-    overdue: { count: number; deadlines: any[] };
-    urgent: { count: number; deadlines: any[] };
-    upcoming_week: { count: number; deadlines: any[] };
-    upcoming_month: { count: number; deadlines: any[] };
+
+  const matrix: Record<SeverityKey, Record<UrgencyKey, HeatMapDeadline[]>> = {
+    fatal: { ...emptyUrgency },
+    critical: { ...emptyUrgency },
+    important: { ...emptyUrgency },
+    standard: { ...emptyUrgency },
+    informational: { ...emptyUrgency },
   };
-  recent_activity: any[];
-  critical_cases: any[];
-  upcoming_deadlines: any[];
-  heat_map?: {
-    matrix: any;
-    summary: any;
+
+  // Populate matrix from flat data
+  const byFatality: Record<string, number> = { fatal: 0, critical: 0, important: 0, standard: 0, informational: 0 };
+  const byUrgency: Record<string, number> = { today: 0, '3_day': 0, '7_day': 0, '30_day': 0 };
+
+  data.matrix.forEach((cell) => {
+    const severity = cell.severity as SeverityKey;
+    const urgency = cell.urgency as UrgencyKey;
+
+    if (matrix[severity] && matrix[severity][urgency] !== undefined) {
+      matrix[severity][urgency] = cell.deadlines.map((d) => ({
+        id: d.id,
+        case_id: d.case_id,
+        title: d.title,
+        deadline_date: d.deadline_date,
+        days_until: d.days_until,
+        action_required: '',
+        case_title: '',
+      }));
+      byFatality[severity] = (byFatality[severity] || 0) + cell.count;
+      byUrgency[urgency] = (byUrgency[urgency] || 0) + cell.count;
+    }
+  });
+
+  const heatMapData = {
+    matrix,
+    summary: {
+      total_deadlines: data.summary.total,
+      by_fatality: {
+        fatal: byFatality.fatal,
+        critical: byFatality.critical,
+        important: byFatality.important,
+        standard: byFatality.standard,
+        informational: byFatality.informational,
+      },
+      by_urgency: {
+        today: byUrgency.today,
+        '3_day': byUrgency['3_day'],
+        '7_day': byUrgency['7_day'],
+        '30_day': byUrgency['30_day'],
+      },
+    },
   };
-  matter_health_cards?: any[];
+
+  return (
+    <DeadlineHeatMap
+      heatMapData={heatMapData}
+      onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
+    />
+  );
+}
+
+// Matter Health Section (lazy loaded)
+function MatterHealthSection() {
+  const router = useRouter();
+  const { data, isLoading } = useMatterHealth(true);
+
+  if (isLoading) {
+    return <MatterHealthSkeleton />;
+  }
+
+  if (!data?.health_cards || data.health_cards.length === 0) {
+    return (
+      <div className="card text-center py-16">
+        <Folder className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+          No Cases with Pending Deadlines
+        </h3>
+        <p className="text-sm text-slate-600 mb-6">
+          All cases are up to date or have no active deadlines
+        </p>
+        <button
+          onClick={() => router.push('/cases')}
+          className="btn-primary"
+        >
+          View All Cases
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <MatterHealthCards
+      healthCards={data.health_cards}
+      onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
+    />
+  );
 }
 
 export default function DashboardPage() {
   const router = useRouter();
   const { signOut, user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeView, setActiveView] = useState<'overview' | 'heatmap' | 'cases'>('overview');
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
+  // Use hooks for progressive loading
+  const { data: alerts, isLoading: alertsLoading, lastUpdated, mutate: refreshAlerts } = useDashboardAlerts();
+  const { data: stats, isLoading: statsLoading, mutate: refreshStats } = useDashboardStats();
+  const { mutate: refreshUpcoming } = useDashboardUpcoming();
+  const { mutate: refreshActivity } = useActivityFeed();
+  const { mutate: refreshHealth } = useMatterHealth(activeView === 'cases');
+  const { mutate: refreshHeatMap } = useHeatMap(activeView === 'heatmap');
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
+  // Combined loading state - only true during initial load
+  const isInitialLoading = alertsLoading && statsLoading && !alerts && !stats;
 
-  // Auto-refresh dashboard data every 30 seconds when tab is visible
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchDashboard();
-      }
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  // Combined refresh function
+  const handleManualRefresh = useCallback(async () => {
+    await Promise.all([
+      refreshAlerts(),
+      refreshStats(),
+      refreshUpcoming(),
+      refreshActivity(),
+      refreshHealth(),
+      refreshHeatMap(),
+    ]);
+  }, [refreshAlerts, refreshStats, refreshUpcoming, refreshActivity, refreshHealth, refreshHeatMap]);
 
   // Keyboard shortcut for search (Cmd/Ctrl+K)
   useEffect(() => {
@@ -114,31 +532,6 @@ export default function DashboardPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const fetchDashboard = async (isManualRefresh = false) => {
-    if (isManualRefresh) {
-      setRefreshing(true);
-    }
-
-    try {
-      const response = await apiClient.get('/api/v1/dashboard');
-      setDashboardData(response.data);
-      setLastUpdated(new Date());
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load dashboard:', err);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-      if (isManualRefresh) {
-        setRefreshing(false);
-      }
-    }
-  };
-
-  const handleManualRefresh = () => {
-    fetchDashboard(true);
-  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -164,8 +557,9 @@ export default function DashboardPage() {
       const { redirect_url } = response.data;
       router.push(redirect_url);
 
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Upload failed. Please try again.');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(detail || 'Upload failed. Please try again.');
       setUploading(false);
     }
   }, [router]);
@@ -177,25 +571,8 @@ export default function DashboardPage() {
     disabled: uploading,
   });
 
-  const getUrgencyColor = (urgencyLevel: string) => {
-    switch (urgencyLevel) {
-      case 'overdue': return 'bg-red-100 text-red-700 border-red-200';
-      case 'urgent': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'upcoming-week': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      default: return 'bg-blue-100 text-blue-700 border-blue-200';
-    }
-  };
-
-  const getUrgencyIcon = (urgencyLevel: string) => {
-    switch (urgencyLevel) {
-      case 'overdue': return <AlertTriangle className="w-4 h-4" />;
-      case 'urgent': return <AlertCircle className="w-4 h-4" />;
-      case 'upcoming-week': return <Clock className="w-4 h-4" />;
-      default: return <Calendar className="w-4 h-4" />;
-    }
-  };
-
-  if (loading) {
+  // Show loading only on initial page load
+  if (isInitialLoading) {
     return (
       <div className="h-full flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
@@ -203,10 +580,19 @@ export default function DashboardPage() {
     );
   }
 
+  // Check if user has no cases (new user flow)
+  const hasCases = stats && stats.total_cases > 0;
+
   return (
     <div className="h-full">
       {/* Global Search Modal */}
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Quick Calculator Modal */}
+      <QuickCalculatorModal
+        isOpen={calculatorOpen}
+        onClose={() => setCalculatorOpen(false)}
+      />
 
       {/* Header Actions Bar */}
       <div className="flex items-center justify-between mb-8">
@@ -223,12 +609,18 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setCalculatorOpen(true)}
+            className="btn-ghost"
+            title="Quick Calculator"
+          >
+            <Calculator className="w-4 h-4" />
+          </button>
+          <button
             onClick={handleManualRefresh}
-            disabled={refreshing}
-            className="btn-ghost disabled:opacity-50"
+            className="btn-ghost"
             title="Refresh dashboard"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => router.push('/settings')}
@@ -242,15 +634,15 @@ export default function DashboardPage() {
 
       <div className="space-y-6">
         {/* Critical Alert Banner - Show if Fatal/Critical deadlines exist */}
-        {dashboardData && (dashboardData.deadline_alerts.overdue.count > 0 || dashboardData.deadline_alerts.urgent.count > 0) && (
+        {alerts && (alerts.overdue.count > 0 || alerts.urgent.count > 0) && (
           <div className="bg-red-50 border-l-4 border-red-600 rounded-lg p-6 mb-6">
             <div className="flex items-start gap-4">
               <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-red-900 mb-2">Critical Attention Required</h3>
                 <p className="text-sm text-red-800 mb-3">
-                  You have {dashboardData.deadline_alerts.overdue.count} overdue deadline{dashboardData.deadline_alerts.overdue.count !== 1 ? 's' : ''}
-                  {dashboardData.deadline_alerts.urgent.count > 0 && ` and ${dashboardData.deadline_alerts.urgent.count} urgent deadline${dashboardData.deadline_alerts.urgent.count !== 1 ? 's' : ''}`} requiring immediate action.
+                  You have {alerts.overdue.count} overdue deadline{alerts.overdue.count !== 1 ? 's' : ''}
+                  {alerts.urgent.count > 0 && ` and ${alerts.urgent.count} urgent deadline${alerts.urgent.count !== 1 ? 's' : ''}`} requiring immediate action.
                 </p>
                 <button
                   onClick={() => router.push('/calendar?filter=critical')}
@@ -264,7 +656,7 @@ export default function DashboardPage() {
         )}
 
         {/* Show upload prompt if no cases */}
-        {dashboardData && dashboardData.case_statistics.total_cases === 0 ? (
+        {!hasCases ? (
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <Scale className="w-16 h-16 text-blue-600 mx-auto mb-4" />
@@ -383,282 +775,53 @@ export default function DashboardPage() {
               </div>
             </div>
 
-        {/* Content based on active view */}
-        {activeView === 'overview' && (
-          <>
-            {/* Stats Grid - Clean Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {/* Critical/Overdue Card */}
-              <div
-                onClick={() => router.push('/calendar?filter=overdue')}
-                className="card-hover cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Critical</div>
-                  {(dashboardData?.deadline_alerts.overdue.count || 0) > 0 ? (
-                    <div className="w-2 h-2 rounded-full bg-red-600"></div>
-                  ) : (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  )}
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className={`text-4xl font-bold ${
-                    (dashboardData?.deadline_alerts.overdue.count || 0) > 0
-                      ? 'text-red-600'
-                      : 'text-green-600'
-                  }`}>
-                    {(dashboardData?.deadline_alerts.overdue.count || 0) +
-                     (dashboardData?.deadline_alerts.urgent.count || 0)}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  {dashboardData?.deadline_alerts.overdue.count || 0} overdue, {dashboardData?.deadline_alerts.urgent.count || 0} urgent
-                </p>
-              </div>
+            {/* Content based on active view */}
+            {activeView === 'overview' && (
+              <>
+                {/* Stats Grid */}
+                <Suspense fallback={<StatsSkeleton />}>
+                  <StatsSection />
+                </Suspense>
 
-              {/* Pending Deadlines */}
-              <div
-                onClick={() => router.push('/calendar?filter=pending')}
-                className="card-hover cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending</div>
-                  <Clock className="w-4 h-4 text-amber-600" />
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-4xl font-bold text-amber-600">
-                    {dashboardData?.case_statistics.total_pending_deadlines || 0}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  {dashboardData?.deadline_alerts.upcoming_week.count || 0} this week · {dashboardData?.deadline_alerts.upcoming_month.count || 0} this month
-                </p>
-              </div>
-
-              {/* Active Cases */}
-              <div
-                onClick={() => router.push('/cases')}
-                className="card-hover cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cases</div>
-                  <Folder className="w-4 h-4 text-blue-600" />
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-4xl font-bold text-blue-600">
-                    {dashboardData?.case_statistics.total_cases || 0}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  {dashboardData?.case_statistics.by_jurisdiction.state || 0} State · {dashboardData?.case_statistics.by_jurisdiction.federal || 0} Federal
-                </p>
-              </div>
-
-              {/* Documents */}
-              <div
-                onClick={() => router.push('/cases')}
-                className="card-hover cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Documents</div>
-                  <FileText className="w-4 h-4 text-purple-600" />
-                </div>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-4xl font-bold text-purple-600">
-                    {dashboardData?.case_statistics.total_documents || 0}
-                  </span>
-                </div>
-                {dashboardData && dashboardData.case_statistics.total_cases > 0 && (
-                  <p className="text-sm text-slate-600">
-                    ~{Math.round(dashboardData.case_statistics.total_documents / dashboardData.case_statistics.total_cases)} per case
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Deadline Timeline */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Upcoming Deadlines - Timeline View */}
-                <div className="card">
-                  <div className="mb-6">
-                    <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-blue-600" />
-                      Upcoming Deadlines
-                    </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column - Deadline Timeline */}
+                  <div className="lg:col-span-2 space-y-6">
+                    <Suspense fallback={<UpcomingSkeleton />}>
+                      <UpcomingDeadlinesSection />
+                    </Suspense>
                   </div>
 
-                  {dashboardData?.upcoming_deadlines && dashboardData.upcoming_deadlines.length > 0 ? (
-                    <div className="timeline">
-                      {dashboardData.upcoming_deadlines.slice(0, 10).map((deadline) => (
-                        <div
-                          key={deadline.id}
-                          className="timeline-item cursor-pointer group"
-                          onClick={() => router.push(`/cases/${deadline.case_id}`)}
-                        >
-                          <div className={`timeline-dot ${
-                            deadline.urgency_level === 'overdue' ? 'bg-red-600' :
-                            deadline.urgency_level === 'urgent' ? 'bg-orange-600' :
-                            deadline.urgency_level === 'upcoming-week' ? 'bg-amber-500' : 'bg-blue-500'
-                          }`}></div>
-                          <div className="bg-white border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 truncate group-hover:text-blue-600">{deadline.title}</p>
-                                <p className="text-sm text-slate-600 mt-1">
-                                  {deadline.deadline_date} • {Math.abs(deadline.days_until)} day{Math.abs(deadline.days_until) !== 1 ? 's' : ''} {deadline.days_until < 0 ? 'overdue' : 'remaining'}
-                                </p>
-                                {deadline.action_required && (
-                                  <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
-                                )}
-                                {deadline.party_role && (
-                                  <span className="inline-block mt-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
-                                    {deadline.party_role}
-                                  </span>
-                                )}
-                              </div>
-                              <span className={`badge ${
-                                deadline.urgency_level === 'overdue' ? 'badge-fatal' :
-                                deadline.urgency_level === 'urgent' ? 'badge-critical' :
-                                deadline.urgency_level === 'upcoming-week' ? 'badge-important' : 'badge-standard'
-                              }`}>
-                                {deadline.urgency_level === 'overdue' ? 'OVERDUE' :
-                                 deadline.urgency_level === 'urgent' ? 'URGENT' :
-                                 deadline.urgency_level === 'upcoming-week' ? 'THIS WEEK' : 'UPCOMING'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-slate-500">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600" />
-                      <p className="font-medium">All clear!</p>
-                      <p className="text-sm mt-1">No upcoming deadlines</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column - Critical Cases & Recent Activity */}
-              <div className="space-y-6">
-                {/* Critical Cases */}
-                {dashboardData && dashboardData.critical_cases.length > 0 && (
-                  <div className="card">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Critical Cases</h3>
-                    <div className="space-y-3">
-                      {dashboardData.critical_cases.slice(0, 5).map((caseItem) => (
-                        <div
-                          key={caseItem.case_id}
-                          className="p-4 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all group"
-                          onClick={() => router.push(`/cases/${caseItem.case_id}`)}
-                        >
-                          <p className="font-medium text-slate-900 group-hover:text-blue-600">{caseItem.case_number}</p>
-                          <p className="text-sm text-slate-600 mt-1 truncate">{caseItem.title}</p>
-                          <div className="mt-3 flex items-center justify-between">
-                            <span className={`badge ${
-                              caseItem.urgency_level === 'critical' ? 'badge-fatal' : 'badge-critical'
-                            }`}>
-                              {caseItem.days_until_deadline} days
-                            </span>
-                            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Recent Activity */}
-                <div className="card">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h3>
-                  <div className="space-y-4">
-                    {dashboardData?.recent_activity.slice(0, 8).map((activity, idx) => (
-                      <div key={idx} className="flex items-start gap-3 pb-4 border-b border-slate-100 last:border-0 last:pb-0">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <FileText className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">
-                            {activity.case_number}
-                          </p>
-                          <p className="text-xs text-slate-600 truncate mt-0.5">
-                            {activity.description}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {new Date(activity.timestamp).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-
-                    {(!dashboardData?.recent_activity || dashboardData.recent_activity.length === 0) && (
-                      <p className="text-center text-slate-500 py-4 text-sm">No recent activity</p>
-                    )}
+                  {/* Right Column - Critical Cases & Recent Activity */}
+                  <div className="space-y-6">
+                    <CriticalCasesSection />
+                    <Suspense fallback={<ActivitySkeleton />}>
+                      <ActivityFeedSection />
+                    </Suspense>
                   </div>
                 </div>
-              </div>
-            </div>
-          </>
-        )}
+              </>
+            )}
 
             {activeView === 'heatmap' && (
               <div className="mb-8">
-                {loading ? (
-                  <HeatMapSkeleton />
-                ) : dashboardData?.heat_map ? (
-                  <DeadlineHeatMap
-                    heatMapData={dashboardData.heat_map}
-                    onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
-                  />
-                ) : (
-                  <div className="card text-center py-16">
-                    <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      No Heat Map Data
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Add deadlines to cases to see the deadline heat map visualization
-                    </p>
-                  </div>
-                )}
+                <Suspense fallback={<HeatMapSkeleton />}>
+                  <HeatMapSection />
+                </Suspense>
               </div>
             )}
 
             {activeView === 'cases' && (
               <div className="mb-8">
-                {loading ? (
-                  <MatterHealthSkeleton />
-                ) : dashboardData?.matter_health_cards && dashboardData.matter_health_cards.length > 0 ? (
-                  <MatterHealthCards
-                    healthCards={dashboardData.matter_health_cards}
-                    onCaseClick={(caseId) => router.push(`/cases/${caseId}`)}
-                  />
-                ) : (
-                  <div className="card text-center py-16">
-                    <Folder className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      No Cases with Pending Deadlines
-                    </h3>
-                    <p className="text-sm text-slate-600 mb-6">
-                      All cases are up to date or have no active deadlines
-                    </p>
-                    <button
-                      onClick={() => router.push('/cases')}
-                      className="btn-primary"
-                    >
-                      View All Cases
-                    </button>
-                  </div>
-                )}
+                <Suspense fallback={<MatterHealthSkeleton />}>
+                  <MatterHealthSection />
+                </Suspense>
               </div>
             )}
 
             {/* Tool Suggestion when no critical items */}
-            {activeView === 'overview' && dashboardData &&
-              dashboardData.deadline_alerts.overdue.count === 0 &&
-              dashboardData.deadline_alerts.urgent.count === 0 && (
+            {activeView === 'overview' && alerts &&
+              alerts.overdue.count === 0 &&
+              alerts.urgent.count === 0 && (
               <div className="mt-6">
                 <ToolSuggestionBanner
                   toolId="calculator"

@@ -26,8 +26,43 @@ from app.services.case_context_builder import CaseContextBuilder
 from app.models.case import Case
 from app.models.chat_message import ChatMessage
 from app.config import settings
+import re
 
 logger = logging.getLogger(__name__)
+
+
+def extract_legal_citations(text: str) -> List[str]:
+    """
+    Extract legal rule citations from text.
+
+    Matches patterns like:
+    - Fla. R. Civ. P. 1.140
+    - Fed. R. Civ. P. 26
+    - F.R.C.P. 56
+    - Rule 1.280
+    - 28 U.S.C. § 1332
+    """
+    patterns = [
+        r'Fla\. R\. Civ\. P\. \d+\.\d+',
+        r'Fla\. R\. Jud\. Admin\. \d+\.\d+',
+        r'Fed\. R\. Civ\. P\. \d+',
+        r'Fed\. R\. App\. P\. \d+',
+        r'F\.R\.C\.P\. \d+',
+        r'Rule \d+\.\d+(?:\([a-z]\))?',
+        r'\d+ U\.S\.C\. § \d+',
+        r'\d+ C\.F\.R\. § \d+\.\d+',
+        r'\d+ F\.\d+d \d+',
+        r'\d+ So\.(?:\d+d)? \d+',
+        r'\d+ S\. Ct\. \d+',
+    ]
+
+    citations = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        for match in matches:
+            citations.add(match)
+
+    return list(citations)
 
 # Configuration constants
 API_TIMEOUT = 120  # seconds
@@ -470,14 +505,18 @@ class StreamingChatService:
                                         logger.error(f"Failed to save messages: {e}")
                                         message_id = "temp-" + session_id
 
-                                    # Stream complete
+                                    # Extract citations from the response
+                                    citations = extract_legal_citations(text_buffer)
+
+                                    # Stream complete with citations
                                     yield ServerSentEvent(
                                         event="done",
                                         data={
                                             "status": "completed",
                                             "message_id": message_id,
                                             "tokens_used": total_tokens,
-                                            "actions_taken": len(actions_taken)
+                                            "actions_taken": len(actions_taken),
+                                            "citations": citations
                                         }
                                     )
                                     return
