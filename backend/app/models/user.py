@@ -57,3 +57,7 @@ class User(Base):
     # NOTE: created_rules relationship removed - migration 009 (dynamic_rules_engine)
     # was never fully integrated. Current RuleTemplate model (migration 001) doesn't
     # have created_by column. User-created rules feature is not currently active.
+
+    # AI Agent preferences
+    agent_preferences = relationship("UserAgentPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    agent_analytics = relationship("AgentAnalytics", back_populates="user", cascade="all, delete-orphan")

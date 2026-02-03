@@ -95,6 +95,13 @@ from app.models.document_deadline_suggestion import DocumentDeadlineSuggestion
 # Case Recommendations
 from app.models.case_recommendation import CaseRecommendation
 
+# AI Agents
+from app.models.ai_agent import (
+    AIAgent,
+    UserAgentPreferences,
+    AgentAnalytics,
+)
+
 __all__ = [
     "Base",
     "User",
@@ -169,4 +176,8 @@ __all__ = [
     "DocumentDeadlineSuggestion",
     # Case Recommendations
     "CaseRecommendation",
+    # AI Agents
+    "AIAgent",
+    "UserAgentPreferences",
+    "AgentAnalytics",
 ]

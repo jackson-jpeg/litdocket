@@ -18,6 +18,7 @@ from app.models.user import User
 from app.models.case import Case
 from app.services.streaming_chat_service import streaming_chat_service
 from app.services.approval_manager import approval_manager
+from app.services.agent_service import get_agent_service
 from app.utils.auth import get_current_user, get_current_user_from_query
 from app.config import settings
 
@@ -64,6 +65,7 @@ async def stream_chat(
     session_id: str = Query(..., description="Unique session ID"),
     message: str = Query(..., description="User message"),
     case_id: Optional[str] = Query(None, description="Case UUID (optional for general queries)"),
+    agent: Optional[str] = Query(None, description="Agent slug (e.g., 'deadline_sentinel')"),
     current_user: User = Depends(get_current_user_from_query),
     db: Session = Depends(get_db)
 ) -> EventSourceResponse:
@@ -107,8 +109,18 @@ async def stream_chat(
     """
     logger.info(
         f"[SSE] Stream request from user {current_user.id} "
-        f"for case {case_id or 'GLOBAL'}, session {session_id}, message: {message[:50]}..."
+        f"for case {case_id or 'GLOBAL'}, agent {agent or 'default'}, "
+        f"session {session_id}, message: {message[:50]}..."
     )
+
+    # Validate agent if provided
+    agent_info = None
+    if agent:
+        agent_service = get_agent_service(db)
+        agent_info = agent_service.get_agent_by_slug(agent)
+        if not agent_info:
+            logger.warning(f"Unknown agent slug: {agent}")
+            # Don't fail - just use default behavior
 
     # Verify case ownership only if case_id provided
     case = None
@@ -139,7 +151,8 @@ async def stream_chat(
                 case_id=case_id,
                 user_id=str(current_user.id),
                 session_id=session_id,
-                db=db
+                db=db,
+                agent_slug=agent
             ):
                 event_count += 1
                 logger.info(f"[SSE] Yielding event #{event_count} for session {session_id}")

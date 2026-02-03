@@ -569,3 +569,44 @@ export interface SharedCasesResponse {
   shared_cases: SharedCaseItem[];
   total: number;
 }
+
+// =============================================================================
+// AI AGENTS - Specialized Chat Personas
+// =============================================================================
+
+export interface AIAgent {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  primary_tools: string[];
+  triggering_phrases: string[];
+  is_active: boolean;
+  display_order: number;
+}
+
+export interface AIAgentListResponse {
+  success: boolean;
+  data: AIAgent[];
+}
+
+export interface AIAgentPreferencesResponse {
+  success: boolean;
+  default_agent: AIAgent | null;
+}
+
+export interface AIAgentSuggestionResponse {
+  success: boolean;
+  suggested_agent: AIAgent | null;
+  reason: string | null;
+}
+
+export interface AIAgentStatsResponse {
+  success: boolean;
+  data: {
+    total_sessions: number;
+    by_agent: Record<string, { sessions: number; messages: number; tokens: number }>;
+  };
+}

@@ -13,8 +13,10 @@ import {
   ChevronDown,
   Scale,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/config';
+import AgentSelector, { Agent } from './AgentSelector';
 
 interface ChatMessage {
   id: string;
@@ -69,6 +71,12 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState('');
 
+  // Agent state
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [suggestedAgent, setSuggestedAgent] = useState<Agent | null>(null);
+  const [showAgentSelector, setShowAgentSelector] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -84,6 +92,67 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
       setSessionId(newId);
     }
   }, []);
+
+  // Fetch available agents
+  useEffect(() => {
+    const fetchAgents = async () => {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const apiUrl = getApiBaseUrl();
+        const response = await fetch(`${apiUrl}/api/v1/agents/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.data)) {
+            setAgents(data.data);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch agents:', err);
+      }
+    };
+
+    fetchAgents();
+  }, []);
+
+  // Detect suggested agent based on input
+  useEffect(() => {
+    if (!inputValue.trim() || agents.length === 0) {
+      setSuggestedAgent(null);
+      return;
+    }
+
+    const messageLower = inputValue.toLowerCase();
+    let bestMatch: Agent | null = null;
+    let bestScore = 0;
+
+    for (const agent of agents) {
+      const phrases = agent.triggering_phrases || [];
+      let score = 0;
+
+      for (const phrase of phrases) {
+        if (messageLower.includes(phrase.toLowerCase())) {
+          score += 1;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = agent;
+      }
+    }
+
+    // Only suggest if we found a match and it's different from current selection
+    if (bestMatch && bestMatch.slug !== selectedAgent?.slug) {
+      setSuggestedAgent(bestMatch);
+    } else {
+      setSuggestedAgent(null);
+    }
+  }, [inputValue, agents, selectedAgent]);
 
   // Load chat history from localStorage
   useEffect(() => {
@@ -175,6 +244,11 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
       params.append('case_id', caseId);
     }
 
+    // Add agent parameter if selected
+    if (selectedAgent) {
+      params.append('agent', selectedAgent.slug);
+    }
+
     const sseUrl = `${apiUrl}/api/v1/chat/stream?${params.toString()}`;
 
     // Close existing connection
@@ -251,7 +325,7 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
         }
       }
     };
-  }, [inputValue, isStreaming, sessionId, caseId]);
+  }, [inputValue, isStreaming, sessionId, caseId, selectedAgent]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -274,7 +348,17 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
       {/* Toggle Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors z-40"
+        className={`fixed bottom-6 right-6 w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40 ${
+          selectedAgent?.color === 'red'
+            ? 'bg-red-600 hover:bg-red-700'
+            : selectedAgent?.color === 'purple'
+            ? 'bg-purple-600 hover:bg-purple-700'
+            : selectedAgent?.color === 'green'
+            ? 'bg-green-600 hover:bg-green-700'
+            : selectedAgent?.color === 'orange'
+            ? 'bg-orange-600 hover:bg-orange-700'
+            : 'bg-blue-600 hover:bg-blue-700'
+        }`}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
@@ -318,7 +402,9 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                   <Scale className="w-4 h-4 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900 text-sm">Case Assistant</h3>
+                  <h3 className="font-semibold text-slate-900 text-sm">
+                    {selectedAgent ? selectedAgent.name : 'Case Assistant'}
+                  </h3>
                   {caseName ? (
                     <p className="text-xs text-slate-500 truncate max-w-[200px]">{caseName}</p>
                   ) : (
@@ -326,13 +412,54 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowAgentSelector(!showAgentSelector)}
+                  className={`p-1.5 rounded transition-colors ${
+                    showAgentSelector
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Select AI Agent"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
+            {/* Agent Selector (collapsible) */}
+            <AnimatePresence>
+              {showAgentSelector && agents.length > 0 && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="border-b border-slate-200 bg-slate-50/50 overflow-hidden"
+                >
+                  <div className="p-3">
+                    <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">
+                      Select Agent
+                    </p>
+                    <AgentSelector
+                      agents={agents}
+                      selectedAgent={selectedAgent}
+                      onSelectAgent={(agent) => {
+                        setSelectedAgent(agent);
+                        setSuggestedAgent(null);
+                      }}
+                      suggestedAgent={suggestedAgent}
+                      compact
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -436,6 +563,25 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
 
             {/* Input */}
             <div className="p-3 border-t border-slate-200 bg-slate-50 rounded-b-lg">
+              {/* Agent suggestion banner */}
+              {suggestedAgent && !selectedAgent && (
+                <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-yellow-800">
+                      Try <strong>{suggestedAgent.name}</strong> for this question
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedAgent(suggestedAgent);
+                        setSuggestedAgent(null);
+                      }}
+                      className="px-2 py-0.5 bg-yellow-200 text-yellow-800 hover:bg-yellow-300 transition-colors font-medium"
+                    >
+                      Use
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <input
                   ref={inputRef}

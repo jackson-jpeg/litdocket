@@ -23,6 +23,7 @@ import asyncio
 from app.services.approval_manager import approval_manager, ToolCall, Approval
 from app.services.chat_tools import CHAT_TOOLS, ChatToolExecutor
 from app.services.case_context_builder import CaseContextBuilder
+from app.services.agent_service import get_agent_service
 from app.models.case import Case
 from app.models.chat_message import ChatMessage
 from app.config import settings
@@ -187,7 +188,8 @@ class StreamingChatService:
         case_id: str,
         user_id: str,
         session_id: str,
-        db: Session
+        db: Session,
+        agent_slug: str = None
     ) -> AsyncGenerator[ServerSentEvent, None]:
         """
         Main streaming generator.
@@ -260,6 +262,22 @@ class StreamingChatService:
                 logger.error(f"Context building failed: {e}")
                 # Use minimal fallback
                 system_prompt = f"You are an AI docketing assistant for case {case.case_number}."
+
+            # Apply agent persona to system prompt
+            active_agent = None
+            if agent_slug:
+                try:
+                    agent_service = get_agent_service(db)
+                    system_prompt = agent_service.build_system_prompt(
+                        base_prompt=system_prompt,
+                        agent_slug=agent_slug,
+                        user_id=user_id
+                    )
+                    active_agent = agent_service.get_agent_by_slug(agent_slug)
+                    if active_agent:
+                        logger.info(f"Applied agent persona: {active_agent.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to apply agent persona: {e}")
 
             # Build messages array
             messages = []
@@ -510,6 +528,7 @@ class StreamingChatService:
                                             content=user_message,
                                             context_documents=[],
                                             context_rules=[],
+                                            agent_slug=agent_slug,
                                             created_at=datetime.utcnow()
                                         )
                                         db.add(user_msg)
@@ -524,12 +543,29 @@ class StreamingChatService:
                                             context_rules=[],
                                             tokens_used=total_tokens,
                                             model_used=self.model,
+                                            agent_slug=agent_slug,
                                             created_at=datetime.utcnow()
                                         )
                                         db.add(assistant_msg)
                                         db.commit()
 
                                         message_id = str(assistant_msg.id)
+
+                                        # Track agent analytics
+                                        if agent_slug:
+                                            try:
+                                                agent_service = get_agent_service(db)
+                                                tools_used_list = [a['tool'] for a in actions_taken] if actions_taken else []
+                                                agent_service.track_usage(
+                                                    user_id=user_id,
+                                                    agent_slug=agent_slug,
+                                                    case_id=case_id,
+                                                    session_id=session_id,
+                                                    tokens_used=total_tokens,
+                                                    tools_used=tools_used_list
+                                                )
+                                            except Exception as analytics_err:
+                                                logger.warning(f"Failed to track agent analytics: {analytics_err}")
                                     except Exception as e:
                                         logger.error(f"Failed to save messages: {e}")
                                         message_id = "temp-" + session_id
@@ -537,16 +573,25 @@ class StreamingChatService:
                                     # Extract citations from the response
                                     citations = extract_legal_citations(text_buffer)
 
-                                    # Stream complete with citations
+                                    # Stream complete with citations and agent info
+                                    done_data = {
+                                        "status": "completed",
+                                        "message_id": message_id,
+                                        "tokens_used": total_tokens,
+                                        "actions_taken": len(actions_taken),
+                                        "citations": citations
+                                    }
+                                    if active_agent:
+                                        done_data["agent"] = {
+                                            "slug": active_agent.slug,
+                                            "name": active_agent.name,
+                                            "icon": active_agent.icon,
+                                            "color": active_agent.color
+                                        }
+
                                     yield ServerSentEvent(
                                         event="done",
-                                        data={
-                                            "status": "completed",
-                                            "message_id": message_id,
-                                            "tokens_used": total_tokens,
-                                            "actions_taken": len(actions_taken),
-                                            "citations": citations
-                                        }
+                                        data=done_data
                                     )
                                     return
 

@@ -19,6 +19,11 @@ class ChatMessage(Base):
     model_used = Column(String(100))  # claude-sonnet-4, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # AI Agent tracking
+    agent_id = Column(String(36), ForeignKey("ai_agents.id", ondelete="SET NULL"), nullable=True, index=True)
+    agent_slug = Column(String(50), nullable=True, index=True)
+
     # Relationships
     case = relationship("Case", back_populates="chat_messages")
     user = relationship("User", back_populates="chat_messages")
+    agent = relationship("AIAgent")
