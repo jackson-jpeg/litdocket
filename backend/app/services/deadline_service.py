@@ -5,9 +5,9 @@ Extracts and calculates deadlines from legal documents with comprehensive Florid
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta, date
-import re
 
 from app.services.ai_service import AIService
+from app.utils.json_extractor import extract_json
 
 logger = logging.getLogger(__name__)
 from app.utils.florida_holidays import is_business_day, adjust_to_business_day
@@ -60,19 +60,13 @@ class DeadlineService:
         try:
             response = await self.ai_service.analyze_with_prompt(prompt, max_tokens=4096)
 
-            # Parse JSON response
-            import json
-            import re
-            # Remove markdown code blocks if present
-            response = re.sub(r'```json\s*', '', response)
-            response = re.sub(r'```\s*', '', response)
-            response = response.strip()
-
-            # Try to find JSON array in response
-            json_match = re.search(r'\[.*\]', response, re.DOTALL)
-            if json_match:
-                raw_deadlines = json.loads(json_match.group())
+            # Parse JSON response using robust extractor
+            data, error = extract_json(response, expected_type="array")
+            if data is not None and isinstance(data, list):
+                raw_deadlines = data
             else:
+                if error:
+                    logger.warning(f"Could not parse deadline extraction response: {error}")
                 raw_deadlines = []
 
             # Parse and format deadlines in Jackson's format

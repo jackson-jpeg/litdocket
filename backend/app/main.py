@@ -1,10 +1,10 @@
-# Force rebuild: 2026-01-27 - FIX STALE FILES CAUSING 502
-print("=" * 80)
-print("LITDOCKET BACKEND STARTING...")
-print("=" * 80)
-
+"""
+LitDocket API - Legal docketing and case management with AI-powered analysis
+"""
 import sys
 import logging
+import time
+import traceback
 
 # Configure logging FIRST before any imports
 logging.basicConfig(
@@ -14,48 +14,52 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# IMPORTS - Split into targeted blocks for better error handling
+# =============================================================================
+
+# Standard library and framework imports (these won't fail)
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+# Configuration (may fail on missing environment variables)
 try:
-    logger.info("Starting imports...")
-    from fastapi import FastAPI, Request
-    from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import JSONResponse
-    from starlette.middleware.trustedhost import TrustedHostMiddleware
-    from slowapi import _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
-    import time
-    import traceback
-
-    logger.info("Core imports complete")
-
     from app.config import settings
-    logger.info("Config loaded")
-
-    from app.database import engine
-    logger.info("Database engine loaded")
-
-    from app.models import Base
-    logger.info("Models loaded")
-
-    from app.api.v1.router import api_router
-    logger.info("API router loaded - ALL IMPORTS SUCCESSFUL")
-
+    logger.info("Config loaded successfully")
 except Exception as e:
-    logger.error(f"FATAL: Import failed during startup")
-    logger.error(f"Error: {e}")
+    logger.error(f"Configuration load failed: {e}")
+    logger.error("Required environment variables: DATABASE_URL, JWT_SECRET_KEY, ANTHROPIC_API_KEY")
+    sys.exit(1)
+
+# Database connection (may fail on connection issues)
+try:
+    from app.database import engine
+    logger.info("Database engine initialized")
+except Exception as e:
+    logger.error(f"Database connection failed: {e}")
+    logger.error(f"Check DATABASE_URL: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else 'check config'}")
+    sys.exit(1)
+
+# Models and routers (may fail on import errors)
+try:
+    from app.models import Base
+    from app.api.v1.router import api_router
+    logger.info("Models and API router loaded")
+except Exception as e:
+    logger.error(f"Import failed: {e}")
     logger.error(traceback.format_exc())
     sys.exit(1)
+
 from app.middleware.security import (
     limiter,
     SecurityHeadersMiddleware,
     rate_limit_exceeded_handler,
     TRUSTED_HOSTS,
 )
-# WebSocket disabled for MVP - can re-enable for production
-# from app.websocket.routes import websocket_endpoint
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
@@ -159,17 +163,6 @@ async def root():
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
-
-# WebSocket routes - DISABLED FOR MVP
-# Re-enable when deploying with proper WebSocket infrastructure
-# @app.websocket("/ws/cases/{case_id}")
-# async def websocket_case_room(websocket: WebSocket, case_id: str, token: str):
-#     """
-#     WebSocket endpoint for case room real-time communication.
-#
-#     Connect with: ws://localhost:8000/ws/cases/{case_id}?token={jwt_token}
-#     """
-#     await websocket_endpoint(websocket, case_id, token)
 
 # Create database tables on startup
 @app.on_event("startup")

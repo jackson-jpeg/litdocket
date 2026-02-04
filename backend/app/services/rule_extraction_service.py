@@ -12,7 +12,6 @@ Uses Claude's capabilities to:
 """
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-import json
 import re
 import logging
 import hashlib
@@ -22,6 +21,7 @@ from anthropic import Anthropic
 
 from app.config import settings
 from app.models.enums import TriggerType, AuthorityTier
+from app.utils.json_extractor import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -365,30 +365,19 @@ Extract all procedural rules from this text and return as JSON array."""
         return best_match.value
 
     def _parse_extraction_response(self, text: str) -> List[Dict[str, Any]]:
-        """Parse JSON array from Claude's response"""
-        # Remove markdown code blocks if present
-        text = re.sub(r'```json\s*', '', text)
-        text = re.sub(r'```\s*', '', text)
-        text = text.strip()
+        """Parse JSON array from Claude's response using robust extractor."""
+        # Try extracting as array first
+        data, error = extract_json(text, expected_type="array")
+        if data is not None and isinstance(data, list):
+            return data
 
-        # Try to find JSON array in response
-        json_match = re.search(r'\[.*\]', text, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError as e:
-                logger.warning(f"JSON parse failed: {e}")
+        # Fallback: try extracting as object and wrap in list
+        data, error = extract_json(text, expected_type="object")
+        if data is not None and isinstance(data, dict):
+            return [data]
 
-        # Try parsing as single object
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if json_match:
-            try:
-                result = json.loads(json_match.group())
-                return [result] if isinstance(result, dict) else []
-            except json.JSONDecodeError:
-                pass
-
-        logger.warning(f"Could not parse extraction response: {text[:200]}...")
+        if error:
+            logger.warning(f"Could not parse extraction response: {error}")
         return []
 
     async def refine_extraction(

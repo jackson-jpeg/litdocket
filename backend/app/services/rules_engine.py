@@ -19,6 +19,7 @@ from app.models.enums import TriggerType, DeadlinePriority
 
 # Import authoritative legal rules constants
 from app.constants.legal_rules import get_service_extension_days
+from app.constants.parsing import TRUTHY_STRINGS, FALSY_STRINGS
 from app.utils.deadline_calculator import (
     AuthoritativeDeadlineCalculator,
     CalculationMethod,
@@ -152,11 +153,11 @@ class RulesEngine:
             Normalized value for comparison
         """
         if isinstance(value, str):
-            # Boolean string normalization
+            # Boolean string normalization using centralized constants
             lower_val = value.lower().strip()
-            if lower_val in ("true", "yes", "1", "y"):
+            if lower_val in TRUTHY_STRINGS:
                 return True
-            elif lower_val in ("false", "no", "0", "n"):
+            elif lower_val in FALSY_STRINGS:
                 return False
 
             # Integer string normalization

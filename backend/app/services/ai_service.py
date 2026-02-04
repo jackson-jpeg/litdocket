@@ -1,9 +1,9 @@
 from anthropic import Anthropic
 from typing import Dict, List, Optional
-import json
 import re
 import logging
 from app.config import settings
+from app.utils.json_extractor import parse_json_response, extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -247,24 +247,8 @@ Be conversational but professional."""
         }
 
     def _parse_json_response(self, text: str) -> Dict:
-        """Extract and parse JSON from Claude response"""
-        # Remove markdown code blocks if present
-        text = re.sub(r'```json\s*', '', text)
-        text = re.sub(r'```\s*', '', text)
-        text = text.strip()
-
-        # Try to find JSON in response
-        json_match = re.search(r'\{.*\}|\[.*\]', text, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group())
-            except json.JSONDecodeError as e:
-                # Log the parse failure but continue to fallback
-                logger.warning(f"JSON parse failed on matched text: {e}. Matched: {json_match.group()[:200]}...")
-
-        # Fallback - return raw text with parse_error flag
-        logger.debug(f"Returning raw text fallback for unparseable response: {text[:100]}...")
-        return {'raw_text': text, 'parse_error': True}
+        """Extract and parse JSON from Claude response using robust extractor."""
+        return parse_json_response(text)
 
     def _extract_rule_citations(self, text: str) -> List[str]:
         """Extract rule citations from response text"""
