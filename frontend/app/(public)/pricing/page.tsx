@@ -15,7 +15,7 @@ const tiers = [
     yearlySavings: 'Save $118/year',
     description: 'Perfect for solo practitioners managing their own caseload.',
     features: [
-      { text: 'Up to 25 active cases', included: true },
+      { text: 'Up to 25 active cases', included: true, tooltip: 'Active cases have pending deadlines. Archived or closed cases don\'t count toward your limit.' },
       { text: 'AI document analysis', included: true },
       { text: 'Deadline chain generation', included: true },
       { text: 'Calendar view with drag & drop', included: true },
@@ -194,7 +194,7 @@ export default function PricingPage() {
 
                 <ul className="space-y-3">
                   {tier.features.map((feature) => (
-                    <li key={feature.text} className="flex items-start gap-3">
+                    <li key={feature.text} className="flex items-start gap-3 group relative">
                       <Check
                         className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
                           feature.included
@@ -216,7 +216,15 @@ export default function PricingPage() {
                         }`}
                       >
                         {feature.text}
+                        {feature.tooltip && (
+                          <HelpCircle className={`inline w-3.5 h-3.5 ml-1 cursor-help ${tier.featured ? 'text-blue-200' : 'text-slate-400'}`} />
+                        )}
                       </span>
+                      {feature.tooltip && (
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-white text-xs px-3 py-2 rounded-lg max-w-xs z-10 shadow-lg">
+                          {feature.tooltip}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

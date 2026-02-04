@@ -10,12 +10,12 @@ export function Hero() {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-indigo-100 opacity-50 blur-3xl" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="text-center">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-blue-700 text-sm font-medium mb-8">
             <Shield className="w-4 h-4" />
-            Trusted by litigation professionals
+            Built for litigation professionals
           </div>
 
           {/* Headline */}
@@ -25,8 +25,8 @@ export function Hero() {
 
           {/* Subheadline */}
           <p className="text-xl text-slate-600 max-w-2xl mx-auto mb-10">
-            AI-powered legal docketing that combines CompuLaw-style rules-based calculation
-            with intelligent document analysis. Built for attorneys managing complex litigation.
+            Automatically calculate deadlines using FRCP, State Rules, and Judge&apos;s Standing Orders.
+            Our AI reads your court documents and alerts you before time runs out.
           </p>
 
           {/* CTAs */}
@@ -46,10 +46,19 @@ export function Hero() {
             </Link>
           </div>
 
-          {/* Trust indicators */}
+          {/* Use cases */}
           <div className="mt-16 flex flex-col items-center">
-            <p className="text-sm text-slate-500 mb-4">Powering deadline management for law firms across the country</p>
-            <div className="flex items-center gap-8 text-slate-400">
+            <p className="text-sm text-slate-500 mb-4">Used by attorneys handling</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-slate-600">
+              <span className="text-sm font-medium">Complex Commercial Litigation</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-sm font-medium">Federal Court Cases</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-sm font-medium">Multi-District Litigation</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-sm font-medium">Class Actions</span>
+            </div>
+            <div className="flex items-center gap-8 text-slate-400 mt-6">
               <div className="flex items-center gap-2">
                 <Scale className="w-5 h-5" />
                 <span className="text-sm font-medium">14 Jurisdictions</span>

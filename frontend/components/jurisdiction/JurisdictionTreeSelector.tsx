@@ -330,6 +330,7 @@ export function JurisdictionTreeSelector({
     getSelection,
     validateSelection,
     setSelection,
+    retry,
   } = useJurisdictionTree({
     filterByState,
     expandedByDefault,
@@ -378,10 +379,26 @@ export function JurisdictionTreeSelector({
         <div className="window-titlebar">
           <span className="window-titlebar-text">Jurisdiction Selector</span>
         </div>
-        <div className="window-content">
-          <div className="badge-critical p-2">
-            Error: {error}
+        <div className="window-content text-center py-8">
+          <div className="text-red-600 mb-3">
+            <svg className="w-8 h-8 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
           </div>
+          <p className="text-grey-700 mb-2">
+            We&apos;re having trouble connecting to the rules database.
+          </p>
+          <p className="text-grey-500 text-sm mb-4">
+            Check your connection or try again.
+          </p>
+          <button
+            onClick={retry}
+            className="px-4 py-2 bg-navy text-white text-sm hover:bg-navy-dark"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );

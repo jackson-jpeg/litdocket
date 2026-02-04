@@ -36,6 +36,8 @@ interface UseJurisdictionTreeReturn extends JurisdictionTreeState {
   // Reset
   clearSelection: () => void;
   setSelection: (ruleSetIds: string[]) => void;
+  // Retry on error
+  retry: () => void;
 }
 
 // API response types
@@ -86,6 +88,8 @@ export function useJurisdictionTree(
   const [dependencyMap, setDependencyMap] = useState<Map<string, string[]>>(new Map());
   // Reverse dependency map: rule_set_id -> rule_sets that require it
   const [reverseDependencyMap, setReverseDependencyMap] = useState<Map<string, string[]>>(new Map());
+  // Refetch trigger for retry functionality
+  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   // Fetch and build tree
   useEffect(() => {
@@ -146,7 +150,7 @@ export function useJurisdictionTree(
     }
 
     fetchData();
-  }, [filterByState, expandedByDefault]);
+  }, [filterByState, expandedByDefault, refetchTrigger]);
 
   // Build tree from flat data
   function buildTree(
@@ -359,6 +363,12 @@ export function useJurisdictionTree(
     setSelectedIds(new Set(ruleSetIds));
   }, []);
 
+  // Retry function for error recovery
+  const retry = useCallback(() => {
+    setError(null);
+    setRefetchTrigger(prev => prev + 1);
+  }, []);
+
   // Update nodes with current selection/expansion state
   const nodesWithState = useMemo(() => {
     function updateNodeState(node: JurisdictionTreeNode): JurisdictionTreeNode {
@@ -388,5 +398,6 @@ export function useJurisdictionTree(
     validateSelection,
     clearSelection,
     setSelection,
+    retry,
   };
 }

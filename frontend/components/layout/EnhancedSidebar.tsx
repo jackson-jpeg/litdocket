@@ -98,7 +98,7 @@ const IconBrain = () => (
 const primaryNavItems = [
   { label: 'Dashboard', href: '/dashboard', icon: <IconDashboard />, shortcut: '⌘H' },
   { label: 'Cases', href: '/cases', icon: <IconCases />, shortcut: '⌘⇧C' },
-  { label: 'Calendar', href: '/calendar', icon: <IconDocket />, shortcut: '⌘D' },
+  { label: 'Docket', href: '/calendar', icon: <IconDocket />, shortcut: '⌘D' },
 ];
 
 // Utilities - tools and analyzers

@@ -14,6 +14,7 @@ import {
   Scale,
   Sparkles,
   Settings,
+  EyeOff,
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/config';
 import AgentSelector, { Agent } from './AgentSelector';
@@ -33,6 +34,8 @@ interface CaseChatWidgetProps {
 
 const STORAGE_KEY = 'litdocket_chat_history';
 const SESSION_ID_KEY = 'litdocket_chat_session';
+const BUBBLE_HIDDEN_KEY = 'litdocket_chat_bubble_hidden';
+const TOOLTIP_SHOWN_KEY = 'litdocket_chat_tooltip_shown';
 
 // Extract rule citations from text (e.g., "Fla. R. Civ. P. 1.140")
 function extractCitations(text: string): string[] {
@@ -77,6 +80,10 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
   const [suggestedAgent, setSuggestedAgent] = useState<Agent | null>(null);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
 
+  // Bubble visibility and tooltip state
+  const [isBubbleHidden, setIsBubbleHidden] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -90,6 +97,23 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
       const newId = generateSessionId();
       localStorage.setItem(SESSION_ID_KEY, newId);
       setSessionId(newId);
+    }
+  }, []);
+
+  // Initialize bubble visibility and tooltip
+  useEffect(() => {
+    const bubbleHidden = localStorage.getItem(BUBBLE_HIDDEN_KEY) === 'true';
+    setIsBubbleHidden(bubbleHidden);
+
+    // Show tooltip only once per session (sessionStorage)
+    const tooltipShown = sessionStorage.getItem(TOOLTIP_SHOWN_KEY);
+    if (!tooltipShown && !bubbleHidden) {
+      setShowTooltip(true);
+      const timer = setTimeout(() => {
+        setShowTooltip(false);
+        sessionStorage.setItem(TOOLTIP_SHOWN_KEY, 'true');
+      }, 5000);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -343,8 +367,21 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
     setSessionId(newId);
   };
 
+  // Don't render anything if bubble is hidden
+  if (isBubbleHidden) {
+    return null;
+  }
+
   return (
     <>
+      {/* Tooltip - shows once per session */}
+      {showTooltip && !isOpen && (
+        <div className="fixed bottom-24 right-6 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg shadow-lg z-40">
+          Ask about your cases and deadlines
+          <div className="absolute bottom-0 right-8 transform translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800" />
+        </div>
+      )}
+
       {/* Toggle Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
@@ -423,6 +460,17 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                   title="Select AI Agent"
                 >
                   <Settings className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsBubbleHidden(true);
+                    localStorage.setItem(BUBBLE_HIDDEN_KEY, 'true');
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                  title="Hide chat widget"
+                >
+                  <EyeOff className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}

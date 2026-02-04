@@ -206,13 +206,13 @@ export default function IntelligenceDashboard() {
 
         {/* Empty State */}
         <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-          <div className="p-4 bg-slate-800 rounded-2xl inline-block mb-6">
-            <Scale className="w-16 h-16 text-slate-500" />
+          <div className="p-4 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl inline-block mb-6">
+            <Brain className="w-16 h-16 text-blue-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-4">No Cases Yet</h2>
+          <h2 className="text-2xl font-bold text-white mb-4">Get Started with Case Intelligence</h2>
           <p className="text-slate-400 mb-8 leading-relaxed">
-            Case Intelligence analyzes your active cases to identify risks, track health scores,
-            and provide AI-powered recommendations. Create your first case to get started.
+            Once you add your first case, our AI will analyze risk factors, track health scores,
+            and surface actionable recommendations to keep you ahead of deadlines.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -220,14 +220,7 @@ export default function IntelligenceDashboard() {
               className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Scale className="w-5 h-5" />
-              Create Your First Case
-            </Link>
-            <Link
-              href="/tools/document-analyzer"
-              className="flex items-center gap-2 px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
-            >
-              <FileText className="w-5 h-5" />
-              Upload a Document
+              Add Your First Case
             </Link>
           </div>
         </div>
