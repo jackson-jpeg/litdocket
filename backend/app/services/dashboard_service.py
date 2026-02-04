@@ -653,6 +653,18 @@ class DashboardService:
 
         doc_count_map = {str(dc.case_id): int(dc.doc_count) for dc in doc_counts}
 
+        # OPTIMIZATION 4: Pre-compute ALL judge case counts in ONE query
+        # This eliminates the N+1 query pattern for judge stats
+        judge_counts = db.query(
+            Case.judge,
+            func.count(Case.id).label('count')
+        ).filter(
+            Case.user_id == user_id,
+            Case.status == 'active',
+            Case.judge.isnot(None)
+        ).group_by(Case.judge).all()
+        judge_count_map = {jc.judge: int(jc.count) for jc in judge_counts}
+
         # Now build health cards using pre-fetched data (NO MORE QUERIES IN LOOP!)
         health_cards = []
         for case_obj in active_cases:
@@ -699,14 +711,8 @@ class DashboardService:
             # Document count from pre-fetched data
             doc_count = doc_count_map.get(case_id_str, 0)
 
-            # Judge stats (how many other cases with this judge)
-            judge_case_count = 0
-            if case_obj.judge:
-                judge_case_count = db.query(func.count(Case.id)).filter(
-                    Case.user_id == user_id,
-                    Case.judge == case_obj.judge,
-                    Case.status == 'active'
-                ).scalar() or 0
+            # Judge stats from pre-fetched data (no more N+1 query!)
+            judge_case_count = judge_count_map.get(case_obj.judge, 0) if case_obj.judge else 0
 
             health_cards.append({
                 'case_id': str(case_obj.id),

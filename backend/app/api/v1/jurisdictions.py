@@ -668,6 +668,12 @@ async def get_jurisdiction_tree(
         )
     except HTTPException:
         raise
+    except AttributeError as e:
+        logger.error(f"Attribute error in jurisdiction tree - likely null field: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Data integrity issue in jurisdiction data: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Failed to load jurisdiction tree: {e}", exc_info=True)
         raise HTTPException(

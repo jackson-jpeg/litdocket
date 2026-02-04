@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("")
-def get_dashboard(
+async def get_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> dict:
@@ -28,13 +28,10 @@ def get_dashboard(
         - Critical cases needing attention
         - Upcoming deadlines (next 30 days)
     """
-    import asyncio
-
-    # Run async service in sync context (FastAPI will run this in thread pool)
-    dashboard_data = asyncio.run(dashboard_service.get_dashboard_data(
+    dashboard_data = await dashboard_service.get_dashboard_data(
         user_id=current_user.id,
         db=db
-    ))
+    )
 
     return dashboard_data
 
@@ -432,7 +429,7 @@ def get_dashboard_activity(
 
 
 @router.get("/health")
-def get_dashboard_health(
+async def get_dashboard_health(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> dict:
@@ -441,13 +438,10 @@ def get_dashboard_health(
 
     Returns health status for each active case with progress and next deadline.
     """
-    import asyncio
-
-    # Use existing dashboard service for health cards
-    data = asyncio.run(dashboard_service.get_dashboard_data(
+    data = await dashboard_service.get_dashboard_data(
         user_id=current_user.id,
         db=db
-    ))
+    )
 
     return {
         "health_cards": data.get("matter_health_cards", []),

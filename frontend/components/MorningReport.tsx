@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { AlertTriangle, Clock, ChevronRight, Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, Clock, ChevronRight, Loader2, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
 import apiClient from '@/lib/api-client';
+
+// Loading states for progressive loading
+interface LoadingStates {
+  alerts: boolean;
+  report: boolean;
+}
 
 interface MorningReportData {
   greeting: string;
@@ -80,26 +86,49 @@ interface MorningReportProps {
 
 export default function MorningReport({ onCaseClick }: MorningReportProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [loadingStates, setLoadingStates] = useState<LoadingStates>({ alerts: true, report: true });
   const [report, setReport] = useState<MorningReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [alertsData, setAlertsData] = useState<{
+    overdue: { count: number; deadlines: Array<{ id: string; case_id: string; title: string; deadline_date: string; priority: string; days_until: number }> };
+    urgent: { count: number; deadlines: Array<{ id: string; case_id: string; title: string; deadline_date: string; priority: string; days_until: number }> };
+  } | null>(null);
 
-  useEffect(() => {
-    fetchMorningReport();
-  }, []);
+  // Memoize fetch function to avoid dependency warnings
+  const fetchData = useCallback(async () => {
+    setError(null);
+    setLoadingStates({ alerts: true, report: true });
 
-  const fetchMorningReport = async () => {
+    // Fetch alerts first (critical path - fastest to load)
     try {
-      const response = await apiClient.get('/api/v1/dashboard/morning-report');
-      setReport(response.data);
+      const alertsResponse = await apiClient.get('/api/v1/dashboard/alerts');
+      setAlertsData(alertsResponse.data);
+      setLoadingStates(prev => ({ ...prev, alerts: false }));
+    } catch (err: unknown) {
+      console.error('Failed to load alerts:', err);
+      setLoadingStates(prev => ({ ...prev, alerts: false }));
+    }
+
+    // Fetch full morning report (takes longer)
+    try {
+      const reportResponse = await apiClient.get('/api/v1/dashboard/morning-report');
+      setReport(reportResponse.data);
     } catch (err: unknown) {
       console.error('Failed to load morning report:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load briefing';
       setError(errorMessage);
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, report: false }));
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Computed loading state
+  const loading = loadingStates.alerts && loadingStates.report;
+  const partialLoading = loadingStates.alerts || loadingStates.report;
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -137,21 +166,70 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
     return { label: `${alert.days_until}d`, class: 'text-enterprise-grey-600' };
   };
 
-  if (loading) {
+  // Skeleton loader component for sections
+  const SectionSkeleton = ({ title, rows = 3 }: { title: string; rows?: number }) => (
+    <div className="card overflow-hidden animate-pulse">
+      <div className="bg-slate-50 border-b border-slate-200 px-6 py-3">
+        <div className="h-4 bg-slate-200 rounded w-32"></div>
+      </div>
+      <div className="p-4 space-y-3">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4">
+            <div className="h-4 bg-slate-200 rounded flex-1"></div>
+            <div className="h-4 bg-slate-200 rounded w-20"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Show initial loading only if we have NO data yet
+  if (loading && !alertsData && !report) {
     return (
-      <div className="card p-8">
-        <div className="flex items-center justify-center gap-3">
-          <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-          <span className="text-slate-600 text-sm">Loading intelligence briefing...</span>
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="card animate-pulse">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+            <div className="h-6 bg-slate-200 rounded w-48 mb-2"></div>
+            <div className="h-3 bg-slate-200 rounded w-32"></div>
+          </div>
+          <div className="p-6">
+            <div className="h-4 bg-slate-200 rounded w-full mb-2"></div>
+            <div className="h-4 bg-slate-200 rounded w-3/4 mb-6"></div>
+            <div className="grid grid-cols-4 gap-4 pt-4 border-t border-slate-200">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-24 bg-slate-100 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Alerts skeleton */}
+        <SectionSkeleton title="Critical Alerts" rows={3} />
+
+        {/* Two column skeletons */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <SectionSkeleton title="7-Day Outlook" rows={4} />
+          <SectionSkeleton title="Upcoming Proceedings" rows={3} />
         </div>
       </div>
     );
   }
 
-  if (error || !report) {
+  if (error && !report && !alertsData) {
     return (
       <div className="card p-6">
-        <p className="text-slate-600 text-sm text-center">Unable to load briefing data</p>
+        <div className="flex flex-col items-center gap-4">
+          <AlertTriangle className="w-8 h-8 text-amber-500" />
+          <p className="text-slate-600 text-sm text-center">Unable to load briefing data</p>
+          <button
+            onClick={fetchData}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -164,8 +242,72 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
     day: 'numeric'
   });
 
+  // Compute critical alerts from either early alerts data or full report
+  const overdueAlerts = alertsData?.overdue?.deadlines || [];
+  const urgentAlerts = alertsData?.urgent?.deadlines || [];
+  const totalCriticalCount = (alertsData?.overdue?.count || 0) + (alertsData?.urgent?.count || 0);
+
   return (
     <div className="space-y-6">
+      {/* Loading indicator for remaining data */}
+      {partialLoading && (
+        <div className="flex items-center justify-center gap-2 py-2 text-xs text-slate-500">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>Loading additional data...</span>
+        </div>
+      )}
+
+      {/* Early Critical Alerts (shows immediately from /alerts endpoint) */}
+      {!loadingStates.alerts && totalCriticalCount > 0 && !report && (
+        <div className="card overflow-hidden">
+          <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
+            <h2 className="text-sm font-semibold text-red-900 uppercase tracking-wide">
+              Critical Alerts ({totalCriticalCount})
+            </h2>
+          </div>
+          <div className="divide-y divide-slate-200">
+            {[...overdueAlerts, ...urgentAlerts].slice(0, 5).map((alert, idx) => (
+              <div
+                key={idx}
+                className="px-6 py-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between"
+                onClick={() => onCaseClick?.(alert.case_id)}
+              >
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900">{alert.title}</p>
+                  <p className="text-xs text-slate-500">Due: {formatDate(alert.deadline_date)}</p>
+                </div>
+                <span className={`text-xs font-mono ${alert.days_until < 0 ? 'text-red-600 font-bold' : 'text-amber-600'}`}>
+                  {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d OVERDUE` : alert.days_until === 0 ? 'TODAY' : `${alert.days_until}d`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Show skeleton for main report if not loaded yet but alerts are ready */}
+      {!loadingStates.alerts && loadingStates.report && !report && (
+        <div className="card animate-pulse">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+            <div className="h-6 bg-slate-200 rounded w-48 mb-2"></div>
+            <div className="h-3 bg-slate-200 rounded w-32"></div>
+          </div>
+          <div className="p-6">
+            <div className="h-4 bg-slate-200 rounded w-full mb-2"></div>
+            <div className="h-4 bg-slate-200 rounded w-3/4 mb-6"></div>
+            <div className="grid grid-cols-4 gap-4 pt-4 border-t border-slate-200">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-24 bg-slate-100 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Report Content */}
+      {report && (
+        <>
       {/* Header Bar - Paper & Steel */}
       <div className="card">
         <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-baseline justify-between">
@@ -510,6 +652,8 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
       <div className="text-center text-xs text-slate-500 py-4 font-mono">
         LitDocket Intelligence System &bull; Data as of {new Date(report.generated_at).toLocaleString()}
       </div>
+        </>
+      )}
     </div>
   );
 }
