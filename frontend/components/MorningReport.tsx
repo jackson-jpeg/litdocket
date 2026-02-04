@@ -310,96 +310,96 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
         <>
       {/* Header Bar - Paper & Steel */}
       <div className="card">
-        <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-baseline justify-between">
+        <div className="bg-surface border-b border-ink px-6 py-4 flex items-baseline justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl font-heading font-bold tracking-tight text-ink">
               Daily Intelligence Briefing
             </h1>
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-1">
+            <div className="flex items-center gap-2 text-xs text-ink-secondary font-mono mt-1">
               <Clock className="w-3 h-3" />
               Last updated: {formatDistanceToNow(new Date(report.generated_at), { addSuffix: true })}
             </div>
           </div>
           <div className="text-right text-xs">
-            <span className="text-slate-500 font-mono">{dateStr}</span>
+            <span className="text-ink-secondary font-mono">{dateStr}</span>
           </div>
         </div>
 
         {/* Summary Panel */}
-        <div className="p-6 bg-white">
-          <p className="text-slate-900 leading-relaxed text-base">{report.summary}</p>
+        <div className="p-6 bg-paper">
+          <p className="text-ink font-serif leading-relaxed text-base">{report.summary}</p>
 
           {/* Stats Row - Clean Cards */}
-          <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-slate-200">
+          <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t border-ink/20">
             {/* Active Cases Card */}
             <div
               onClick={() => router.push('/cases')}
-              className="bg-white border border-slate-200 rounded-lg p-4 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+              className="bg-paper border border-ink/20 p-4 cursor-pointer hover:border-ink hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">
                   Active Cases
                 </span>
-                <TrendingUp className="w-3 h-3 text-green-600" />
+                <TrendingUp className="w-3 h-3 text-status-success" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold font-mono text-slate-900">
+                <span className="text-4xl font-bold font-mono text-ink">
                   {report.case_overview.total_cases}
                 </span>
-                <span className="text-xs text-green-600 font-mono">+5%</span>
+                <span className="text-xs text-status-success font-mono">+5%</span>
               </div>
             </div>
 
             {/* Pending Deadlines Card */}
             <div
               onClick={() => router.push('/calendar?filter=pending')}
-              className="bg-white border border-slate-200 rounded-lg p-4 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+              className="bg-paper border border-ink/20 p-4 cursor-pointer hover:border-ink hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">
                   Pending
                 </span>
-                <Minus className="w-3 h-3 text-slate-400" />
+                <Minus className="w-3 h-3 text-ink-muted" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold font-mono text-slate-900">
+                <span className="text-4xl font-bold font-mono text-ink">
                   {report.case_overview.total_pending_deadlines}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">0%</span>
+                <span className="text-xs text-ink-muted font-mono">0%</span>
               </div>
             </div>
 
             {/* Cases Needing Attention Card */}
             <div
               onClick={() => router.push('/cases?filter=attention')}
-              className={`bg-white border rounded-lg p-4 cursor-pointer hover:shadow-md transition-all ${
+              className={`bg-paper border p-4 cursor-pointer hover:translate-x-0.5 hover:translate-y-0.5 transition-transform ${
                 report.case_overview.cases_needing_attention > 0
-                  ? 'border-red-200 hover:border-red-300'
-                  : 'border-green-200 hover:border-green-300'
+                  ? 'border-fatal'
+                  : 'border-status-success'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">
                   Attention
                 </span>
                 {report.case_overview.cases_needing_attention > 0 ? (
-                  <TrendingUp className="w-3 h-3 text-red-600" />
+                  <TrendingUp className="w-3 h-3 text-fatal" />
                 ) : (
-                  <TrendingDown className="w-3 h-3 text-green-600" />
+                  <TrendingDown className="w-3 h-3 text-status-success" />
                 )}
               </div>
               <div className="flex items-baseline gap-2">
                 <span className={`text-4xl font-bold font-mono ${
                   report.case_overview.cases_needing_attention > 0
-                    ? 'text-red-600'
-                    : 'text-green-600'
+                    ? 'text-fatal'
+                    : 'text-status-success'
                 }`}>
                   {report.case_overview.cases_needing_attention}
                 </span>
                 <span className={`text-xs font-mono ${
                   report.case_overview.cases_needing_attention > 0
-                    ? 'text-red-600'
-                    : 'text-green-600'
+                    ? 'text-fatal'
+                    : 'text-status-success'
                 }`}>
                   {report.case_overview.cases_needing_attention > 0 ? '+15%' : '-20%'}
                 </span>
@@ -410,19 +410,19 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
             {report.week_stats && (
               <div
                 onClick={() => router.push('/calendar?filter=completed')}
-                className="bg-white border border-green-200 rounded-lg p-4 cursor-pointer hover:border-green-300 hover:shadow-md transition-all"
+                className="bg-paper border border-status-success p-4 cursor-pointer hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <span className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">
                     Completed
                   </span>
-                  <TrendingUp className="w-3 h-3 text-green-600" />
+                  <TrendingUp className="w-3 h-3 text-status-success" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold font-mono text-green-600">
+                  <span className="text-4xl font-bold font-mono text-status-success">
                     {report.week_stats.completed_this_week}
                   </span>
-                  <span className="text-xs text-green-600 font-mono">+12%</span>
+                  <span className="text-xs text-status-success font-mono">+12%</span>
                 </div>
               </div>
             )}
@@ -433,32 +433,32 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
       {/* Critical Alerts Table */}
       {report.high_risk_alerts && report.high_risk_alerts.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-600" />
-            <h2 className="text-sm font-semibold text-red-900 uppercase tracking-wide">
+          <div className="bg-fatal/10 border-b border-fatal px-6 py-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-fatal" />
+            <h2 className="text-sm font-mono font-semibold text-fatal uppercase tracking-wide">
               Critical Alerts ({report.high_risk_alerts.length})
             </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-surface border-b border-ink">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Priority</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Deadline</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Case</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Due Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider w-24">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider w-24">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">Deadline</th>
+                  <th className="px-6 py-3 text-left text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">Case</th>
+                  <th className="px-6 py-3 text-left text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider w-32">Due Date</th>
                   <th className="px-6 py-3 w-8"></th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
+              <tbody className="bg-paper divide-y divide-ink/20">
                 {report.high_risk_alerts.map((alert, idx) => {
                   const status = getAlertStatus(alert);
                   const priority = getPriorityDisplay(alert.priority || 'fatal');
                   return (
                     <tr
                       key={idx}
-                      className="cursor-pointer hover:bg-slate-50 transition-colors"
+                      className="cursor-pointer hover:bg-surface hover:translate-x-0.5 transition-transform"
                       onClick={() => onCaseClick?.(alert.case_id)}
                     >
                       <td className="px-6 py-4">
@@ -467,13 +467,13 @@ export default function MorningReport({ onCaseClick }: MorningReportProps) {
                       <td className="px-6 py-4">
                         <span className={priority.class}>{priority.label}</span>
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-900">{alert.deadline_title}</td>
-                      <td className="px-6 py-4 text-slate-600">{alert.case_title}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-600">
+                      <td className="px-6 py-4 font-medium text-ink">{alert.deadline_title}</td>
+                      <td className="px-6 py-4 text-ink-secondary">{alert.case_title}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-ink-secondary">
                         {alert.deadline_date ? formatDate(alert.deadline_date) : '—'}
                       </td>
                       <td className="px-6 py-4">
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                        <ChevronRight className="w-4 h-4 text-ink-muted" />
                       </td>
                     </tr>
                   );

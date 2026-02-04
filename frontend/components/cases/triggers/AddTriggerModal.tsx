@@ -72,11 +72,11 @@ const TRIGGER_TYPE_LABELS: Record<string, string> = {
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  fatal: 'text-red-700 bg-red-100',
-  critical: 'text-orange-700 bg-orange-100',
-  important: 'text-amber-700 bg-amber-100',
-  standard: 'text-blue-700 bg-blue-100',
-  informational: 'text-slate-600 bg-slate-100',
+  fatal: 'text-fatal bg-fatal/10 border border-fatal',
+  critical: 'text-critical bg-critical/10 border border-critical',
+  important: 'text-important bg-important/10 border border-important',
+  standard: 'text-steel bg-steel/10 border border-steel',
+  informational: 'text-ink-secondary bg-surface border border-ink/20',
 };
 
 export default function AddTriggerModal({
@@ -211,27 +211,27 @@ export default function AddTriggerModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-ink/50 flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-paper border-2 border-ink shadow-modal max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="p-4 border-b border-ink bg-surface">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Zap className="w-5 h-5 text-purple-600" />
+              <div className="p-2 bg-steel border border-ink">
+                <Zap className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">
+                <h2 className="text-lg font-heading font-semibold text-ink">
                   {step === 'select' && 'Add Event'}
                   {step === 'configure' && `Configure: ${selectedTemplate?.name}`}
                   {step === 'preview' && 'Preview Deadlines'}
                 </h2>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-ink-secondary">
                   {step === 'select' && 'Select an event type to auto-generate deadlines'}
                   {step === 'configure' && 'Set the date and service method'}
                   {step === 'preview' && `${selectedTemplate?.num_dependent_deadlines} deadlines will be created`}
@@ -241,9 +241,9 @@ export default function AddTriggerModal({
             <button
               onClick={onClose}
               disabled={creating}
-              className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+              className="p-1.5 hover:bg-surface transition-transform hover:translate-x-0.5"
             >
-              <X className="w-5 h-5 text-slate-500" />
+              <X className="w-5 h-5 text-ink-muted" />
             </button>
           </div>
 
@@ -252,18 +252,18 @@ export default function AddTriggerModal({
             {['select', 'configure', 'preview'].map((s, i) => (
               <div key={s} className="flex items-center">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  className={`w-8 h-8 flex items-center justify-center text-sm font-mono font-medium border ${
                     step === s
-                      ? 'bg-purple-600 text-white'
+                      ? 'bg-steel text-white border-ink'
                       : i < ['select', 'configure', 'preview'].indexOf(step)
-                      ? 'bg-purple-200 text-purple-700'
-                      : 'bg-slate-200 text-slate-500'
+                      ? 'bg-steel/20 text-steel border-steel'
+                      : 'bg-surface text-ink-muted border-ink/20'
                   }`}
                 >
                   {i + 1}
                 </div>
                 {i < 2 && (
-                  <ChevronRight className="w-4 h-4 text-slate-400 mx-1" />
+                  <ChevronRight className="w-4 h-4 text-ink-muted mx-1" />
                 )}
               </div>
             ))}
@@ -277,19 +277,19 @@ export default function AddTriggerModal({
             <div className="space-y-4">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                  <span className="font-mono text-ink-secondary">LOADING<span className="animate-pulse">_</span></span>
                 </div>
               ) : Object.keys(groupedTemplates).length === 0 ? (
                 <div className="text-center py-12">
-                  <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-                  <p className="text-slate-600">
+                  <AlertTriangle className="w-12 h-12 text-important mx-auto mb-3" />
+                  <p className="text-ink-secondary">
                     No trigger templates available for {jurisdiction.replace('_', ' ')} {courtType}
                   </p>
                 </div>
               ) : (
                 Object.entries(groupedTemplates).map(([triggerType, templates]) => (
                   <div key={triggerType}>
-                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-mono font-semibold text-ink-secondary uppercase tracking-wide mb-2 flex items-center gap-2">
                       {TRIGGER_TYPE_ICONS[triggerType] || <Clock className="w-4 h-4" />}
                       {TRIGGER_TYPE_LABELS[triggerType] || triggerType}
                     </h3>
@@ -298,25 +298,25 @@ export default function AddTriggerModal({
                         <button
                           key={template.rule_id}
                           onClick={() => handleSelectTemplate(template)}
-                          className="w-full p-4 border border-slate-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors text-left group"
+                          className="w-full p-4 border border-ink/20 hover:border-steel hover:bg-surface transition-transform hover:translate-x-0.5 text-left group"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="font-medium text-slate-800 group-hover:text-purple-700">
+                              <div className="font-medium text-ink group-hover:text-steel">
                                 {template.name}
                               </div>
-                              <div className="text-sm text-slate-500 mt-0.5">
+                              <div className="text-sm text-ink-secondary mt-0.5">
                                 {template.description}
                               </div>
-                              <div className="text-xs text-slate-400 mt-1">
+                              <div className="text-xs font-mono text-ink-muted mt-1">
                                 {template.citation}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
+                              <span className="px-2 py-1 bg-steel/10 text-steel text-sm font-mono font-medium border border-steel">
                                 {template.num_dependent_deadlines} deadlines
                               </span>
-                              <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-purple-500" />
+                              <ChevronRight className="w-5 h-5 text-ink-muted group-hover:text-steel" />
                             </div>
                           </div>
                         </button>
@@ -332,15 +332,15 @@ export default function AddTriggerModal({
           {step === 'configure' && selectedTemplate && (
             <div className="space-y-6">
               {/* Template Summary */}
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="p-4 bg-surface border border-ink/20">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    {TRIGGER_TYPE_ICONS[selectedTemplate.trigger_type] || <Zap className="w-5 h-5 text-purple-600" />}
+                  <div className="p-2 bg-steel/10 border border-steel">
+                    {TRIGGER_TYPE_ICONS[selectedTemplate.trigger_type] || <Zap className="w-5 h-5 text-steel" />}
                   </div>
                   <div>
-                    <div className="font-medium text-slate-800">{selectedTemplate.name}</div>
-                    <div className="text-sm text-slate-500">{selectedTemplate.citation}</div>
-                    <div className="text-sm text-purple-600 mt-1">
+                    <div className="font-medium text-ink">{selectedTemplate.name}</div>
+                    <div className="text-sm font-mono text-ink-secondary">{selectedTemplate.citation}</div>
+                    <div className="text-sm font-mono text-steel mt-1">
                       Will generate {selectedTemplate.num_dependent_deadlines} deadlines
                     </div>
                   </div>
@@ -349,23 +349,23 @@ export default function AddTriggerModal({
 
               {/* Trigger Date */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-2">
                   Trigger Date *
                 </label>
                 <input
                   type="date"
                   value={triggerDate}
                   onChange={(e) => setTriggerDate(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-4 py-2.5 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-ink-secondary mt-1">
                   All dependent deadlines will be calculated from this date
                 </p>
               </div>
 
               {/* Service Method */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-2">
                   Service Method
                 </label>
                 <div className="grid grid-cols-3 gap-3">
@@ -377,18 +377,18 @@ export default function AddTriggerModal({
                     <button
                       key={method.value}
                       onClick={() => setServiceMethod(method.value as any)}
-                      className={`p-3 border rounded-lg text-left transition-colors ${
+                      className={`p-3 border text-left transition-transform hover:translate-x-0.5 ${
                         serviceMethod === method.value
-                          ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'border-steel bg-steel/10 border-2'
+                          : 'border-ink/20 hover:border-ink/40'
                       }`}
                     >
-                      <div className="font-medium text-sm text-slate-800">{method.label}</div>
-                      <div className="text-xs text-slate-500">{method.desc}</div>
+                      <div className="font-medium text-sm text-ink">{method.label}</div>
+                      <div className="text-xs font-mono text-ink-secondary">{method.desc}</div>
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                <p className="text-xs text-ink-secondary mt-2 flex items-center gap-1 font-mono">
                   <Info className="w-3 h-3" />
                   {jurisdiction === 'federal'
                     ? 'FRCP 6(d): Mail/electronic service adds 3 days'
@@ -398,7 +398,7 @@ export default function AddTriggerModal({
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-2">
                   Notes (Optional)
                 </label>
                 <textarea
@@ -406,7 +406,7 @@ export default function AddTriggerModal({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add any notes about this trigger event..."
                   rows={3}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                  className="w-full px-4 py-2.5 border border-ink/20 bg-paper focus:outline-none focus:border-ink resize-none"
                 />
               </div>
             </div>
@@ -416,14 +416,14 @@ export default function AddTriggerModal({
           {step === 'preview' && selectedTemplate && (
             <div className="space-y-4">
               {/* Summary */}
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2 text-green-700">
+              <div className="p-4 bg-status-success/10 border border-status-success">
+                <div className="flex items-center gap-2 text-status-success">
                   <CheckCircle2 className="w-5 h-5" />
                   <span className="font-medium">
                     Ready to create {selectedTemplate.num_dependent_deadlines} deadlines
                   </span>
                 </div>
-                <div className="mt-2 text-sm text-green-600">
+                <div className="mt-2 text-sm font-mono text-ink-secondary">
                   Trigger: {TRIGGER_TYPE_LABELS[selectedTemplate.trigger_type]} on{' '}
                   {new Date(triggerDate).toLocaleDateString('en-US', {
                     weekday: 'long',
@@ -436,33 +436,33 @@ export default function AddTriggerModal({
 
               {/* Info about what will happen */}
               <div className="space-y-3">
-                <h4 className="font-medium text-slate-700">What happens next:</h4>
-                <ul className="space-y-2 text-sm text-slate-600">
+                <h4 className="font-mono font-medium text-ink uppercase tracking-wide">What happens next:</h4>
+                <ul className="space-y-2 text-sm text-ink-secondary">
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-status-success mt-0.5 flex-shrink-0" />
                     <span>
-                      <strong>{selectedTemplate.num_dependent_deadlines} deadlines</strong> will be
-                      created automatically based on {selectedTemplate.citation}
+                      <strong className="text-ink">{selectedTemplate.num_dependent_deadlines} deadlines</strong> will be
+                      created automatically based on <span className="font-mono">{selectedTemplate.citation}</span>
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-status-success mt-0.5 flex-shrink-0" />
                     <span>
-                      Each deadline includes <strong>full rule citations</strong> and calculation
+                      Each deadline includes <strong className="text-ink">full rule citations</strong> and calculation
                       basis for legal defensibility
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-status-success mt-0.5 flex-shrink-0" />
                     <span>
-                      <strong>Weekend/holiday adjustments</strong> applied automatically per
-                      {jurisdiction === 'federal' ? ' FRCP 6(a)' : ' Fla. R. Jud. Admin. 2.514(a)'}
+                      <strong className="text-ink">Weekend/holiday adjustments</strong> applied automatically per
+                      <span className="font-mono">{jurisdiction === 'federal' ? ' FRCP 6(a)' : ' Fla. R. Jud. Admin. 2.514(a)'}</span>
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-status-success mt-0.5 flex-shrink-0" />
                     <span>
-                      If you change the trigger date later, all <strong>dependent deadlines
+                      If you change the trigger date later, all <strong className="text-ink">dependent deadlines
                       automatically recalculate</strong>
                     </span>
                   </li>
@@ -470,9 +470,9 @@ export default function AddTriggerModal({
               </div>
 
               {/* Service method note */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-                <div className="font-medium text-blue-800">Service Method: {serviceMethod}</div>
-                <div className="text-blue-600 mt-1">
+              <div className="p-3 bg-steel/10 border border-steel/30 text-sm">
+                <div className="font-mono font-medium text-ink">Service Method: {serviceMethod}</div>
+                <div className="text-ink-secondary mt-1 font-mono">
                   {serviceMethod === 'mail'
                     ? jurisdiction === 'federal'
                       ? 'Response deadlines will include +3 days per FRCP 6(d)'
@@ -485,7 +485,7 @@ export default function AddTriggerModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="p-4 border-t border-ink bg-surface flex items-center justify-between">
           <button
             onClick={() => {
               if (step === 'configure') setStep('select');
@@ -493,20 +493,20 @@ export default function AddTriggerModal({
               else onClose();
             }}
             disabled={creating}
-            className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+            className="btn-secondary"
           >
             {step === 'select' ? 'Cancel' : 'Back'}
           </button>
 
           {step === 'select' ? (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm font-mono text-ink-muted">
               Select an event type to continue
             </div>
           ) : step === 'configure' ? (
             <button
               onClick={() => setStep('preview')}
               disabled={!triggerDate}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Preview Deadlines
               <ChevronRight className="w-4 h-4" />
@@ -515,12 +515,11 @@ export default function AddTriggerModal({
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {creating ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
+                  <span className="font-mono">CREATING<span className="animate-pulse">_</span></span>
                 </>
               ) : (
                 <>

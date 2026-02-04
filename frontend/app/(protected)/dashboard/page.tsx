@@ -117,21 +117,21 @@ function StatsSection() {
         className="card-hover cursor-pointer group"
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Critical</div>
+          <div className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wide">Critical</div>
           {overdueCount > 0 ? (
-            <div className="w-2 h-2 rounded-full bg-red-600" />
+            <div className="w-2 h-2 bg-fatal" />
           ) : (
-            <CheckCircle className="w-4 h-4 text-green-600" />
+            <CheckCircle className="w-4 h-4 text-status-success" />
           )}
         </div>
         <div className="flex items-baseline gap-2 mb-2">
-          <span className={`text-4xl font-bold ${
-            overdueCount > 0 ? 'text-red-600' : 'text-green-600'
+          <span className={`text-4xl font-mono font-bold ${
+            overdueCount > 0 ? 'text-fatal' : 'text-status-success'
           }`}>
             {overdueCount + urgentCount}
           </span>
         </div>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-secondary">
           {overdueCount} overdue, {urgentCount} urgent
         </p>
       </div>
@@ -142,15 +142,15 @@ function StatsSection() {
         className="card-hover cursor-pointer group"
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending</div>
-          <Clock className="w-4 h-4 text-amber-600" />
+          <div className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wide">Pending</div>
+          <Clock className="w-4 h-4 text-important" />
         </div>
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-4xl font-bold text-amber-600">
+          <span className="text-4xl font-mono font-bold text-important">
             {stats.total_pending_deadlines}
           </span>
         </div>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-secondary">
           {upcomingWeekCount} this week · {upcomingMonthCount} this month
         </p>
       </div>
@@ -161,15 +161,15 @@ function StatsSection() {
         className="card-hover cursor-pointer group"
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cases</div>
-          <Folder className="w-4 h-4 text-blue-600" />
+          <div className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wide">Cases</div>
+          <Folder className="w-4 h-4 text-steel" />
         </div>
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-4xl font-bold text-blue-600">
+          <span className="text-4xl font-mono font-bold text-steel">
             {stats.total_cases}
           </span>
         </div>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-secondary">
           {stats.by_jurisdiction.state} State · {stats.by_jurisdiction.federal} Federal
         </p>
       </div>
@@ -180,16 +180,16 @@ function StatsSection() {
         className="card-hover cursor-pointer group"
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Documents</div>
-          <FileText className="w-4 h-4 text-purple-600" />
+          <div className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wide">Documents</div>
+          <FileText className="w-4 h-4 text-steel-light" />
         </div>
         <div className="flex items-baseline gap-2 mb-2">
-          <span className="text-4xl font-bold text-purple-600">
+          <span className="text-4xl font-mono font-bold text-steel-light">
             {stats.total_documents}
           </span>
         </div>
         {stats.total_cases > 0 && (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-secondary">
             ~{Math.round(stats.total_documents / stats.total_cases)} per case
           </p>
         )}
@@ -210,8 +210,8 @@ function UpcomingDeadlinesSection() {
   return (
     <div className="card">
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-600" />
+        <h3 className="text-xl font-heading font-semibold text-ink flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-steel" />
           Upcoming Deadlines
         </h3>
       </div>
@@ -225,22 +225,22 @@ function UpcomingDeadlinesSection() {
               onClick={() => router.push(`/cases/${deadline.case_id}`)}
             >
               <div className={`timeline-dot ${
-                deadline.urgency_level === 'overdue' ? 'bg-red-600' :
-                deadline.urgency_level === 'urgent' ? 'bg-orange-600' :
-                deadline.urgency_level === 'upcoming-week' ? 'bg-amber-500' : 'bg-blue-500'
+                deadline.urgency_level === 'overdue' ? 'bg-fatal' :
+                deadline.urgency_level === 'urgent' ? 'bg-critical' :
+                deadline.urgency_level === 'upcoming-week' ? 'bg-important' : 'bg-steel'
               }`} />
-              <div className="bg-white border border-slate-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all">
+              <div className="bg-paper border border-ink/20 p-4 hover:border-ink hover:translate-x-0.5 hover:translate-y-0.5 transition-transform">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate group-hover:text-blue-600">{deadline.title}</p>
-                    <p className="text-sm text-slate-600 mt-1">
+                    <p className="font-medium text-ink truncate group-hover:text-steel">{deadline.title}</p>
+                    <p className="text-sm font-mono text-ink-secondary mt-1">
                       {deadline.deadline_date} • {Math.abs(deadline.days_until || 0)} day{Math.abs(deadline.days_until || 0) !== 1 ? 's' : ''} {(deadline.days_until || 0) < 0 ? 'overdue' : 'remaining'}
                     </p>
                     {deadline.action_required && (
-                      <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
+                      <p className="text-sm text-ink-muted mt-2">{deadline.action_required}</p>
                     )}
                     {deadline.party_role && (
-                      <span className="inline-block mt-2 text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
+                      <span className="inline-block mt-2 text-xs font-mono bg-surface text-ink-secondary px-2 py-1 border border-ink/20">
                         {deadline.party_role}
                       </span>
                     )}
@@ -260,8 +260,8 @@ function UpcomingDeadlinesSection() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 text-slate-500">
-          <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600" />
+        <div className="text-center py-12 text-ink-secondary">
+          <CheckCircle className="w-12 h-12 mx-auto mb-3 text-status-success" />
           <p className="font-medium">All clear!</p>
           <p className="text-sm mt-1">No upcoming deadlines</p>
         </div>
@@ -601,8 +601,8 @@ export default function DashboardPage() {
       {/* Header Actions Bar */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-3xl font-heading font-bold text-ink mb-2">Dashboard</h1>
+          <p className="text-sm text-ink-secondary">
             Overview of all cases and deadlines
             {lastUpdated && (
               <span className="ml-2 text-slate-400">
@@ -639,12 +639,12 @@ export default function DashboardPage() {
       <div className="space-y-6">
         {/* Critical Alert Banner - Show if Fatal/Critical deadlines exist */}
         {alerts && (alerts.overdue.count > 0 || alerts.urgent.count > 0) && (
-          <div className="bg-red-50 border-l-4 border-red-600 rounded-lg p-6 mb-6">
+          <div className="bg-fatal/10 border-l-4 border-fatal p-6 mb-6">
             <div className="flex items-start gap-4">
-              <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-6 h-6 text-fatal flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-red-900 mb-2">Critical Attention Required</h3>
-                <p className="text-sm text-red-800 mb-3">
+                <h3 className="text-lg font-heading font-semibold text-fatal mb-2">Critical Attention Required</h3>
+                <p className="text-sm text-ink-secondary mb-3">
                   You have {alerts.overdue.count} overdue deadline{alerts.overdue.count !== 1 ? 's' : ''}
                   {alerts.urgent.count > 0 && ` and ${alerts.urgent.count} urgent deadline${alerts.urgent.count !== 1 ? 's' : ''}`} requiring immediate action.
                 </p>
@@ -741,33 +741,33 @@ export default function DashboardPage() {
             {/* View Switcher - Clean Tabs */}
             <div className="mb-6">
               <div className="flex items-center justify-between">
-                <div className="flex gap-2 bg-white rounded-lg p-1 border border-slate-200">
+                <div className="flex gap-0 bg-paper border border-ink">
                   <button
                     onClick={() => setActiveView('overview')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium transition-transform ${
                       activeView === 'overview'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-steel text-white'
+                        : 'text-ink hover:translate-x-0.5 hover:translate-y-0.5'
                     }`}
                   >
                     Overview
                   </button>
                   <button
                     onClick={() => setActiveView('heatmap')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium border-l border-ink transition-transform ${
                       activeView === 'heatmap'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-steel text-white'
+                        : 'text-ink hover:translate-x-0.5 hover:translate-y-0.5'
                     }`}
                   >
                     Heat Map
                   </button>
                   <button
                     onClick={() => setActiveView('cases')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 text-sm font-medium border-l border-ink transition-transform ${
                       activeView === 'cases'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-steel text-white'
+                        : 'text-ink hover:translate-x-0.5 hover:translate-y-0.5'
                     }`}
                   >
                     Cases

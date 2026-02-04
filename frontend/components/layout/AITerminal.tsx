@@ -409,32 +409,32 @@ export function AITerminal() {
   // Render document card
   const renderDocketCard = (card: DocketCardData) => {
     return (
-      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
-        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-blue-600" />
-          <span className="text-sm font-semibold text-slate-900 truncate">{card.filename}</span>
+      <div className="mt-3 bg-surface border border-ink overflow-hidden">
+        <div className="bg-paper border-b border-ink px-4 py-3 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-steel" />
+          <span className="text-sm font-mono font-semibold text-ink truncate">{card.filename}</span>
         </div>
         <div className="px-4 py-3 space-y-2 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Type:</span>
-            <span className="text-slate-900 font-medium">{card.documentType}</span>
+            <span className="text-ink-secondary font-mono text-xs uppercase">Type:</span>
+            <span className="text-ink font-medium">{card.documentType}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Deadlines:</span>
-            <span className="flex items-center gap-2">
+            <span className="text-ink-secondary font-mono text-xs uppercase">Deadlines:</span>
+            <span className="flex items-center gap-2 font-mono">
               {card.fatalCount > 0 && (
-                <span className="text-red-600 font-medium">{card.fatalCount} Fatal</span>
+                <span className="text-fatal font-medium">{card.fatalCount} Fatal</span>
               )}
               {card.criticalCount > 0 && (
-                <span className="text-orange-600 font-medium">{card.criticalCount} Critical</span>
+                <span className="text-critical font-medium">{card.criticalCount} Critical</span>
               )}
               {card.fatalCount === 0 && card.criticalCount === 0 && (
-                <span className="text-green-600 font-medium">{card.deadlinesExtracted} Found</span>
+                <span className="text-status-success font-medium">{card.deadlinesExtracted} Found</span>
               )}
             </span>
           </div>
         </div>
-        <div className="border-t border-slate-200 px-4 py-3 flex gap-2">
+        <div className="border-t border-ink px-4 py-3 flex gap-2">
           <button
             onClick={() => router.push(`/cases/${card.caseId}`)}
             className="flex-1 btn-secondary text-xs py-2"
@@ -468,11 +468,11 @@ export function AITerminal() {
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
           <button
             onClick={() => setIsOpen(true)}
-            className="bg-white border border-slate-300 shadow-lg rounded-full px-6 py-3 flex items-center gap-3 hover:shadow-xl transition-all hover:scale-105"
+            className="bg-paper border border-ink px-6 py-3 flex items-center gap-3 hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
           >
-            <MessageSquare className="w-4 h-4 text-slate-600" />
-            <span className="text-sm text-slate-600">Ask about cases, deadlines, or rules</span>
-            <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded text-xs font-mono text-slate-500">
+            <MessageSquare className="w-4 h-4 text-ink-secondary" />
+            <span className="text-sm text-ink-secondary">Ask about cases, deadlines, or rules</span>
+            <kbd className="px-2 py-0.5 bg-surface border border-ink text-xs font-mono text-ink-secondary">
               ⌘K
             </kbd>
           </button>
@@ -481,29 +481,28 @@ export function AITerminal() {
 
       {/* Modal Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-modal w-full max-w-4xl h-[80vh] flex flex-col animate-scale-in">
+        <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-paper border-2 border-ink shadow-modal w-full max-w-4xl h-[80vh] flex flex-col animate-scale-in">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-ink bg-surface flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <MessageSquare className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-slate-900">AI Assistant</h2>
+                <MessageSquare className="w-5 h-5 text-steel" />
+                <h2 className="text-lg font-heading font-semibold text-ink">AI Assistant</h2>
                 {activeCaseId && (
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
+                  <span className="text-xs bg-steel/10 text-steel px-2 py-1 border border-steel font-mono">
                     Case Active
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 {isStreaming && (
-                  <span className="text-xs text-slate-500 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Thinking...
+                  <span className="text-xs text-ink-secondary font-mono flex items-center gap-1">
+                    <span className="loading-terminal">THINKING</span>
                   </span>
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-ink-muted hover:text-ink p-1"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -512,14 +511,13 @@ export function AITerminal() {
 
             {/* Upload Progress Bar */}
             {isUploading && uploadProgress > 0 && (
-              <div className="px-6 py-3 bg-slate-50 border-b border-slate-200">
+              <div className="px-6 py-3 bg-surface border-b border-ink">
                 <div className="flex items-center gap-3 mb-2">
-                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
-                  <span className="text-sm text-slate-600">Processing document...</span>
+                  <span className="text-sm font-mono text-ink-secondary loading-terminal">PROCESSING</span>
                 </div>
-                <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-1 bg-ink/10 overflow-hidden">
                   <div
-                    className="h-full bg-blue-600 transition-all duration-300"
+                    className="h-full bg-steel transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
@@ -530,8 +528,8 @@ export function AITerminal() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-light">
               {messages.length === 0 && (
                 <div className="text-center py-12">
-                  <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500 text-sm">Start a conversation with the AI assistant</p>
+                  <MessageSquare className="w-12 h-12 text-ink/20 mx-auto mb-3" />
+                  <p className="text-ink-secondary text-sm">Start a conversation with the AI assistant</p>
                 </div>
               )}
 
@@ -541,21 +539,21 @@ export function AITerminal() {
                   className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   {msg.type === 'user' ? (
-                    <div className="bg-blue-600 text-white rounded-2xl px-4 py-2 max-w-[80%]">
+                    <div className="bg-steel text-white px-4 py-2 max-w-[80%]">
                       <p className="text-sm">{msg.content}</p>
                     </div>
                   ) : msg.type === 'ai' ? (
-                    <div className="bg-slate-100 text-slate-900 rounded-2xl px-4 py-3 max-w-[80%]">
-                      <div className="prose prose-sm max-w-none">
+                    <div className="bg-surface border border-ink/20 text-ink px-4 py-3 max-w-[80%]">
+                      <div className="prose prose-sm max-w-none font-serif">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     </div>
                   ) : msg.type === 'system' ? (
-                    <div className="bg-amber-50 text-amber-800 rounded-lg px-3 py-2 text-xs">
+                    <div className="bg-important/10 text-important border border-important px-3 py-2 text-xs font-mono">
                       {msg.content}
                     </div>
                   ) : msg.type === 'error' ? (
-                    <div className="bg-red-50 text-red-700 rounded-lg px-3 py-2 text-sm">
+                    <div className="bg-fatal/10 text-fatal border border-fatal px-3 py-2 text-sm font-mono">
                       {msg.content}
                     </div>
                   ) : msg.type === 'docket' && msg.docketCard ? (
@@ -569,11 +567,11 @@ export function AITerminal() {
               {/* Streaming content */}
               {isStreaming && currentMessage && !isAwaitingApproval && (
                 <div className="flex justify-start">
-                  <div className="bg-slate-100 text-slate-900 rounded-2xl px-4 py-3 max-w-[80%]">
-                    <div className="prose prose-sm max-w-none">
+                  <div className="bg-surface border border-ink/20 text-ink px-4 py-3 max-w-[80%]">
+                    <div className="prose prose-sm max-w-none font-serif">
                       <ReactMarkdown>{currentMessage}</ReactMarkdown>
                     </div>
-                    <div className="w-2 h-4 bg-blue-600 animate-pulse inline-block ml-1" />
+                    <span className="inline-block w-2 h-4 bg-steel animate-pulse ml-1" />
                   </div>
                 </div>
               )}
@@ -597,10 +595,10 @@ export function AITerminal() {
 
             {/* Staged File Preview */}
             {stagedFile && !isUploading && (
-              <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-3">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-slate-700 flex-1 truncate">{stagedFile.name}</span>
-                <span className="text-xs text-slate-500">
+              <div className="px-6 py-3 bg-surface border-t border-ink flex items-center gap-3">
+                <FileText className="w-4 h-4 text-steel" />
+                <span className="text-sm font-mono text-ink flex-1 truncate">{stagedFile.name}</span>
+                <span className="text-xs font-mono text-ink-secondary">
                   {(stagedFile.size / 1024 / 1024).toFixed(2)} MB
                 </span>
                 <button
@@ -608,7 +606,7 @@ export function AITerminal() {
                     setStagedFile(null);
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
-                  className="text-slate-400 hover:text-red-600"
+                  className="text-ink-muted hover:text-fatal"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -616,15 +614,15 @@ export function AITerminal() {
             )}
 
             {/* Input Area */}
-            <form onSubmit={handleSubmit} className="px-6 py-4 border-t border-slate-200 flex items-center gap-3">
+            <form onSubmit={handleSubmit} className="px-6 py-4 border-t border-ink bg-surface flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!activeCaseId || isUploading}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 transition-colors ${
                   activeCaseId && !isUploading
-                    ? 'text-slate-600 hover:bg-slate-100'
-                    : 'text-slate-300 cursor-not-allowed'
+                    ? 'text-ink-secondary hover:text-ink'
+                    : 'text-ink-muted cursor-not-allowed'
                 }`}
                 title={activeCaseId ? 'Upload document' : 'Navigate to a case first'}
               >

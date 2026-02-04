@@ -29,26 +29,26 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-modal max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+        className="bg-paper border-2 border-ink shadow-modal max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="px-6 py-4 border-b border-ink flex items-center justify-between bg-surface">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-lg">
+            <div className="p-2 bg-steel border border-ink">
               <Keyboard className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-xl font-semibold text-slate-900">Keyboard Shortcuts</h2>
+            <h2 className="text-xl font-heading font-semibold text-ink">Keyboard Shortcuts</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface transition-transform hover:translate-x-0.5"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5 text-ink-muted" />
           </button>
         </div>
 
@@ -62,8 +62,8 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
               return (
                 <div key={category}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-slate-400">{CATEGORY_ICONS[category]}</span>
-                    <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider">
+                    <span className="text-ink-muted">{CATEGORY_ICONS[category]}</span>
+                    <h3 className="text-sm font-mono font-semibold text-ink uppercase tracking-wider">
                       {CATEGORY_LABELS[category]}
                     </h3>
                   </div>
@@ -71,13 +71,13 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
                     {shortcuts.map((shortcut) => (
                       <div
                         key={shortcut.id}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                        className="flex items-center justify-between p-3 bg-surface border border-ink/20 hover:translate-x-0.5 transition-transform"
                       >
                         <div>
-                          <span className="text-sm font-medium text-slate-800">{shortcut.label}</span>
-                          <p className="text-xs text-slate-500">{shortcut.description}</p>
+                          <span className="text-sm font-medium text-ink">{shortcut.label}</span>
+                          <p className="text-xs text-ink-secondary">{shortcut.description}</p>
                         </div>
-                        <kbd className="px-3 py-1.5 text-sm font-mono font-semibold text-slate-700 bg-white border border-slate-300 rounded-md shadow-sm">
+                        <kbd className="px-3 py-1.5 text-sm font-mono font-semibold text-ink bg-paper border border-ink">
                           {formatShortcut(shortcut)}
                         </kbd>
                       </div>
@@ -89,20 +89,20 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
           </div>
 
           {/* Tips */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">Pro Tips</h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-white border border-blue-300 rounded">{modifierKey}/</kbd> anytime to show this help</li>
-              <li>• Use <kbd className="px-1.5 py-0.5 text-xs font-mono bg-white border border-blue-300 rounded">{modifierKey}K</kbd> for quick global search</li>
-              <li>• Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-white border border-blue-300 rounded">Esc</kbd> to close any modal</li>
+          <div className="mt-6 p-4 bg-steel/10 border border-steel/30">
+            <h3 className="text-sm font-mono font-semibold text-ink uppercase tracking-wide mb-2">Pro Tips</h3>
+            <ul className="text-sm text-ink-secondary space-y-1">
+              <li>• Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-paper border border-ink">{modifierKey}/</kbd> anytime to show this help</li>
+              <li>• Use <kbd className="px-1.5 py-0.5 text-xs font-mono bg-paper border border-ink">{modifierKey}K</kbd> for quick global search</li>
+              <li>• Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-paper border border-ink">Esc</kbd> to close any modal</li>
             </ul>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
-          <p className="text-xs text-slate-600 text-center">
-            Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-white border border-slate-300 rounded">Esc</kbd> or click outside to close
+        <div className="px-6 py-4 border-t border-ink bg-surface">
+          <p className="text-xs text-ink-secondary text-center font-mono">
+            Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-paper border border-ink">Esc</kbd> or click outside to close
           </p>
         </div>
       </div>

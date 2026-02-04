@@ -44,23 +44,25 @@ interface DeadlineRowProps {
   onClick?: (deadline: Deadline) => void;
 }
 
+// Paper & Steel Priority Colors
 const PRIORITY_COLORS: Record<string, { border: string; bg: string; text: string }> = {
-  fatal: { border: 'border-l-red-600', bg: 'bg-red-50', text: 'text-red-700' },
-  critical: { border: 'border-l-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
-  high: { border: 'border-l-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
-  important: { border: 'border-l-amber-500', bg: 'bg-amber-50', text: 'text-amber-700' },
-  medium: { border: 'border-l-yellow-500', bg: 'bg-yellow-50', text: 'text-yellow-700' },
-  standard: { border: 'border-l-blue-500', bg: 'bg-blue-50', text: 'text-blue-700' },
-  low: { border: 'border-l-slate-400', bg: 'bg-slate-50', text: 'text-slate-600' },
-  informational: { border: 'border-l-gray-400', bg: 'bg-gray-50', text: 'text-gray-600' },
+  fatal: { border: 'border-l-fatal', bg: 'bg-fatal/10', text: 'text-fatal' },
+  critical: { border: 'border-l-critical', bg: 'bg-critical/10', text: 'text-critical' },
+  high: { border: 'border-l-critical', bg: 'bg-critical/10', text: 'text-critical' },
+  important: { border: 'border-l-important', bg: 'bg-important/10', text: 'text-important' },
+  medium: { border: 'border-l-important', bg: 'bg-important/10', text: 'text-important' },
+  standard: { border: 'border-l-steel', bg: 'bg-steel/10', text: 'text-steel' },
+  low: { border: 'border-l-ink/30', bg: 'bg-surface', text: 'text-ink-secondary' },
+  informational: { border: 'border-l-ink/20', bg: 'bg-surface', text: 'text-ink-muted' },
 };
 
+// Paper & Steel Authority Tier Colors
 const AUTHORITY_TIER_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
-  federal: { bg: 'bg-purple-100', text: 'text-purple-700', icon: 'text-purple-600' },
-  state: { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'text-blue-600' },
-  local: { bg: 'bg-green-100', text: 'text-green-700', icon: 'text-green-600' },
-  standing_order: { bg: 'bg-amber-100', text: 'text-amber-700', icon: 'text-amber-600' },
-  firm: { bg: 'bg-slate-100', text: 'text-slate-700', icon: 'text-slate-600' },
+  federal: { bg: 'bg-wax/10', text: 'text-wax', icon: 'text-wax' },
+  state: { bg: 'bg-steel/10', text: 'text-steel', icon: 'text-steel' },
+  local: { bg: 'bg-status-success/10', text: 'text-status-success', icon: 'text-status-success' },
+  standing_order: { bg: 'bg-important/10', text: 'text-important', icon: 'text-important' },
+  firm: { bg: 'bg-surface', text: 'text-ink-secondary', icon: 'text-ink-secondary' },
 };
 
 export default function DeadlineRow({
@@ -158,9 +160,9 @@ export default function DeadlineRow({
   return (
     <div
       onClick={handleRowClick}
-      className={`group relative border-l-4 ${priorityStyle.border} rounded-r-lg bg-white hover:bg-slate-50 transition-all ${
+      className={`group relative border-l-4 ${priorityStyle.border} bg-paper hover:bg-surface hover:translate-x-0.5 transition-transform ${
         isCompleted ? 'opacity-60' : ''
-      } ${isOverdue ? 'ring-1 ring-red-200' : ''} ${onClick ? 'cursor-pointer' : ''}`}
+      } ${isOverdue ? 'border border-fatal/30' : ''} ${onClick ? 'cursor-pointer' : ''}`}
     >
       {/* Responsive padding: more on mobile for touch targets */}
       <div className="p-3 lg:p-3">
@@ -178,9 +180,9 @@ export default function DeadlineRow({
               }
             }}
             className={`flex-shrink-0 mt-0.5 ${
-              selectionMode ? 'text-blue-600' :
-              isCompleted ? 'text-green-500' :
-              'text-slate-300 hover:text-green-500'
+              selectionMode ? 'text-steel' :
+              isCompleted ? 'text-status-success' :
+              'text-ink/20 hover:text-status-success'
             } transition-colors`}
           >
             {selectionMode ? (
@@ -196,7 +198,7 @@ export default function DeadlineRow({
           <div className="flex-1 min-w-0">
             {/* Title + Date Row */}
             <div className="flex items-start justify-between gap-2">
-              <h4 className={`font-medium text-sm min-w-0 ${isCompleted ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+              <h4 className={`font-medium text-sm min-w-0 ${isCompleted ? 'text-ink-muted line-through' : 'text-ink'}`}>
                 <span className="block truncate">{deadline.title}</span>
               </h4>
 
@@ -209,13 +211,13 @@ export default function DeadlineRow({
                     onChange={(e) => setEditingDate(e.target.value)}
                     onBlur={handleDateChange}
                     onKeyDown={handleDateKeyDown}
-                    className="text-sm px-2 py-0.5 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm px-2 py-0.5 border border-steel focus:outline-none focus:ring-1 focus:ring-steel"
                   />
                 ) : (
                   <button
                     onClick={handleDateClick}
                     className={`text-sm font-medium font-mono ${
-                      isOverdue ? 'text-red-600' : isCompleted ? 'text-slate-400' : 'text-slate-700 hover:text-blue-600'
+                      isOverdue ? 'text-fatal' : isCompleted ? 'text-ink-muted' : 'text-ink hover:text-steel'
                     } ${!isCompleted && !isCancelled ? 'hover:underline cursor-pointer' : ''}`}
                     disabled={isCompleted || isCancelled}
                   >
@@ -227,16 +229,16 @@ export default function DeadlineRow({
 
             {/* Meta Row */}
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded ${priorityStyle.bg} ${priorityStyle.text}`}>
+              <span className={`inline-flex px-1.5 py-0.5 text-xs font-mono font-medium uppercase border ${priorityStyle.bg} ${priorityStyle.text}`}>
                 {deadline.priority}
               </span>
               {deadline.deadline_type && (
-                <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded bg-slate-100 text-slate-600">
+                <span className="inline-flex px-1.5 py-0.5 text-xs font-mono font-medium uppercase bg-surface text-ink-secondary border border-ink/20">
                   {deadline.deadline_type}
                 </span>
               )}
               {deadline.is_calculated && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-mono font-medium uppercase bg-wax/10 text-wax border border-wax/30">
                   <Sparkles className="w-3 h-3" />
                   Auto
                 </span>
@@ -244,12 +246,12 @@ export default function DeadlineRow({
               {/* Confidence Badge */}
               {deadline.confidence_level && (
                 <span
-                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded ${
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-mono font-medium border ${
                     deadline.confidence_level === 'high'
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-status-success/10 text-status-success border-status-success/30'
                       : deadline.confidence_level === 'medium'
-                      ? 'bg-yellow-100 text-yellow-700'
-                      : 'bg-red-100 text-red-700'
+                      ? 'bg-important/10 text-important border-important/30'
+                      : 'bg-fatal/10 text-fatal border-fatal/30'
                   }`}
                   title={`Confidence: ${deadline.confidence_score || 0}%`}
                 >
@@ -264,7 +266,7 @@ export default function DeadlineRow({
                 </span>
               )}
               {isOverdue && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-mono font-medium uppercase bg-fatal/10 text-fatal border border-fatal/30">
                   <AlertTriangle className="w-3 h-3" />
                   Overdue
                 </span>
@@ -465,52 +467,52 @@ export default function DeadlineRow({
 
         {/* Shared Dropdown Menu */}
         {showMenu && (
-          <div ref={menuRef} className="absolute right-2 top-12 lg:top-8 w-44 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+          <div ref={menuRef} className="absolute right-2 top-12 lg:top-8 w-44 bg-paper border-2 border-ink shadow-modal py-1 z-20">
             {!isCompleted && onComplete && (
               <button
                 onClick={() => { onComplete(deadline.id); setShowMenu(false); }}
-                className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                className="w-full px-4 py-2.5 text-left text-sm text-ink hover:bg-surface flex items-center gap-2"
               >
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <CheckCircle2 className="w-4 h-4 text-status-success" />
                 Complete
               </button>
             )}
             {onEdit && (
               <button
                 onClick={() => { onEdit(deadline); setShowMenu(false); }}
-                className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                className="w-full px-4 py-2.5 text-left text-sm text-ink hover:bg-surface flex items-center gap-2"
               >
-                <Edit2 className="w-4 h-4 text-blue-600" />
+                <Edit2 className="w-4 h-4 text-steel" />
                 Edit
               </button>
             )}
             {!isCompleted && (
               <button
                 onClick={() => { handleDateClick(); setShowMenu(false); }}
-                className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                className="w-full px-4 py-2.5 text-left text-sm text-ink hover:bg-surface flex items-center gap-2"
               >
-                <Calendar className="w-4 h-4 text-amber-600" />
+                <Calendar className="w-4 h-4 text-important" />
                 Reschedule
               </button>
             )}
             <button
               onClick={() => setShowMenu(false)}
-              className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+              className="w-full px-4 py-2.5 text-left text-sm text-ink hover:bg-surface flex items-center gap-2"
             >
-              <History className="w-4 h-4 text-slate-500" />
+              <History className="w-4 h-4 text-ink-secondary" />
               History
             </button>
-            <div className="w-full px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-slate-500" />
+            <div className="w-full px-4 py-2.5 text-left text-sm text-ink hover:bg-surface flex items-center gap-2">
+              <FileCheck className="w-4 h-4 text-ink-secondary" />
               <span>Verify Integrity</span>
               <IntegrityIndicator recordId={deadline.id} size="sm" />
             </div>
             {onDelete && (
               <>
-                <div className="border-t border-slate-100 my-1" />
+                <div className="border-t border-ink/20 my-1" />
                 <button
                   onClick={() => { onDelete(deadline.id); setShowMenu(false); }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                  className="w-full px-4 py-2.5 text-left text-sm text-fatal hover:bg-fatal/10 flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete

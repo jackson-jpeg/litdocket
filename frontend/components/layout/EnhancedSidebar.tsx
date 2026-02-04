@@ -127,17 +127,17 @@ export function EnhancedSidebar() {
   };
 
   return (
-    <aside className="w-[280px] bg-[#001f3f] flex-shrink-0 flex flex-col h-screen">
+    <aside className="w-[280px] bg-steel-dark flex-shrink-0 flex flex-col h-screen border-r border-ink/20">
       {/* Logo */}
-      <div className="px-5 py-6">
-        <h1 className="text-xl font-bold text-white">LitDocket</h1>
+      <div className="px-5 py-6 border-b border-white/10">
+        <h1 className="text-xl font-heading font-bold text-white tracking-tight">LitDocket</h1>
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-4 overflow-y-auto">
+      <nav className="flex-1 px-4 py-4 overflow-y-auto">
         {/* Primary Navigation */}
         <div className="mb-6">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">
+          <div className="text-xs font-mono font-semibold text-terminal-text/40 uppercase tracking-wider px-4 mb-2">
             Primary
           </div>
           <ul className="space-y-1">
@@ -148,10 +148,10 @@ export function EnhancedSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center justify-between px-4 py-2.5 rounded-lg text-[14px] font-medium transition-all
+                      flex items-center justify-between px-4 py-2.5 text-sm font-medium transition-transform
                       ${active
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                        ? 'bg-steel text-white border-l-2 border-wax'
+                        : 'text-terminal-text/70 hover:text-white hover:translate-x-0.5'
                       }
                     `}
                     aria-current={active ? 'page' : undefined}
@@ -161,7 +161,7 @@ export function EnhancedSidebar() {
                       <span>{item.label}</span>
                     </span>
                     {item.shortcut && (
-                      <kbd className="text-[10px] font-mono opacity-60">{item.shortcut}</kbd>
+                      <kbd className="text-xs font-mono opacity-50">{item.shortcut}</kbd>
                     )}
                   </Link>
                 </li>
@@ -172,7 +172,7 @@ export function EnhancedSidebar() {
 
         {/* Utilities Section */}
         <div className="mb-6">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">
+          <div className="text-xs font-mono font-semibold text-terminal-text/40 uppercase tracking-wider px-4 mb-2">
             Utilities
           </div>
           <ul className="space-y-1">
@@ -183,10 +183,10 @@ export function EnhancedSidebar() {
                   <Link
                     href={item.href}
                     className={`
-                      flex items-center gap-3 px-4 py-2 rounded-lg text-[13px] font-medium transition-all
+                      flex items-center gap-3 px-4 py-2 text-sm font-medium transition-transform
                       ${active
-                        ? 'bg-blue-600/80 text-white'
-                        : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                        ? 'bg-steel/80 text-white border-l-2 border-wax'
+                        : 'text-terminal-text/60 hover:text-white hover:translate-x-0.5'
                       }
                     `}
                     aria-current={active ? 'page' : undefined}
@@ -203,7 +203,7 @@ export function EnhancedSidebar() {
         {/* Recent Cases Section */}
         {recentCases.length > 0 && (
           <div className="mb-6">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">
+            <div className="text-xs font-mono font-semibold text-terminal-text/40 uppercase tracking-wider px-4 mb-2">
               Recent Cases
             </div>
             <ul className="space-y-1">
@@ -212,16 +212,16 @@ export function EnhancedSidebar() {
                   <Link
                     href={`/cases/${caseItem.id}`}
                     className={`
-                      flex items-center gap-3 px-4 py-2 rounded-lg text-[13px] transition-all group
+                      flex items-center gap-3 px-4 py-2 text-sm transition-transform group
                       ${pathname === `/cases/${caseItem.id}`
-                        ? 'bg-blue-600/60 text-white'
-                        : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                        ? 'bg-steel/60 text-white border-l-2 border-wax'
+                        : 'text-terminal-text/60 hover:text-white hover:translate-x-0.5'
                       }
                     `}
                     title={caseItem.title}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-current opacity-50 flex-shrink-0" />
-                    <span className="truncate flex-1">
+                    <span className="w-1.5 h-1.5 bg-current opacity-50 flex-shrink-0" />
+                    <span className="truncate flex-1 font-mono text-xs">
                       {caseItem.case_number || caseItem.title}
                     </span>
                     <IconChevron />
@@ -231,7 +231,7 @@ export function EnhancedSidebar() {
               <li>
                 <Link
                   href="/cases"
-                  className="flex items-center gap-3 px-4 py-2 rounded-lg text-[12px] text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-all"
+                  className="flex items-center gap-3 px-4 py-2 text-xs text-terminal-text/40 hover:text-terminal-text/80 hover:translate-x-0.5 transition-transform"
                 >
                   <span className="w-1.5" />
                   <span>View all →</span>
@@ -253,23 +253,23 @@ export function EnhancedSidebar() {
         {/* Keyboard Shortcuts Help */}
         <button
           onClick={() => setShowShortcutsModal(true)}
-          className="w-full flex items-center justify-between px-4 py-2 rounded-lg text-[13px] text-slate-400 hover:bg-white/10 hover:text-white transition-all"
+          className="w-full flex items-center justify-between px-4 py-2 text-sm text-terminal-text/60 hover:text-white hover:translate-x-0.5 transition-transform"
         >
           <span className="flex items-center gap-3">
             <IconHelp />
             <span>Shortcuts</span>
           </span>
-          <kbd className="text-[10px] font-mono opacity-50">⌘/</kbd>
+          <kbd className="text-xs font-mono opacity-50">⌘/</kbd>
         </button>
 
         {/* Settings */}
         <Link
           href="/settings"
           className={`
-            flex items-center gap-3 px-4 py-2 rounded-lg text-[13px] transition-all
+            flex items-center gap-3 px-4 py-2 text-sm transition-transform
             ${pathname?.startsWith('/settings')
-              ? 'bg-blue-600/80 text-white'
-              : 'text-slate-400 hover:bg-white/10 hover:text-white'
+              ? 'bg-steel/80 text-white border-l-2 border-wax'
+              : 'text-terminal-text/60 hover:text-white hover:translate-x-0.5'
             }
           `}
         >
@@ -280,12 +280,12 @@ export function EnhancedSidebar() {
 
       {/* User Info */}
       <div className="px-4 py-4 border-t border-white/10">
-        <div className="text-sm text-slate-400 truncate mb-2">
+        <div className="text-sm font-mono text-terminal-text/60 truncate mb-2">
           {user?.email || 'Not signed in'}
         </div>
         <button
           onClick={() => signOut()}
-          className="text-sm text-slate-500 hover:text-white transition-colors"
+          className="text-sm text-terminal-text/40 hover:text-white transition-colors"
         >
           Logout
         </button>
@@ -293,7 +293,7 @@ export function EnhancedSidebar() {
 
       {/* Pending Approvals Panel (Modal) */}
       {showPendingPanel && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4">
           <PendingApprovalsPanel
             onClose={() => setShowPendingPanel(false)}
             className="w-full max-w-lg"

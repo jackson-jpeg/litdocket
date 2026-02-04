@@ -96,22 +96,22 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
   return (
     <div className="card">
       {/* Header - Paper & Steel */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50">
+      <div className="p-6 border-b border-ink bg-surface">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
+            <h3 className="text-xl font-heading font-bold text-ink flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-fatal" />
               Deadline Heat Map
             </h3>
-            <p className="text-sm font-mono text-slate-600 mt-2">
+            <p className="text-sm font-mono text-ink-secondary mt-2">
               {summary.total_deadlines} deadlines × next 30 days
             </p>
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono mt-2">
+            <div className="flex items-center gap-2 text-xs text-ink-muted font-mono mt-2">
               <Clock className="w-3 h-3" />
               Last updated: {formatDistanceToNow(loadedAt, { addSuffix: true })}
             </div>
           </div>
-          <div className="text-right text-xs text-slate-500 uppercase tracking-wider">
+          <div className="text-right text-xs text-ink-secondary font-mono uppercase tracking-wider">
             <p>Priority × Urgency</p>
             <p className="mt-1">Darker = Higher Density</p>
           </div>
@@ -120,18 +120,18 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
 
       {/* Heat Map Grid */}
       <div className="p-6 overflow-x-auto">
-        <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <div className="border border-ink overflow-hidden">
           <div className="grid grid-cols-5 gap-0">
             {/* Header Row */}
-            <div className="bg-slate-100 p-4 border-r border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
+            <div className="bg-surface p-4 border-r border-b border-ink text-xs font-mono font-semibold text-ink-secondary uppercase">
               Priority →<br />Urgency ↓
             </div>
             {urgencyBuckets.map((bucket, idx) => (
-              <div key={bucket.key} className={`bg-slate-100 p-4 text-center border-b border-slate-200 ${idx < urgencyBuckets.length - 1 ? 'border-r' : ''}`}>
-                <div className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              <div key={bucket.key} className={`bg-surface p-4 text-center border-b border-ink ${idx < urgencyBuckets.length - 1 ? 'border-r border-ink' : ''}`}>
+                <div className="text-xs font-mono font-bold text-ink uppercase tracking-wide">
                   {bucket.label}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">
+                <div className="text-[10px] font-mono text-ink-secondary mt-1 uppercase tracking-wider">
                   {bucket.subtext}
                 </div>
               </div>
@@ -141,7 +141,7 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
             {fatalityLevels.map((level, levelIdx) => (
               <>
                 {/* Row Label */}
-                <div key={`label-${level.key}`} className={`${level.bgColor} ${level.textColor} p-4 flex items-center justify-center text-xs font-bold uppercase tracking-wider border-r border-slate-200 ${levelIdx < fatalityLevels.length - 1 ? 'border-b' : ''}`}>
+                <div key={`label-${level.key}`} className={`${level.bgColor} ${level.textColor} p-4 flex items-center justify-center text-xs font-mono font-bold uppercase tracking-wider border-r border-ink ${levelIdx < fatalityLevels.length - 1 ? 'border-b border-ink' : ''}`}>
                   {level.label}
                 </div>
 
@@ -155,44 +155,44 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
                   return (
                     <div
                       key={`${level.key}-${bucket.key}`}
-                      className={`${cellBg} p-6 cursor-pointer relative group transition-all hover:shadow-lg ${
-                        bucketIdx < urgencyBuckets.length - 1 ? 'border-r border-slate-200' : ''
-                      } ${levelIdx < fatalityLevels.length - 1 ? 'border-b border-slate-200' : ''}`}
+                      className={`${cellBg} p-6 cursor-pointer relative group transition-transform hover:translate-x-0.5 hover:translate-y-0.5 ${
+                        bucketIdx < urgencyBuckets.length - 1 ? 'border-r border-ink/20' : ''
+                      } ${levelIdx < fatalityLevels.length - 1 ? 'border-b border-ink/20' : ''}`}
                       title={count > 0 ? `${count} deadline${count !== 1 ? 's' : ''}` : 'No deadlines'}
                     >
                       {/* Count - Large, bold, mono */}
                       <div className="text-center">
-                        <div className={`font-mono text-4xl font-bold ${count === 0 ? 'text-slate-300' : isHighIntensity ? 'text-white' : 'text-slate-700'}`}>
+                        <div className={`font-mono text-4xl font-bold ${count === 0 ? 'text-ink/20' : isHighIntensity ? 'text-white' : 'text-ink'}`}>
                           {count}
                         </div>
                       </div>
 
                       {/* Tooltip on hover */}
                       {count > 0 && (
-                        <div className="absolute top-full left-0 mt-2 hidden group-hover:block z-10 bg-white border border-slate-300 rounded-lg shadow-lg p-4 min-w-[300px] max-w-[320px]">
+                        <div className="absolute top-full left-0 mt-2 hidden group-hover:block z-10 bg-paper border-2 border-ink shadow-modal p-4 min-w-[300px] max-w-[320px]">
                           <div className="space-y-3 max-h-64 overflow-y-auto">
                             {deadlines.slice(0, 4).map((deadline) => (
                               <div
                                 key={deadline.id}
-                                className="text-xs border-b border-slate-200 pb-3 last:border-0 cursor-pointer hover:bg-slate-50 -mx-2 px-2 py-2 rounded transition-colors"
+                                className="text-xs border-b border-ink/20 pb-3 last:border-0 cursor-pointer hover:bg-surface -mx-2 px-2 py-2 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onCaseClick?.(deadline.case_id);
                                 }}
                               >
-                                <p className="font-semibold text-slate-900 truncate" title={deadline.title}>
+                                <p className="font-semibold text-ink truncate" title={deadline.title}>
                                   {deadline.title}
                                 </p>
-                                <p className="font-mono text-[10px] text-slate-600 truncate mt-1" title={deadline.case_title}>
+                                <p className="font-mono text-[10px] text-ink-secondary truncate mt-1" title={deadline.case_title}>
                                   {deadline.case_title}
                                 </p>
-                                <p className="font-mono text-[10px] text-slate-500 mt-1">
+                                <p className="font-mono text-[10px] text-ink-muted mt-1">
                                   {deadline.deadline_date} · {deadline.days_until}d
                                 </p>
                               </div>
                             ))}
                             {count > 4 && (
-                              <p className="font-mono text-xs text-blue-600 font-bold text-center pt-2">
+                              <p className="font-mono text-xs text-steel font-bold text-center pt-2">
                                 +{count - 4} more
                               </p>
                             )}
@@ -209,23 +209,23 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
       </div>
 
       {/* Summary Footer - Clean stat display */}
-      <div className="p-6 border-t border-slate-200 bg-slate-50">
+      <div className="p-6 border-t border-ink bg-surface">
         <div className="grid grid-cols-4 gap-6">
           <div className="text-center">
-            <p className="font-mono text-3xl font-bold text-red-600">{summary.by_fatality.fatal}</p>
-            <p className="text-xs text-slate-600 mt-2 uppercase tracking-wide font-semibold">Fatal</p>
+            <p className="font-mono text-3xl font-bold text-fatal">{summary.by_fatality.fatal}</p>
+            <p className="text-xs font-mono text-ink-secondary mt-2 uppercase tracking-wide font-semibold">Fatal</p>
           </div>
           <div className="text-center">
-            <p className="font-mono text-3xl font-bold text-orange-600">{summary.by_fatality.critical}</p>
-            <p className="text-xs text-slate-600 mt-2 uppercase tracking-wide font-semibold">Critical</p>
+            <p className="font-mono text-3xl font-bold text-critical">{summary.by_fatality.critical}</p>
+            <p className="text-xs font-mono text-ink-secondary mt-2 uppercase tracking-wide font-semibold">Critical</p>
           </div>
           <div className="text-center">
-            <p className="font-mono text-3xl font-bold text-amber-600">{summary.by_fatality.important}</p>
-            <p className="text-xs text-slate-600 mt-2 uppercase tracking-wide font-semibold">Important</p>
+            <p className="font-mono text-3xl font-bold text-important">{summary.by_fatality.important}</p>
+            <p className="text-xs font-mono text-ink-secondary mt-2 uppercase tracking-wide font-semibold">Important</p>
           </div>
           <div className="text-center">
-            <p className="font-mono text-3xl font-bold text-blue-600">{summary.by_fatality.standard}</p>
-            <p className="text-xs text-slate-600 mt-2 uppercase tracking-wide font-semibold">Standard</p>
+            <p className="font-mono text-3xl font-bold text-steel">{summary.by_fatality.standard}</p>
+            <p className="text-xs font-mono text-ink-secondary mt-2 uppercase tracking-wide font-semibold">Standard</p>
           </div>
         </div>
       </div>

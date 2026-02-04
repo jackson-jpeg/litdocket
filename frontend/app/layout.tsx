@@ -75,7 +75,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans antialiased bg-slate-50 text-slate-900">
+      <body className="font-sans antialiased bg-paper text-ink">
         <ErrorBoundary>
           <AuthProvider>
             <ToastProvider>

@@ -55,7 +55,7 @@ export default function TriggerCard({
   });
 
   return (
-    <div className={`group ${isExpanded ? 'bg-slate-50' : 'bg-white hover:bg-slate-50'}`}>
+    <div className={`group ${isExpanded ? 'bg-surface' : 'bg-paper hover:bg-surface'}`}>
 
       {/* 1. MASTER ROW - Responsive: stacked on mobile, horizontal on desktop */}
       <div className="px-3 py-3 lg:px-4 lg:py-3">
@@ -64,15 +64,15 @@ export default function TriggerCard({
           {/* Expand Toggle */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-slate-400 hover:text-slate-700 transition-colors flex-shrink-0"
+            className="text-ink-muted hover:text-ink transition-colors flex-shrink-0"
           >
             {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
 
           {/* Date Badge (Monospace) */}
-          <div className="flex flex-col items-center justify-center border border-slate-300 px-2 py-1 bg-white min-w-[80px] flex-shrink-0">
-            <span className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">DATE</span>
-            <span className="font-mono text-sm font-medium text-slate-900">
+          <div className="flex flex-col items-center justify-center border border-ink px-2 py-1 bg-paper min-w-[80px] flex-shrink-0">
+            <span className="text-[10px] uppercase text-ink-secondary font-mono font-bold tracking-wider">DATE</span>
+            <span className="font-mono text-sm font-medium text-ink">
               {formatDate(trigger.trigger_date)}
             </span>
           </div>
@@ -80,20 +80,20 @@ export default function TriggerCard({
           {/* Title & Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h4 className="font-serif text-slate-900 font-medium truncate">
+              <h4 className="font-serif text-ink font-medium truncate">
                 {trigger.title}
               </h4>
               {overdueCount > 0 && (
-                <span className="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 border border-red-200 uppercase tracking-wide flex-shrink-0">
+                <span className="bg-fatal/10 text-fatal text-[10px] font-mono font-bold px-1.5 py-0.5 border border-fatal uppercase tracking-wide flex-shrink-0">
                   {overdueCount} Critical
                 </span>
               )}
             </div>
             <div className="flex items-center gap-4 mt-1">
-              <span className="text-xs text-slate-500 font-mono truncate">
+              <span className="text-xs text-ink-secondary font-mono truncate">
                 {trigger.trigger_type}
               </span>
-              <span className="text-xs text-slate-500 flex-shrink-0">
+              <span className="text-xs text-ink-secondary flex-shrink-0">
                 {childDeadlines.length} events
               </span>
             </div>
@@ -103,7 +103,7 @@ export default function TriggerCard({
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded"
+              className="p-2 text-ink-muted hover:text-ink hover:bg-surface"
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
@@ -116,23 +116,23 @@ export default function TriggerCard({
           <div className="flex items-start gap-2">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-slate-400 hover:text-slate-700 transition-colors flex-shrink-0 mt-1"
+              className="text-ink-muted hover:text-ink transition-colors flex-shrink-0 mt-1"
             >
               {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
             </button>
 
             <div className="flex-1 min-w-0">
-              <h4 className="font-serif text-slate-900 font-medium text-base leading-snug">
+              <h4 className="font-serif text-ink font-medium text-base leading-snug">
                 {trigger.title}
               </h4>
-              <span className="text-xs text-slate-500 font-mono">
+              <span className="text-xs text-ink-secondary font-mono">
                 {trigger.trigger_type}
               </span>
             </div>
 
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded flex-shrink-0"
+              className="p-2 text-ink-muted hover:text-ink hover:bg-surface flex-shrink-0"
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
@@ -140,17 +140,17 @@ export default function TriggerCard({
 
           {/* Row 2: Date + Badges */}
           <div className="flex items-center gap-2 mt-2 ml-7 flex-wrap">
-            <div className="flex items-center gap-1.5 text-sm text-slate-700 bg-slate-100 px-2 py-1 rounded">
+            <div className="flex items-center gap-1.5 text-sm text-ink bg-surface border border-ink/20 px-2 py-1">
               <Calendar className="w-3.5 h-3.5" />
               <span className="font-mono font-medium">{formatDate(trigger.trigger_date)}</span>
             </div>
 
-            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">
+            <span className="text-xs text-ink-secondary bg-surface border border-ink/20 px-2 py-1">
               {childDeadlines.length} events
             </span>
 
             {overdueCount > 0 && (
-              <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+              <span className="bg-fatal/10 text-fatal text-xs font-mono font-bold px-2 py-1 border border-fatal flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
                 {overdueCount} overdue
               </span>
@@ -165,24 +165,24 @@ export default function TriggerCard({
               className="fixed inset-0 z-10"
               onClick={() => setShowMenu(false)}
             />
-            <div className="absolute right-2 lg:right-4 mt-1 w-48 bg-white border border-slate-300 shadow-lg z-20 text-sm rounded-lg overflow-hidden">
+            <div className="absolute right-2 lg:right-4 mt-1 w-48 bg-paper border-2 border-ink shadow-modal z-20 text-sm overflow-hidden">
               <button
                 onClick={() => { onEdit?.(trigger); setShowMenu(false); }}
-                className="w-full text-left px-4 py-3 hover:bg-slate-100 flex items-center gap-2"
+                className="w-full text-left px-4 py-3 hover:bg-surface flex items-center gap-2 text-ink"
               >
                 <Edit2 className="w-4 h-4" /> Edit Date
               </button>
               <button
                 onClick={() => { onRecalculate?.(trigger.id); setShowMenu(false); }}
-                className="w-full text-left px-4 py-3 hover:bg-slate-100 flex items-center gap-2"
+                className="w-full text-left px-4 py-3 hover:bg-surface flex items-center gap-2 text-ink"
               >
                 <RefreshCw className={`w-4 h-4 ${isRecalculating ? 'animate-spin' : ''}`} />
                 Recalculate
               </button>
-              <div className="border-t border-slate-200"></div>
+              <div className="border-t border-ink/20"></div>
               <button
                 onClick={() => { onDelete?.(trigger.id); setShowMenu(false); }}
-                className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-700 flex items-center gap-2"
+                className="w-full text-left px-4 py-3 hover:bg-fatal/10 text-fatal flex items-center gap-2"
               >
                 <Trash2 className="w-4 h-4" /> Delete
               </button>
@@ -194,22 +194,22 @@ export default function TriggerCard({
       {/* 2. DETAIL CASCADE - Responsive */}
       {isExpanded && (
         <div className="px-3 pb-4 lg:pl-8 lg:pr-4">
-          <div className="border-l-2 border-slate-300 pl-3 lg:pl-4 space-y-1">
+          <div className="border-l-2 border-ink/30 pl-3 lg:pl-4 space-y-1">
 
             {/* Header for Cascade */}
-            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium uppercase tracking-wider mb-2 pt-2">
+            <div className="flex items-center gap-2 text-xs text-ink-muted font-mono font-medium uppercase tracking-wider mb-2 pt-2">
               <CornerDownRight className="w-3 h-3" />
               Generated Deadlines
             </div>
 
             {childDeadlines.length === 0 ? (
-              <div className="text-sm text-slate-400 italic py-2">No deadlines generated yet.</div>
+              <div className="text-sm text-ink-muted italic py-2">No deadlines generated yet.</div>
             ) : (
               <>
                 {/* Desktop Table View (lg+) */}
                 <table className="hidden lg:table w-full text-sm border-collapse">
                   <thead>
-                    <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                    <tr className="text-left text-xs text-ink-secondary font-mono uppercase border-b border-ink/20">
                       <th className="py-1 font-normal w-8"></th>
                       <th className="py-1 font-normal w-24">Due Date</th>
                       <th className="py-1 font-normal">Action</th>
@@ -222,23 +222,23 @@ export default function TriggerCard({
                       const isDone = dl.status === 'completed';
 
                       return (
-                        <tr key={dl.id} className={`group hover:bg-white transition-colors ${isDone ? 'opacity-50' : ''}`}>
+                        <tr key={dl.id} className={`group hover:bg-paper transition-colors ${isDone ? 'opacity-50' : ''}`}>
                           <td className="py-2 align-top">
                             {isOverdue ? (
-                              <AlertTriangle className="w-3 h-3 text-red-600" />
+                              <AlertTriangle className="w-3 h-3 text-fatal" />
                             ) : isDone ? (
-                              <Check className="w-3 h-3 text-green-600" />
+                              <Check className="w-3 h-3 text-status-success" />
                             ) : (
-                              <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>
+                              <div className="w-1.5 h-1.5 bg-ink/30 mt-1"></div>
                             )}
                           </td>
-                          <td className={`py-2 align-top font-medium ${isOverdue ? 'text-red-700' : 'text-slate-700'}`}>
+                          <td className={`py-2 align-top font-medium ${isOverdue ? 'text-fatal' : 'text-ink'}`}>
                             {dl.deadline_date ? formatDate(dl.deadline_date) : 'TBD'}
                           </td>
-                          <td className="py-2 align-top font-sans text-slate-800 pr-4 min-w-0">
+                          <td className="py-2 align-top font-sans text-ink pr-4 min-w-0">
                             <span className="block truncate">{dl.title}</span>
                           </td>
-                          <td className="py-2 align-top text-right text-slate-400 truncate max-w-[150px]" title={dl.applicable_rule}>
+                          <td className="py-2 align-top text-right text-ink-muted truncate max-w-[150px]" title={dl.applicable_rule}>
                             {dl.applicable_rule?.split(' ')[0] || 'RULE'}
                           </td>
                         </tr>
@@ -256,25 +256,25 @@ export default function TriggerCard({
                     return (
                       <div
                         key={dl.id}
-                        className={`p-3 bg-white rounded border-l-4 ${
-                          isOverdue ? 'border-red-500' :
-                          isDone ? 'border-green-500 opacity-60' :
-                          'border-slate-300'
+                        className={`p-3 bg-paper border-l-4 ${
+                          isOverdue ? 'border-fatal' :
+                          isDone ? 'border-status-success opacity-60' :
+                          'border-ink/30'
                         }`}
                       >
                         {/* Row 1: Status + Title */}
                         <div className="flex items-start gap-2">
                           <div className="flex-shrink-0 mt-0.5">
                             {isOverdue ? (
-                              <AlertTriangle className="w-4 h-4 text-red-600" />
+                              <AlertTriangle className="w-4 h-4 text-fatal" />
                             ) : isDone ? (
-                              <Check className="w-4 h-4 text-green-600" />
+                              <Check className="w-4 h-4 text-status-success" />
                             ) : (
-                              <Clock className="w-4 h-4 text-slate-400" />
+                              <Clock className="w-4 h-4 text-ink-muted" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${isDone ? 'line-through text-slate-500' : 'text-slate-800'}`}>
+                            <p className={`text-sm font-medium ${isDone ? 'line-through text-ink-muted' : 'text-ink'}`}>
                               {dl.title}
                             </p>
                           </div>
@@ -282,10 +282,10 @@ export default function TriggerCard({
 
                         {/* Row 2: Date + Rule */}
                         <div className="flex items-center justify-between mt-2 ml-6">
-                          <span className={`text-sm font-mono font-medium ${isOverdue ? 'text-red-600' : 'text-slate-600'}`}>
+                          <span className={`text-sm font-mono font-medium ${isOverdue ? 'text-fatal' : 'text-ink-secondary'}`}>
                             {dl.deadline_date ? formatDateShort(dl.deadline_date) : 'TBD'}
                           </span>
-                          <span className="text-xs text-slate-400 truncate max-w-[120px]" title={dl.applicable_rule}>
+                          <span className="text-xs font-mono text-ink-muted truncate max-w-[120px]" title={dl.applicable_rule}>
                             {dl.applicable_rule?.split(' ')[0] || ''}
                           </span>
                         </div>

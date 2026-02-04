@@ -1,5 +1,4 @@
 import type { Config } from "tailwindcss";
-import colors from "tailwindcss/colors";
 
 /**
  * PAPER & STEEL DESIGN SYSTEM
@@ -14,6 +13,18 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    // PAPER & STEEL: Enforce zero border-radius globally
+    borderRadius: {
+      'none': '0',
+      'sm': '0',
+      'DEFAULT': '0',
+      'md': '0',
+      'lg': '0',
+      'xl': '0',
+      '2xl': '0',
+      '3xl': '0',
+      'full': '0',
+    },
     extend: {
       colors: {
         // ============================================
@@ -57,31 +68,12 @@ const config: Config = {
           subtle: '#9CA3AF',    // Subtle text
         },
 
-        // Base Colors - Light Mode Foundation (legacy support)
-        app: {
-          bg: '#f8fafc',        // slate-50 - Main page background
-          surface: '#ffffff',   // white - Cards/Modals
-        },
-
-        // Text Hierarchy
-        text: {
-          primary: '#0f172a',   // slate-900 - Primary text
-          secondary: '#64748b', // slate-500 - Secondary text
-          muted: '#94a3b8',     // slate-400 - Muted text
-        },
-
-        // Borders
-        border: {
-          subtle: '#e2e8f0',    // slate-200 - Subtle borders
-          emphasis: '#cbd5e1',  // slate-300 - Emphasis borders
-        },
-
-        // Sidebar - Dark Slate
-        sidebar: {
-          bg: '#0f172a',        // slate-900 - Sidebar background
-          text: '#cbd5e1',      // slate-300 - Sidebar text
-          hover: '#1e293b',     // slate-800 - Hover state
-          active: '#1e293b',    // slate-800 - Active state
+        // Terminal Colors (for dark UI elements)
+        terminal: {
+          bg: '#1A1A1A',
+          text: '#F5F2EB',
+          green: '#27AE60',
+          amber: '#D35400',
         },
 
         // Priority Colors for Deadlines
@@ -121,31 +113,14 @@ const config: Config = {
         // Overdue text color
         overdue: '#B91C1C',     // red-700 for overdue items
 
-        // Enterprise grey (legacy)
-        'enterprise-grey': {
-          50: '#F9FAFB',
-          100: '#F3F4F6',
-          200: '#E5E7EB',
-          300: '#D1D5DB',
-          400: '#9CA3AF',
-          500: '#6B7280',
-          600: '#4B5563',
-          700: '#374151',
-          800: '#1F2937',
-          900: '#111827',
-        },
-
-        // Legacy compatibility (for gradual migration)
-        navy: '#3b82f6',
-        alert: '#dc2626',
-        amber: colors.amber,
-        success: '#16a34a',
       },
 
       fontFamily: {
-        // Professional Typography Stack
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        mono: ['SF Mono', 'Monaco', 'Consolas', 'monospace'],
+        // PAPER & STEEL Typography Stack
+        heading: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+        serif: ['var(--font-newsreader)', 'Newsreader', 'Georgia', 'serif'],
+        sans: ['var(--font-space-grotesk)', 'Space Grotesk', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-jetbrains)', 'JetBrains Mono', 'Consolas', 'monospace'],
       },
 
       fontSize: {
@@ -160,12 +135,10 @@ const config: Config = {
         '4xl': ['2.25rem', { lineHeight: '2.5rem' }],      // 36px
       },
 
+      // PAPER & STEEL: Shadows are forbidden except for modal exception
       boxShadow: {
-        // Subtle shadows for light mode
-        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
-        'card-hover': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
-        'modal': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-        'command': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        'none': 'none',
+        'modal': '0 4px 16px rgba(0,0,0,0.15)',
       },
 
       animation: {

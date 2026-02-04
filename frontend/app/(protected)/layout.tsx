@@ -3,17 +3,16 @@
  *
  * All routes inside this layout require authentication.
  * Uses the Sovereign Cockpit viewport layout with keyboard shortcuts.
- * Includes global Case Assistant chat widget.
+ * AI Terminal (Cmd+K) is included via CockpitLayout.
  */
 
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
 import { CockpitLayout } from '@/components/layout';
 import { KeyboardShortcutsProvider } from '@/providers/KeyboardShortcutsProvider';
-import CaseChatWidget from '@/components/chat/CaseChatWidget';
 
 export default function ProtectedLayout({
   children,
@@ -22,10 +21,6 @@ export default function ProtectedLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const params = useParams();
-
-  // Extract caseId from URL params if on a case page
-  const caseId = params?.caseId as string | undefined;
 
   useEffect(() => {
     if (!loading && !user) {
@@ -36,13 +31,13 @@ export default function ProtectedLayout({
   // Show loading state in Paper & Steel style
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-app-bg">
+      <div className="h-screen w-screen flex items-center justify-center bg-paper">
         <div className="card p-8 text-center">
-          <div className="text-sm text-text-secondary mb-4 font-medium">
-            Authenticating...
+          <div className="text-sm font-mono text-ink-secondary mb-4">
+            <span className="loading-terminal">AUTHENTICATING</span>
           </div>
-          <div className="w-48 h-1 bg-slate-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 animate-pulse" style={{ width: '60%' }} />
+          <div className="w-48 h-1 bg-surface border border-ink/20 overflow-hidden">
+            <div className="h-full bg-steel animate-pulse" style={{ width: '60%' }} />
           </div>
         </div>
       </div>
@@ -54,11 +49,11 @@ export default function ProtectedLayout({
     return null;
   }
 
-  // Authenticated - show the Cockpit with keyboard shortcuts and chat widget
+  // Authenticated - show the Cockpit with keyboard shortcuts
+  // AI Terminal (Cmd+K) is included via CockpitLayout
   return (
     <KeyboardShortcutsProvider>
       <CockpitLayout>{children}</CockpitLayout>
-      <CaseChatWidget caseId={caseId} />
     </KeyboardShortcutsProvider>
   );
 }

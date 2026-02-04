@@ -28,7 +28,7 @@ export function CockpitLayout({ children, breadcrumbLabels }: CockpitLayoutProps
   const showBreadcrumbs = pathname !== '/dashboard' && pathname !== '/';
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex bg-slate-100">
+    <div className="h-screen w-screen overflow-hidden flex bg-paper">
       {/* Fixed Left Sidebar */}
       <EnhancedSidebar />
 
@@ -36,7 +36,7 @@ export function CockpitLayout({ children, breadcrumbLabels }: CockpitLayoutProps
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Breadcrumb Bar - Only show when not on dashboard */}
         {showBreadcrumbs && (
-          <div className="flex-shrink-0 px-8 py-3 bg-white border-b border-slate-200 min-h-[48px]">
+          <div className="flex-shrink-0 px-8 py-3 bg-surface border-b border-ink min-h-[48px]">
             <Breadcrumbs dynamicLabels={breadcrumbLabels} />
           </div>
         )}

@@ -191,21 +191,21 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'CASE': return 'text-blue-600';
-      case 'DOC': return 'text-amber-600';
-      case 'DEADLINE': return 'text-red-600';
-      default: return 'text-slate-500';
+      case 'CASE': return 'text-steel';
+      case 'DOC': return 'text-important';
+      case 'DEADLINE': return 'text-fatal';
+      default: return 'text-ink-muted';
     }
   };
 
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
-    if (s === 'fatal') return 'text-red-600';
-    if (s === 'critical') return 'text-orange-600';
-    if (s === 'important' || s === 'high') return 'text-amber-600';
-    if (s === 'active' || s === 'pending') return 'text-green-600';
-    if (s === 'completed') return 'text-slate-500';
-    return 'text-slate-400';
+    if (s === 'fatal') return 'text-fatal';
+    if (s === 'critical') return 'text-critical';
+    if (s === 'important' || s === 'high') return 'text-important';
+    if (s === 'active' || s === 'pending') return 'text-status-success';
+    if (s === 'completed') return 'text-ink-muted';
+    return 'text-ink-muted';
   };
 
   return (
@@ -216,7 +216,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 pt-16"
+          className="fixed inset-0 bg-ink/50 flex items-start justify-center z-50 pt-16"
           onClick={handleClose}
         >
           <motion.div
@@ -224,31 +224,31 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="bg-white rounded-xl shadow-modal w-full max-w-4xl mx-4 flex flex-col overflow-hidden"
+            className="bg-paper border-2 border-ink shadow-modal w-full max-w-4xl mx-4 flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleKeyDown}
           >
         {/* Search Header */}
-        <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+        <div className="bg-surface border-b border-ink px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="text-blue-600 font-medium text-lg">⌘</span>
+            <span className="text-steel font-mono font-medium text-lg">⌘K</span>
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search cases, documents, deadlines..."
-              className="flex-1 bg-transparent text-slate-900 text-base placeholder-slate-400 focus:outline-none"
+              className="flex-1 bg-transparent text-ink text-base placeholder-ink-muted focus:outline-none font-mono"
               spellCheck={false}
             />
             {loading && (
-              <span className="text-blue-600 text-sm font-medium">Searching...</span>
+              <span className="text-steel text-sm font-mono">SEARCHING<span className="animate-pulse">_</span></span>
             )}
           </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-2">
+        <div className="bg-paper border-b border-ink/20 px-6 py-3 flex items-center gap-2">
           {(['ALL', 'CASE', 'DOC', 'DEADLINE'] as const).map((filter) => {
             const count = filter === 'ALL'
               ? (results?.total_results || 0)
@@ -262,71 +262,71 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-sm font-mono font-medium transition-transform hover:translate-x-0.5 ${
                   activeFilter === filter
-                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                    : 'text-slate-600 hover:bg-slate-100'
+                    ? 'bg-steel/10 text-steel border border-steel'
+                    : 'text-ink-secondary hover:bg-surface border border-transparent'
                 }`}
               >
-                {filter} <span className="text-slate-400">({count})</span>
+                {filter} <span className="text-ink-muted">({count})</span>
               </button>
             );
           })}
-          <span className="ml-auto text-slate-500 text-xs">Press Tab to cycle</span>
+          <span className="ml-auto text-ink-muted text-xs font-mono">TAB to cycle</span>
         </div>
 
         {/* Results List */}
         <div
           ref={resultsContainerRef}
-          className="flex-1 overflow-y-auto max-h-[500px] bg-white"
+          className="flex-1 overflow-y-auto max-h-[500px] bg-paper"
         >
           {query.length < 2 && (
             <div className="p-12 text-center">
-              <p className="text-slate-900 text-base font-medium">Start typing to search</p>
-              <p className="text-slate-500 text-sm mt-2">Search across cases, documents, and deadlines</p>
+              <p className="text-ink text-base font-medium">Start typing to search</p>
+              <p className="text-ink-secondary text-sm mt-2 font-mono">Search across cases, documents, and deadlines</p>
             </div>
           )}
 
           {query.length >= 2 && !loading && flatResults.length === 0 && (
             <div className="p-12 text-center">
-              <p className="text-slate-900 text-base font-medium">No results found</p>
-              <p className="text-slate-500 text-sm mt-2">Try different keywords</p>
+              <p className="text-ink text-base font-medium">No results found</p>
+              <p className="text-ink-secondary text-sm mt-2 font-mono">Try different keywords</p>
             </div>
           )}
 
           {flatResults.length > 0 && (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-ink/20">
               {flatResults.map((result, idx) => (
                 <div
                   key={`${result.type}-${result.id}`}
                   data-result
                   onClick={() => navigateToResult(result)}
-                  className={`cursor-pointer px-6 py-4 transition-colors ${
+                  className={`cursor-pointer px-6 py-4 transition-transform ${
                     idx === selectedIndex
-                      ? 'bg-blue-50 border-l-4 border-blue-500 pl-[22px]'
-                      : 'hover:bg-slate-50'
+                      ? 'bg-surface border-l-4 border-steel pl-[22px]'
+                      : 'hover:bg-surface hover:translate-x-0.5'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1">
-                        <span className={`text-xs font-semibold uppercase ${getTypeColor(result.type)}`}>
+                        <span className={`text-xs font-mono font-semibold uppercase ${getTypeColor(result.type)}`}>
                           {result.type}
                         </span>
-                        <span className="text-xs text-slate-400 font-mono">
+                        <span className="text-xs text-ink-muted font-mono">
                           {result.identifier}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-900 font-medium truncate">
+                      <p className="text-sm text-ink font-medium truncate">
                         {result.title}
                       </p>
                       {result.meta && (
-                        <p className="text-xs text-slate-500 mt-1 truncate">
+                        <p className="text-xs text-ink-secondary mt-1 font-mono truncate">
                           {result.meta}
                         </p>
                       )}
                     </div>
-                    <div className={`text-xs font-medium px-2 py-1 rounded ${getStatusColor(result.status)}`}>
+                    <div className={`text-xs font-mono font-medium px-2 py-1 uppercase ${getStatusColor(result.status)}`}>
                       {result.status}
                     </div>
                   </div>
@@ -337,16 +337,16 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         </div>
 
         {/* Footer - Keyboard shortcuts */}
-        <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-slate-600 text-xs">
-            <span><kbd className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono text-slate-700">↑↓</kbd> Navigate</span>
-            <span><kbd className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono text-slate-700">↵</kbd> Select</span>
-            <span><kbd className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono text-slate-700">Tab</kbd> Filter</span>
-            <span><kbd className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono text-slate-700">Esc</kbd> Close</span>
+        <div className="bg-surface border-t border-ink px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-ink-secondary text-xs font-mono">
+            <span><kbd className="px-2 py-1 bg-paper border border-ink text-xs font-mono text-ink">↑↓</kbd> Navigate</span>
+            <span><kbd className="px-2 py-1 bg-paper border border-ink text-xs font-mono text-ink">↵</kbd> Select</span>
+            <span><kbd className="px-2 py-1 bg-paper border border-ink text-xs font-mono text-ink">Tab</kbd> Filter</span>
+            <span><kbd className="px-2 py-1 bg-paper border border-ink text-xs font-mono text-ink">Esc</kbd> Close</span>
           </div>
           {flatResults.length > 0 && (
-            <span className="text-slate-600 text-sm font-medium">
-              {selectedIndex + 1} of {flatResults.length}
+            <span className="text-ink-secondary text-sm font-mono">
+              {selectedIndex + 1} / {flatResults.length}
             </span>
           )}
         </div>

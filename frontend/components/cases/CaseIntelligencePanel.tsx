@@ -80,10 +80,10 @@ function ScoreGauge({ score, label, size = 'md' }: { score: number | null; label
   if (score === null) return null;
 
   const getColor = (s: number) => {
-    if (s >= 80) return { bg: 'bg-green-100', text: 'text-green-600', ring: 'ring-green-400' };
-    if (s >= 60) return { bg: 'bg-yellow-100', text: 'text-yellow-600', ring: 'ring-yellow-400' };
-    if (s >= 40) return { bg: 'bg-orange-100', text: 'text-orange-600', ring: 'ring-orange-400' };
-    return { bg: 'bg-red-100', text: 'text-red-600', ring: 'ring-red-400' };
+    if (s >= 80) return { bg: 'bg-status-success/10', text: 'text-status-success', border: 'border-status-success' };
+    if (s >= 60) return { bg: 'bg-important/10', text: 'text-important', border: 'border-important' };
+    if (s >= 40) return { bg: 'bg-critical/10', text: 'text-critical', border: 'border-critical' };
+    return { bg: 'bg-fatal/10', text: 'text-fatal', border: 'border-fatal' };
   };
 
   const colors = getColor(score);
@@ -91,24 +91,24 @@ function ScoreGauge({ score, label, size = 'md' }: { score: number | null; label
 
   return (
     <div className="flex flex-col items-center">
-      <div className={`${sizeClasses} rounded-full ${colors.bg} ring-2 ${colors.ring} flex items-center justify-center`}>
-        <span className={`font-bold ${colors.text}`}>{score}</span>
+      <div className={`${sizeClasses} ${colors.bg} border-2 ${colors.border} flex items-center justify-center`}>
+        <span className={`font-mono font-bold ${colors.text}`}>{score}</span>
       </div>
-      <span className="text-xs text-slate-500 mt-1 text-center">{label}</span>
+      <span className="text-xs font-mono text-ink-muted mt-1 text-center uppercase tracking-wide">{label}</span>
     </div>
   );
 }
 
 function RiskBadge({ severity }: { severity: string }) {
   const colors: Record<string, string> = {
-    critical: 'bg-red-100 text-red-700 border-red-200',
-    high: 'bg-orange-100 text-orange-700 border-orange-200',
-    medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    low: 'bg-green-100 text-green-700 border-green-200',
+    critical: 'bg-fatal/10 text-fatal border-fatal',
+    high: 'bg-critical/10 text-critical border-critical',
+    medium: 'bg-important/10 text-important border-important',
+    low: 'bg-status-success/10 text-status-success border-status-success',
   };
 
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${colors[severity] || colors.medium}`}>
+    <span className={`px-2 py-0.5 text-xs font-mono font-medium uppercase border ${colors[severity] || colors.medium}`}>
       {severity}
     </span>
   );
@@ -170,15 +170,17 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
     return (
       <div className={`card ${className}`}>
         <div className="flex items-center justify-center py-8">
-          <Brain className="w-6 h-6 text-purple-500 animate-pulse" />
-          <span className="ml-2 text-slate-500 text-sm">Analyzing case...</span>
+          <Brain className="w-6 h-6 text-steel" />
+          <span className="ml-2 text-ink-secondary text-sm font-mono">
+            ANALYZING<span className="animate-pulse">_</span>
+          </span>
         </div>
       </div>
     );
   }
 
   const overallScore = healthScore?.overall_score ?? 0;
-  const scoreColor = overallScore >= 80 ? 'text-green-600' : overallScore >= 60 ? 'text-yellow-600' : overallScore >= 40 ? 'text-orange-600' : 'text-red-600';
+  const scoreColor = overallScore >= 80 ? 'text-status-success' : overallScore >= 60 ? 'text-important' : overallScore >= 40 ? 'text-critical' : 'text-fatal';
   const hasRisks = healthScore?.risk_factors && healthScore.risk_factors.length > 0;
 
   return (
@@ -186,19 +188,19 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
       {/* Header - Always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between p-4 hover:bg-surface transition-transform hover:translate-x-0.5"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg">
+          <div className="p-2 bg-steel border border-ink">
             <Brain className="w-5 h-5 text-white" />
           </div>
           <div className="text-left">
-            <h3 className="font-semibold text-slate-900">Case Intelligence</h3>
+            <h3 className="font-heading font-semibold text-ink">Case Intelligence</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-sm text-slate-500">Health Score:</span>
-              <span className={`text-lg font-bold ${scoreColor}`}>{overallScore}</span>
+              <span className="text-sm font-mono text-ink-secondary">HEALTH:</span>
+              <span className={`text-lg font-mono font-bold ${scoreColor}`}>{overallScore}</span>
               {hasRisks && (
-                <AlertTriangle className="w-4 h-4 text-orange-500" />
+                <AlertTriangle className="w-4 h-4 text-critical" />
               )}
             </div>
           </div>
@@ -210,30 +212,30 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
               fetchData(true);
             }}
             disabled={refreshing}
-            className="p-1.5 rounded hover:bg-slate-200 transition-colors"
+            className="p-1.5 hover:bg-surface transition-transform hover:translate-x-0.5 hover:translate-y-0.5"
             title="Refresh analysis"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-500 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-ink-muted ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           {expanded ? (
-            <ChevronUp className="w-5 h-5 text-slate-400" />
+            <ChevronUp className="w-5 h-5 text-ink-muted" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-slate-400" />
+            <ChevronDown className="w-5 h-5 text-ink-muted" />
           )}
         </div>
       </button>
 
       {/* Expanded Content */}
       {expanded && healthScore && (
-        <div className="border-t border-slate-200">
+        <div className="border-t border-ink">
           {/* Tabs */}
-          <div className="flex border-b border-slate-200">
+          <div className="flex border-b border-ink/20">
             <button
               onClick={() => setActiveTab('health')}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-sm font-mono font-medium uppercase tracking-wide transition-transform ${
                 activeTab === 'health'
-                  ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'text-steel border-b-2 border-steel bg-surface'
+                  : 'text-ink-secondary hover:text-ink hover:translate-x-0.5'
               }`}
             >
               <Activity className="w-4 h-4 inline mr-1" />
@@ -244,10 +246,10 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
                 setActiveTab('predict');
                 if (!prediction) fetchPrediction();
               }}
-              className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 px-4 py-2 text-sm font-mono font-medium uppercase tracking-wide transition-transform ${
                 activeTab === 'predict'
-                  ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'text-steel border-b-2 border-steel bg-surface'
+                  : 'text-ink-secondary hover:text-ink hover:translate-x-0.5'
               }`}
             >
               <TrendingUp className="w-4 h-4 inline mr-1" />
@@ -256,10 +258,10 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
             {judgeName && (
               <button
                 onClick={() => setActiveTab('judge')}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                className={`flex-1 px-4 py-2 text-sm font-mono font-medium uppercase tracking-wide transition-transform ${
                   activeTab === 'judge'
-                    ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'text-steel border-b-2 border-steel bg-surface'
+                    : 'text-ink-secondary hover:text-ink hover:translate-x-0.5'
                 }`}
               >
                 <Gavel className="w-4 h-4 inline mr-1" />
@@ -283,18 +285,18 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
                 {/* Risk Factors */}
                 {healthScore.risk_factors && healthScore.risk_factors.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
-                      <Shield className="w-4 h-4 text-orange-500" />
+                    <h4 className="text-sm font-mono font-semibold text-ink uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <Shield className="w-4 h-4 text-critical" />
                       Risk Factors
                     </h4>
                     <div className="space-y-2">
                       {healthScore.risk_factors.slice(0, 3).map((risk, idx) => (
-                        <div key={idx} className="p-2 bg-orange-50 rounded-lg border border-orange-100">
+                        <div key={idx} className="p-2 bg-critical/5 border border-critical/30">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-slate-800">{risk.type}</span>
+                            <span className="text-sm font-medium text-ink">{risk.type}</span>
                             <RiskBadge severity={risk.severity} />
                           </div>
-                          <p className="text-xs text-slate-600">{risk.description}</p>
+                          <p className="text-xs text-ink-secondary">{risk.description}</p>
                         </div>
                       ))}
                     </div>
@@ -304,24 +306,24 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
                 {/* Recommendations */}
                 {healthScore.recommendations && healthScore.recommendations.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1">
-                      <Lightbulb className="w-4 h-4 text-yellow-500" />
+                    <h4 className="text-sm font-mono font-semibold text-ink uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <Lightbulb className="w-4 h-4 text-important" />
                       Recommendations
                     </h4>
                     <div className="space-y-2">
                       {healthScore.recommendations.slice(0, 3).map((rec, idx) => (
                         <div
                           key={idx}
-                          className={`p-2 rounded-lg border-l-4 ${
+                          className={`p-2 border-l-4 ${
                             rec.priority === 0
-                              ? 'border-l-red-500 bg-red-50'
+                              ? 'border-l-fatal bg-fatal/5'
                               : rec.priority === 1
-                              ? 'border-l-orange-500 bg-orange-50'
-                              : 'border-l-blue-500 bg-blue-50'
+                              ? 'border-l-critical bg-critical/5'
+                              : 'border-l-steel bg-steel/5'
                           }`}
                         >
-                          <p className="text-sm font-medium text-slate-800">{rec.action}</p>
-                          <p className="text-xs text-slate-600 mt-0.5">{rec.reasoning}</p>
+                          <p className="text-sm font-medium text-ink">{rec.action}</p>
+                          <p className="text-xs text-ink-secondary mt-0.5">{rec.reasoning}</p>
                         </div>
                       ))}
                     </div>
@@ -334,19 +336,21 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
               <div className="space-y-4">
                 {!prediction ? (
                   <div className="text-center py-6">
-                    <Brain className="w-8 h-8 text-purple-400 mx-auto mb-2 animate-pulse" />
-                    <p className="text-sm text-slate-500">Generating prediction...</p>
+                    <Brain className="w-8 h-8 text-steel mx-auto mb-2" />
+                    <p className="text-sm font-mono text-ink-secondary">
+                      GENERATING<span className="animate-pulse">_</span>
+                    </p>
                   </div>
                 ) : (
                   <>
-                    <div className="text-center py-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg">
-                      <Target className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                      <p className="text-lg font-bold text-slate-900">{prediction.predicted_value}</p>
-                      <p className="text-sm text-slate-500">
+                    <div className="text-center py-4 bg-surface border border-ink/20">
+                      <Target className="w-8 h-8 text-steel mx-auto mb-2" />
+                      <p className="text-lg font-heading font-bold text-ink">{prediction.predicted_value}</p>
+                      <p className="text-sm font-mono text-ink-secondary">
                         {Math.round(prediction.confidence * 100)}% confidence
                       </p>
                       {prediction.lower_bound && prediction.upper_bound && (
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs font-mono text-ink-muted mt-1">
                           Range: {prediction.lower_bound} - {prediction.upper_bound}
                         </p>
                       )}
@@ -354,14 +358,14 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
 
                     {prediction.influencing_factors && prediction.influencing_factors.length > 0 && (
                       <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2">Key Factors</h4>
+                        <h4 className="text-sm font-mono font-semibold text-ink uppercase tracking-wide mb-2">Key Factors</h4>
                         <div className="space-y-1">
                           {prediction.influencing_factors.map((factor, idx) => (
                             <div key={idx} className="flex items-center justify-between text-sm">
-                              <span className="text-slate-600">{factor.factor}</span>
-                              <span className={`font-medium ${
-                                factor.impact === 'positive' ? 'text-green-600' :
-                                factor.impact === 'negative' ? 'text-red-600' : 'text-slate-600'
+                              <span className="text-ink-secondary">{factor.factor}</span>
+                              <span className={`font-mono font-medium ${
+                                factor.impact === 'positive' ? 'text-status-success' :
+                                factor.impact === 'negative' ? 'text-fatal' : 'text-ink-secondary'
                               }`}>
                                 {factor.impact === 'positive' ? '+' : factor.impact === 'negative' ? '-' : '~'}
                                 {Math.round(factor.weight * 100)}%
@@ -380,48 +384,48 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
               <div className="space-y-4">
                 {!judgeInsight ? (
                   <div className="text-center py-6">
-                    <Gavel className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">No judge analytics available</p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <Gavel className="w-8 h-8 text-ink/30 mx-auto mb-2" />
+                    <p className="text-sm text-ink-secondary">No judge analytics available</p>
+                    <p className="text-xs font-mono text-ink-muted mt-1">
                       Judge data will be populated as rulings are tracked
                     </p>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <Scale className="w-8 h-8 text-slate-400" />
+                    <div className="flex items-center gap-3 p-3 bg-surface border border-ink/20">
+                      <Scale className="w-8 h-8 text-ink-muted" />
                       <div>
-                        <p className="font-semibold text-slate-900">{judgeInsight.name}</p>
-                        <p className="text-sm text-slate-500">{judgeInsight.court}</p>
+                        <p className="font-heading font-semibold text-ink">{judgeInsight.name}</p>
+                        <p className="text-sm font-mono text-ink-secondary">{judgeInsight.court}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       {judgeInsight.avg_ruling_time_days && (
-                        <div className="p-3 bg-blue-50 rounded-lg text-center">
-                          <Clock className="w-5 h-5 text-blue-500 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-slate-900">{judgeInsight.avg_ruling_time_days}</p>
-                          <p className="text-xs text-slate-500">Avg Days to Rule</p>
+                        <div className="p-3 bg-steel/10 border border-steel/30 text-center">
+                          <Clock className="w-5 h-5 text-steel mx-auto mb-1" />
+                          <p className="text-lg font-mono font-bold text-ink">{judgeInsight.avg_ruling_time_days}</p>
+                          <p className="text-xs font-mono text-ink-secondary uppercase tracking-wide">Avg Days to Rule</p>
                         </div>
                       )}
                       {judgeInsight.motion_stats?.grant_rate !== undefined && (
-                        <div className="p-3 bg-green-50 rounded-lg text-center">
-                          <CheckCircle className="w-5 h-5 text-green-500 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-slate-900">
+                        <div className="p-3 bg-status-success/10 border border-status-success/30 text-center">
+                          <CheckCircle className="w-5 h-5 text-status-success mx-auto mb-1" />
+                          <p className="text-lg font-mono font-bold text-ink">
                             {Math.round(judgeInsight.motion_stats.grant_rate * 100)}%
                           </p>
-                          <p className="text-xs text-slate-500">Motion Grant Rate</p>
+                          <p className="text-xs font-mono text-ink-secondary uppercase tracking-wide">Motion Grant Rate</p>
                         </div>
                       )}
                     </div>
 
                     {judgeInsight.preferences?.notable_preferences && (
                       <div>
-                        <h4 className="text-sm font-semibold text-slate-700 mb-2">Known Preferences</h4>
-                        <ul className="text-sm text-slate-600 space-y-1">
+                        <h4 className="text-sm font-mono font-semibold text-ink uppercase tracking-wide mb-2">Known Preferences</h4>
+                        <ul className="text-sm text-ink-secondary space-y-1">
                           {judgeInsight.preferences.notable_preferences.map((pref, idx) => (
                             <li key={idx} className="flex items-start gap-2">
-                              <span className="text-purple-500 mt-0.5">•</span>
+                              <span className="text-steel mt-0.5">•</span>
                               {pref}
                             </li>
                           ))}
@@ -435,10 +439,10 @@ export default function CaseIntelligencePanel({ caseId, judgeName, className = '
           </div>
 
           {/* Footer Link */}
-          <div className="px-4 pb-4">
+          <div className="px-4 pb-4 pt-2 border-t border-ink/20">
             <Link
               href="/intelligence"
-              className="flex items-center justify-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+              className="flex items-center justify-center gap-2 text-sm text-steel hover:text-ink font-mono font-medium uppercase tracking-wide transition-transform hover:translate-x-0.5"
             >
               <Brain className="w-4 h-4" />
               View Full Intelligence Dashboard

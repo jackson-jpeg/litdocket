@@ -32,17 +32,17 @@ interface ShareCaseModalProps {
 const roleConfig: Record<CaseAccessRole, { label: string; icon: React.ReactNode; description: string }> = {
   owner: {
     label: 'Owner',
-    icon: <Crown className="w-4 h-4 text-amber-500" />,
+    icon: <Crown className="w-4 h-4 text-wax" />,
     description: 'Full control including sharing',
   },
   editor: {
     label: 'Editor',
-    icon: <Edit className="w-4 h-4 text-blue-500" />,
+    icon: <Edit className="w-4 h-4 text-steel" />,
     description: 'Can edit case data and deadlines',
   },
   viewer: {
     label: 'Viewer',
-    icon: <Eye className="w-4 h-4 text-slate-500" />,
+    icon: <Eye className="w-4 h-4 text-ink-muted" />,
     description: 'Read-only access',
   },
 };
@@ -64,20 +64,20 @@ function AccessListItem({
   const isPending = !access.invitation_accepted_at && access.invited_email;
 
   return (
-    <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
+    <div className="flex items-center justify-between p-3 border border-ink/20 bg-paper">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+        <div className="w-8 h-8 bg-surface border border-ink/20 flex items-center justify-center">
           {role.icon}
         </div>
         <div>
-          <p className="font-medium text-slate-900">
+          <p className="font-medium text-ink">
             {access.user?.name || access.user?.email || access.invited_email}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-secondary">
             {isPending ? (
-              <span className="text-amber-600">Invitation pending</span>
+              <span className="text-important font-mono">PENDING</span>
             ) : (
-              <span>{access.user?.email}</span>
+              <span className="font-mono">{access.user?.email}</span>
             )}
           </p>
         </div>
@@ -89,7 +89,7 @@ function AccessListItem({
             <select
               value={access.role}
               onChange={(e) => onChangeRole(e.target.value as CaseAccessRole)}
-              className="text-sm border border-slate-200 rounded px-2 py-1 bg-white"
+              className="text-sm border border-ink/20 px-2 py-1 bg-paper font-mono"
             >
               <option value="viewer">Viewer</option>
               <option value="editor">Editor</option>
@@ -97,7 +97,7 @@ function AccessListItem({
             </select>
             <button
               onClick={onRevoke}
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 text-ink-muted hover:text-fatal hover:bg-fatal/10 transition-transform hover:translate-x-0.5"
               title="Revoke access"
             >
               <Trash2 className="w-4 h-4" />
@@ -105,11 +105,11 @@ function AccessListItem({
           </>
         )}
         {isOwner && (
-          <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded">
-            Case Owner
+          <span className="px-2 py-1 bg-wax/10 text-wax border border-wax text-xs font-mono font-medium uppercase">
+            Owner
           </span>
         )}
-        {isProcessing && <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />}
+        {isProcessing && <RefreshCw className="w-4 h-4 text-ink-muted animate-spin" />}
       </div>
     </div>
   );
@@ -222,17 +222,17 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-ink/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-paper border-2 border-ink shadow-modal max-w-lg w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-ink bg-surface">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-slate-900">Share Case</h2>
+            <Users className="w-5 h-5 text-steel" />
+            <h2 className="text-lg font-heading font-semibold text-ink">Share Case</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            className="p-1 text-ink-muted hover:text-ink transition-transform hover:translate-x-0.5"
           >
             <X className="w-5 h-5" />
           </button>
@@ -240,8 +240,8 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
 
         {/* Content */}
         <div className="p-4 overflow-y-auto max-h-[calc(90vh-8rem)]">
-          <p className="text-sm text-slate-600 mb-4">
-            Sharing: <span className="font-medium">{caseTitle}</span>
+          <p className="text-sm text-ink-secondary mb-4">
+            Sharing: <span className="font-medium font-mono text-ink">{caseTitle}</span>
           </p>
 
           {/* Share Form */}
@@ -249,13 +249,13 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
             <div className="flex gap-2 mb-2">
               <div className="flex-1">
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter email address"
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
                     disabled={sharing}
                   />
                 </div>
@@ -263,7 +263,7 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as CaseAccessRole)}
-                className="border border-slate-200 rounded-lg px-3 py-2 bg-white"
+                className="border border-ink/20 px-3 py-2 bg-paper font-mono"
                 disabled={sharing}
               >
                 <option value="viewer">Viewer</option>
@@ -273,32 +273,32 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
               <button
                 type="submit"
                 disabled={sharing}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="btn-primary disabled:opacity-50"
               >
                 {sharing ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Share'}
               </button>
             </div>
 
             {shareError && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="text-sm text-fatal flex items-center gap-1 font-mono">
                 <AlertTriangle className="w-4 h-4" /> {shareError}
               </p>
             )}
             {shareSuccess && (
-              <p className="text-sm text-green-600 flex items-center gap-1">
+              <p className="text-sm text-status-success flex items-center gap-1 font-mono">
                 <Check className="w-4 h-4" /> {shareSuccess}
               </p>
             )}
           </form>
 
           {/* Role descriptions */}
-          <div className="bg-slate-50 rounded-lg p-3 mb-4">
-            <p className="text-xs font-medium text-slate-500 mb-2">Access Levels:</p>
+          <div className="bg-surface border border-ink/20 p-3 mb-4">
+            <p className="text-xs font-mono font-medium text-ink-secondary uppercase tracking-wide mb-2">Access Levels:</p>
             <div className="space-y-1">
               {Object.entries(roleConfig).map(([key, config]) => (
-                <div key={key} className="flex items-center gap-2 text-xs text-slate-600">
+                <div key={key} className="flex items-center gap-2 text-xs text-ink-secondary">
                   {config.icon}
-                  <span className="font-medium">{config.label}:</span>
+                  <span className="font-medium text-ink">{config.label}:</span>
                   <span>{config.description}</span>
                 </div>
               ))}
@@ -307,19 +307,19 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
 
           {/* Access List */}
           <div>
-            <h3 className="text-sm font-medium text-slate-700 mb-2">People with access</h3>
+            <h3 className="text-sm font-mono font-medium text-ink uppercase tracking-wide mb-2">People with access</h3>
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
+                <span className="font-mono text-ink-secondary">LOADING<span className="animate-pulse">_</span></span>
               </div>
             ) : error ? (
-              <div className="flex items-center gap-2 text-red-600 py-4">
+              <div className="flex items-center gap-2 text-fatal py-4 font-mono">
                 <AlertTriangle className="w-5 h-5" />
                 <span>{error}</span>
               </div>
             ) : accessList.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4 text-center">
+              <p className="text-sm text-ink-muted py-4 text-center">
                 No one else has access to this case yet.
               </p>
             ) : (
@@ -340,10 +340,10 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t border-slate-200 bg-slate-50">
+        <div className="flex justify-end gap-2 p-4 border-t border-ink bg-surface">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
+            className="btn-secondary"
           >
             Done
           </button>

@@ -124,7 +124,7 @@ export default function CreateDeadlineModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-ink/50 flex items-center justify-center z-50 p-4"
           onClick={onClose}
         >
           <motion.div
@@ -132,22 +132,22 @@ export default function CreateDeadlineModal({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden"
+            className="bg-paper border-2 border-ink shadow-modal max-w-md w-full max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
+        <div className="p-4 border-b border-ink bg-surface">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-slate-800">New Deadline</h2>
+              <Plus className="w-5 h-5 text-steel" />
+              <h2 className="text-lg font-heading font-semibold text-ink">New Deadline</h2>
             </div>
             <button
               onClick={onClose}
               disabled={creating}
-              className="p-1 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
+              className="p-1 hover:bg-surface transition-transform hover:translate-x-0.5 disabled:opacity-50"
             >
-              <X className="w-5 h-5 text-slate-500" />
+              <X className="w-5 h-5 text-ink-muted" />
             </button>
           </div>
         </div>
@@ -156,21 +156,21 @@ export default function CreateDeadlineModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto max-h-[70vh]">
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-fatal/10 border border-fatal text-fatal text-sm">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+              <span className="font-mono">{error}</span>
             </div>
           )}
 
           {/* Case Selection */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Case <span className="text-red-500">*</span>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">
+              Case <span className="text-fatal">*</span>
             </label>
             <select
               value={caseId}
               onChange={(e) => setCaseId(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
               required
             >
               <option value="">Select a case...</option>
@@ -184,15 +184,15 @@ export default function CreateDeadlineModal({
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Title <span className="text-red-500">*</span>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">
+              Title <span className="text-fatal">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., File Motion for Summary Judgment"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink"
               required
               maxLength={500}
             />
@@ -200,15 +200,15 @@ export default function CreateDeadlineModal({
 
           {/* Date */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Deadline Date <span className="text-red-500">*</span>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">
+              Deadline Date <span className="text-fatal">*</span>
             </label>
             <div className="relative">
               <input
                 type="date"
                 value={deadlineDate}
                 onChange={(e) => setDeadlineDate(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
                 required
               />
             </div>
@@ -216,11 +216,11 @@ export default function CreateDeadlineModal({
 
           {/* Priority */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">Priority</label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
             >
               <option value="informational">Informational</option>
               <option value="standard">Standard</option>
@@ -232,11 +232,11 @@ export default function CreateDeadlineModal({
 
           {/* Deadline Type */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">Type</label>
             <select
               value={deadlineType}
               onChange={(e) => setDeadlineType(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
             >
               <option value="">Select type...</option>
               <option value="filing">Filing</option>
@@ -252,44 +252,44 @@ export default function CreateDeadlineModal({
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Additional details about this deadline..."
               rows={3}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink resize-none"
             />
           </div>
 
           {/* Party Role */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Responsible Party</label>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">Responsible Party</label>
             <input
               type="text"
               value={partyRole}
               onChange={(e) => setPartyRole(e.target.value)}
               placeholder="e.g., Plaintiff, Defendant, All Parties"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink"
             />
           </div>
 
           {/* Applicable Rule */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Applicable Rule</label>
+            <label className="block text-sm font-mono font-medium text-ink uppercase tracking-wide mb-1">Applicable Rule</label>
 
             {/* Selected Rule Display */}
             {selectedRule ? (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-2">
+              <div className="p-3 bg-steel/10 border border-steel/30 mb-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-medium text-blue-900">{selectedRule.rule_name}</p>
-                    <p className="text-xs text-blue-700">{selectedRule.citation || selectedRule.rule_code}</p>
-                    <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${
-                      selectedRule.authority_tier === 'federal' ? 'bg-purple-100 text-purple-700' :
-                      selectedRule.authority_tier === 'state' ? 'bg-blue-100 text-blue-700' :
-                      selectedRule.authority_tier === 'local' ? 'bg-green-100 text-green-700' :
-                      'bg-slate-100 text-slate-600'
+                    <p className="text-sm font-medium text-ink">{selectedRule.rule_name}</p>
+                    <p className="text-xs font-mono text-ink-secondary">{selectedRule.citation || selectedRule.rule_code}</p>
+                    <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-mono font-medium border ${
+                      selectedRule.authority_tier === 'federal' ? 'bg-wax/10 text-wax border-wax' :
+                      selectedRule.authority_tier === 'state' ? 'bg-steel/10 text-steel border-steel' :
+                      selectedRule.authority_tier === 'local' ? 'bg-status-success/10 text-status-success border-status-success' :
+                      'bg-surface text-ink-secondary border-ink/20'
                     }`}>
                       {selectedRule.authority_tier}
                     </span>
@@ -300,7 +300,7 @@ export default function CreateDeadlineModal({
                       setSelectedRule(null);
                       setApplicableRule('');
                     }}
-                    className="p-1 text-blue-400 hover:text-blue-600 rounded"
+                    className="p-1 text-ink-muted hover:text-ink"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -312,7 +312,7 @@ export default function CreateDeadlineModal({
                 value={applicableRule}
                 onChange={(e) => setApplicableRule(e.target.value)}
                 placeholder="e.g., Fla. R. Civ. P. 1.140(a)"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
               />
             )}
 
@@ -320,10 +320,10 @@ export default function CreateDeadlineModal({
             <button
               type="button"
               onClick={() => setShowRuleSelector(!showRuleSelector)}
-              className="flex items-center gap-2 mt-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+              className="flex items-center gap-2 mt-2 text-sm text-steel hover:text-ink transition-transform hover:translate-x-0.5"
             >
               <Scale className="w-4 h-4" />
-              <span>{selectedRule ? 'Change rule' : 'Select from database'}</span>
+              <span className="font-mono">{selectedRule ? 'Change rule' : 'Select from database'}</span>
               {showRuleSelector ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
 
@@ -341,19 +341,19 @@ export default function CreateDeadlineModal({
         </form>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+        <div className="p-4 border-t border-ink bg-surface flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
             disabled={creating}
-            className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
+            className="btn-secondary disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={creating || !title.trim() || !caseId || !deadlineDate}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             <span className="font-medium">{creating ? 'Creating...' : 'Create Deadline'}</span>
