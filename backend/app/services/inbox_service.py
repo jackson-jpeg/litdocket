@@ -11,6 +11,7 @@ Manages all pending approval items in a single queue:
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import logging
+import asyncio
 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
@@ -348,6 +349,43 @@ class InboxService:
         item.reviewed_at = datetime.now(timezone.utc)
         item.resolution = resolution
         item.resolution_notes = notes
+
+        # Phase 3: Integrate with proposal approval workflow
+        # If this is a RULE_VERIFICATION item with a proposal_id, approve/reject the proposal
+        if item.type == InboxItemType.RULE_VERIFICATION and item.metadata.get("proposal_id"):
+            proposal_id = item.metadata["proposal_id"]
+
+            try:
+                from app.services.authority_core_service import AuthorityCoreService
+
+                authority_service = AuthorityCoreService(self.db)
+
+                if resolution.lower() == "approved":
+                    # Approve the proposal and create AuthorityRule
+                    rule = asyncio.run(authority_service.approve_proposal(
+                        proposal_id=proposal_id,
+                        user_id=user_id,
+                        notes=notes
+                    ))
+
+                    # Update inbox item with created rule_id
+                    item.rule_id = rule.id
+                    logger.info(f"Approved proposal {proposal_id} and created rule {rule.id}")
+
+                elif resolution.lower() == "rejected":
+                    # Reject the proposal
+                    asyncio.run(authority_service.reject_proposal(
+                        proposal_id=proposal_id,
+                        user_id=user_id,
+                        reason=notes or "Rejected by attorney review"
+                    ))
+
+                    logger.info(f"Rejected proposal {proposal_id}")
+
+            except Exception as e:
+                logger.error(f"Failed to process proposal {proposal_id} during inbox review: {str(e)}")
+                # Don't fail the inbox review if proposal processing fails
+                # The item will be marked as reviewed but proposal remains pending
 
         self.db.commit()
         self.db.refresh(item)

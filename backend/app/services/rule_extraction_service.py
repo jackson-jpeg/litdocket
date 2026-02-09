@@ -378,6 +378,13 @@ Extract each rule and submit using the submit_extraction tool."""
                         extraction_reasoning=[rule_dict.get("extraction_reasoning", "")]
                     )
 
+                    # Calculate confidence score based on extraction quality
+                    calculated_confidence = self._calculate_confidence(rule_data)
+
+                    # Use calculated confidence if AI didn't provide one or if ours is higher
+                    if rule_data.confidence_score == 0.0 or calculated_confidence > rule_data.confidence_score:
+                        rule_data.confidence_score = calculated_confidence
+
                     # Assess complexity if requested
                     if assess_complexity and deadlines:
                         complexity_score = await self._assess_complexity(content[:4000], rule_data)
@@ -394,6 +401,81 @@ Extract each rule and submit using the submit_extraction tool."""
         except Exception as e:
             logger.error(f"Rule extraction failed: {e}")
             return []
+
+    def _calculate_confidence(self, rule_data: ExtractedRuleData) -> float:
+        """
+        Calculate confidence score for extracted rule based on data quality.
+
+        Scoring criteria (Phase 3):
+        - Has rule code: +30 points
+        - Specific trigger type: +20 points
+        - Has deadlines: +20 points
+        - Has citations: +15 points
+        - Clean/complete text: +15 points
+        Total: 100 points (returned as 0.0-1.0)
+
+        Args:
+            rule_data: The extracted rule data
+
+        Returns:
+            Confidence score (0.0 to 1.0)
+        """
+        score = 0.0
+
+        # Criterion 1: Has rule code (+30 points)
+        if rule_data.rule_code and rule_data.rule_code != "UNKNOWN":
+            # Extra points if it matches expected pattern (e.g., "FRCP 12", "Fla. R. Civ. P. 1.140")
+            if any(pattern in rule_data.rule_code.upper() for pattern in ["FRCP", "FLA.", "R.", "RULE"]):
+                score += 30
+            else:
+                score += 25  # Has code but not standard format
+
+        # Criterion 2: Specific trigger type (+20 points)
+        if rule_data.trigger_type and rule_data.trigger_type != "custom_trigger":
+            score += 20
+
+        # Criterion 3: Has deadlines (+20 points)
+        if rule_data.deadlines and len(rule_data.deadlines) > 0:
+            # More deadlines = higher confidence (up to 5 deadlines)
+            deadline_bonus = min(len(rule_data.deadlines) / 5, 1.0) * 20
+            score += deadline_bonus
+
+        # Criterion 4: Has citations (+15 points)
+        if rule_data.citation and len(rule_data.citation) > 5:
+            score += 15
+
+        # Criterion 5: Clean/complete text (+15 points)
+        if rule_data.source_text:
+            text_quality = 0
+
+            # Check length (not too short, not empty)
+            if len(rule_data.source_text) > 100:
+                text_quality += 5
+
+            # Check for rule name match in text
+            if rule_data.rule_name and rule_data.rule_name.lower() in rule_data.source_text.lower():
+                text_quality += 5
+
+            # Check for deadline-related keywords
+            deadline_keywords = ["day", "days", "deadline", "due", "before", "after", "within"]
+            keyword_matches = sum(1 for keyword in deadline_keywords if keyword in rule_data.source_text.lower())
+            if keyword_matches >= 2:
+                text_quality += 5
+
+            score += text_quality
+
+        # Normalize to 0.0-1.0 range
+        confidence = min(score / 100.0, 1.0)
+
+        logger.info(
+            f"Confidence calculation for {rule_data.rule_code}: {confidence:.2%} "
+            f"(code: {'+30' if rule_data.rule_code and rule_data.rule_code != 'UNKNOWN' else '0'}, "
+            f"trigger: {'+20' if rule_data.trigger_type != 'custom_trigger' else '0'}, "
+            f"deadlines: {len(rule_data.deadlines)}, "
+            f"citation: {'+15' if rule_data.citation else '0'})"
+        )
+
+        return confidence
 
     async def _assess_complexity(
         self,

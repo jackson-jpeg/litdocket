@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
-from app.auth.dependencies import get_current_user
+from app.utils.auth import get_current_user
 from app.models.user import User
 from app.models.enums import InboxItemType, InboxStatus
 from app.services.inbox_service import InboxService

@@ -146,11 +146,22 @@ async def add_process_time_header(request: Request, call_next):
 # Health check
 @app.get("/health")
 async def health_check():
-    return {
+    health_status = {
         "status": "healthy",
         "version": "1.0.0",
         "service": "LitDocket API"
     }
+
+    # Include scheduler status if available
+    try:
+        from app.scheduler import get_scheduler_status
+        scheduler_status = get_scheduler_status()
+        health_status["scheduler"] = scheduler_status
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}")
+        health_status["scheduler"] = {"running": False, "error": str(e)}
+
+    return health_status
 
 # Root endpoint
 @app.get("/")
@@ -202,6 +213,16 @@ async def startup():
     else:
         logger.info("Using PostgreSQL - schema managed by Supabase migrations")
 
+    # Start background job scheduler for Authority Core automation
+    try:
+        from app.scheduler import start_scheduler
+        start_scheduler()
+        logger.info("✓ APScheduler started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start APScheduler: {e}")
+        # Don't fail startup if scheduler fails - app can still function
+        logger.warning("Application running without scheduled jobs")
+
     logger.info("=" * 60)
     logger.info("Application startup complete")
     logger.info(f"API docs available at: /api/docs")
@@ -210,4 +231,14 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    logger.info("Application shutdown")
+    logger.info("Application shutting down...")
+
+    # Gracefully shutdown scheduler
+    try:
+        from app.scheduler import shutdown_scheduler
+        shutdown_scheduler()
+        logger.info("✓ APScheduler shut down successfully")
+    except Exception as e:
+        logger.error(f"Error shutting down APScheduler: {e}")
+
+    logger.info("Application shutdown complete")

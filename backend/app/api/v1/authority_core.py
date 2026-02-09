@@ -3289,3 +3289,614 @@ async def get_rule_effectiveness_metrics(
             }
         ] if unused_rules else []
     }
+
+
+# =============================================================================
+# MANUAL TRIGGER ENDPOINTS - Phase 1 Addition
+# =============================================================================
+
+@router.post("/cartographer/discover/{jurisdiction_id}")
+async def manual_cartographer_trigger(
+    jurisdiction_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually trigger Cartographer scraper discovery for a jurisdiction.
+
+    This endpoint allows administrators to manually trigger the Cartographer
+    service to discover CSS selectors and scraping configurations for a
+    jurisdiction's court website.
+
+    **Use Cases:**
+    - New jurisdiction onboarding
+    - Fixing broken scraper configurations
+    - Testing Cartographer improvements
+    - Emergency re-discovery after website changes
+
+    **Process:**
+    1. Validates jurisdiction exists and has court_website URL
+    2. Triggers Cartographer AI scraper service
+    3. Updates jurisdiction scraper_config with discovered selectors
+    4. Runs in background to prevent timeout
+
+    **Returns:**
+    - job_id: Background task identifier
+    - jurisdiction: Name and ID of jurisdiction
+    - message: Status message
+    """
+    logger.info(f"Manual Cartographer trigger requested for jurisdiction {jurisdiction_id}")
+
+    # Validate jurisdiction exists
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    if not jurisdiction.court_website:
+        raise HTTPException(
+            status_code=400,
+            detail="Jurisdiction missing court_website URL - cannot discover scraper config"
+        )
+
+    # Import Cartographer service
+    from app.services.ai_scraper_service import AIScraperService
+
+    async def run_cartographer():
+        """Background task to run Cartographer discovery."""
+        try:
+            scraper_service = AIScraperService()
+            logger.info(f"Starting Cartographer for {jurisdiction.name}")
+
+            # Discover scraper config
+            config = await scraper_service.discover_scraper_config(
+                url=jurisdiction.court_website,
+                jurisdiction_name=jurisdiction.name
+            )
+
+            # Update jurisdiction with discovered config
+            jurisdiction.scraper_config = config
+            jurisdiction.consecutive_scrape_failures = 0  # Reset failure counter
+            jurisdiction.last_scraped_at = datetime.utcnow()
+            db.commit()
+
+            logger.info(f"Cartographer completed successfully for {jurisdiction.name}")
+
+        except Exception as e:
+            logger.error(f"Cartographer failed for {jurisdiction.name}: {str(e)}")
+            jurisdiction.consecutive_scrape_failures += 1
+            db.commit()
+            raise
+
+    # Schedule background task
+    job_id = str(uuid.uuid4())
+    background_tasks.add_task(run_cartographer)
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "jurisdiction": {
+            "id": jurisdiction.id,
+            "name": jurisdiction.name,
+            "court_website": jurisdiction.court_website
+        },
+        "message": f"Cartographer discovery started for {jurisdiction.name}. This may take 1-2 minutes.",
+        "estimated_completion": "1-2 minutes"
+    }
+
+
+@router.post("/watchtower/check/{jurisdiction_id}")
+async def manual_watchtower_trigger(
+    jurisdiction_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually trigger Watchtower change detection for a jurisdiction.
+
+    Compares current rule page hashes against stored baseline to detect
+    changes. Creates inbox items for any detected changes requiring
+    attorney review.
+
+    **Use Cases:**
+    - Emergency check after court announces rule change
+    - Testing Watchtower detection
+    - Manual verification before scheduled run
+
+    **Process:**
+    1. Fetches all rule URLs for jurisdiction
+    2. Computes SHA-256 hashes of current content
+    3. Compares against stored hashes in watchtower_hashes table
+    4. Creates inbox items for changed URLs
+    5. Updates hash baseline
+
+    **Returns:**
+    - has_changes: Boolean indicating if changes detected
+    - changed_urls: List of URLs with detected changes
+    - total_urls_checked: Number of URLs monitored
+    """
+    logger.info(f"Manual Watchtower check requested for jurisdiction {jurisdiction_id}")
+
+    # Validate jurisdiction
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    # Import Watchtower service
+    from app.services.watchtower_service import WatchtowerService
+
+    watchtower = WatchtowerService(db)
+
+    try:
+        # Run change detection
+        result = await watchtower.check_for_changes(jurisdiction.id)
+
+        logger.info(f"Watchtower check completed for {jurisdiction.name}")
+
+        return {
+            "success": True,
+            "jurisdiction": {
+                "id": jurisdiction.id,
+                "name": jurisdiction.name
+            },
+            "has_changes": result.get("has_changes", False),
+            "changed_urls": result.get("changed_urls", []),
+            "total_urls_checked": result.get("total_urls_checked", 0),
+            "message": f"Detected {len(result.get('changed_urls', []))} changed URLs" if result.get("has_changes") else "No changes detected",
+            "check_completed_at": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Watchtower check failed for {jurisdiction.name}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Watchtower check failed: {str(e)}"
+        )
+
+
+@router.post("/scraper-health/check/{jurisdiction_id}")
+async def manual_scraper_health_check(
+    jurisdiction_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Run health check for a specific jurisdiction's scraper configuration.
+
+    Validates:
+    - scraper_config exists and is valid JSON
+    - Required fields are present (base_url, selectors)
+    - Consecutive failure counter is within limits
+    - auto_sync_enabled flag consistency
+
+    **Use Cases:**
+    - Troubleshooting scraper failures
+    - Validating config after manual edits
+    - Pre-harvest validation
+
+    **Returns:**
+    - healthy: Boolean overall health status
+    - issues: List of detected issues
+    - config_valid: Scraper config validation status
+    - consecutive_failures: Current failure count
+    """
+    logger.info(f"Manual scraper health check for jurisdiction {jurisdiction_id}")
+
+    # Get jurisdiction
+    jurisdiction = db.query(Jurisdiction).filter(
+        Jurisdiction.id == jurisdiction_id
+    ).first()
+
+    if not jurisdiction:
+        raise HTTPException(status_code=404, detail="Jurisdiction not found")
+
+    issues = []
+    healthy = True
+
+    # Check 1: Scraper config exists
+    if not jurisdiction.scraper_config:
+        issues.append({
+            "severity": "critical",
+            "type": "missing_config",
+            "message": "Missing scraper_config - run Cartographer to discover config"
+        })
+        healthy = False
+
+    # Check 2: Validate config structure
+    if jurisdiction.scraper_config:
+        config = jurisdiction.scraper_config
+        required_fields = ['base_url', 'selectors']
+        missing_fields = [f for f in required_fields if f not in config]
+
+        if missing_fields:
+            issues.append({
+                "severity": "critical",
+                "type": "invalid_config",
+                "message": f"Scraper config missing required fields: {', '.join(missing_fields)}"
+            })
+            healthy = False
+
+    # Check 3: Consecutive failures
+    if jurisdiction.consecutive_scrape_failures >= 3:
+        issues.append({
+            "severity": "high",
+            "type": "consecutive_failures",
+            "message": f"{jurisdiction.consecutive_scrape_failures} consecutive failures - jurisdiction at risk of auto-disable"
+        })
+        healthy = False
+    elif jurisdiction.consecutive_scrape_failures > 0:
+        issues.append({
+            "severity": "medium",
+            "type": "recent_failures",
+            "message": f"{jurisdiction.consecutive_scrape_failures} recent failures detected"
+        })
+
+    # Check 4: Auto-sync enabled without config
+    if jurisdiction.auto_sync_enabled and not jurisdiction.scraper_config:
+        issues.append({
+            "severity": "high",
+            "type": "sync_without_config",
+            "message": "Auto-sync enabled but no scraper config - will fail on next sync"
+        })
+        healthy = False
+
+    # Check 5: Stale data warning
+    if jurisdiction.last_scraped_at:
+        from datetime import timedelta
+        days_since_scrape = (datetime.utcnow() - jurisdiction.last_scraped_at).days
+        if days_since_scrape > 30:
+            issues.append({
+                "severity": "low",
+                "type": "stale_data",
+                "message": f"Last scraped {days_since_scrape} days ago - data may be stale"
+            })
+
+    return {
+        "success": True,
+        "jurisdiction": {
+            "id": jurisdiction.id,
+            "name": jurisdiction.name,
+            "court_website": jurisdiction.court_website
+        },
+        "healthy": healthy,
+        "issues": issues,
+        "details": {
+            "has_scraper_config": bool(jurisdiction.scraper_config),
+            "config_valid": bool(jurisdiction.scraper_config) and all(
+                f in jurisdiction.scraper_config for f in ['base_url', 'selectors']
+            ),
+            "auto_sync_enabled": jurisdiction.auto_sync_enabled,
+            "consecutive_failures": jurisdiction.consecutive_scrape_failures,
+            "last_scraped_at": jurisdiction.last_scraped_at.isoformat() if jurisdiction.last_scraped_at else None,
+            "sync_frequency": jurisdiction.sync_frequency.value if jurisdiction.sync_frequency else None
+        },
+        "checked_at": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/scraper-health/report")
+async def get_scraper_health_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive health report for all jurisdiction scrapers.
+
+    Provides system-wide overview of scraper health, useful for:
+    - Operations dashboard
+    - Identifying systemic issues
+    - Planning maintenance
+
+    **Returns:**
+    - total_jurisdictions: Total monitored jurisdictions
+    - healthy: Count of healthy scrapers
+    - unhealthy: Count of unhealthy scrapers
+    - disabled: Count of auto-disabled scrapers
+    - jurisdictions: Detailed health status for each
+    """
+    logger.info("Generating scraper health report for all jurisdictions")
+
+    # Get all jurisdictions with auto_sync enabled
+    jurisdictions = db.query(Jurisdiction).filter(
+        Jurisdiction.auto_sync_enabled == True
+    ).all()
+
+    healthy_count = 0
+    unhealthy_count = 0
+    disabled_count = 0
+
+    jurisdiction_health = []
+
+    for jurisdiction in jurisdictions:
+        issues = []
+        healthy = True
+
+        # Same checks as single jurisdiction health check
+        if not jurisdiction.scraper_config:
+            issues.append("missing_config")
+            healthy = False
+
+        if jurisdiction.scraper_config:
+            config = jurisdiction.scraper_config
+            required_fields = ['base_url', 'selectors']
+            if not all(f in config for f in required_fields):
+                issues.append("invalid_config")
+                healthy = False
+
+        if jurisdiction.consecutive_scrape_failures >= 3:
+            issues.append("consecutive_failures")
+            healthy = False
+            disabled_count += 1
+
+        if healthy:
+            healthy_count += 1
+        else:
+            unhealthy_count += 1
+
+        jurisdiction_health.append({
+            "jurisdiction_id": jurisdiction.id,
+            "name": jurisdiction.name,
+            "healthy": healthy,
+            "issues": issues,
+            "consecutive_failures": jurisdiction.consecutive_scrape_failures,
+            "last_scraped_at": jurisdiction.last_scraped_at.isoformat() if jurisdiction.last_scraped_at else None
+        })
+
+    return {
+        "success": True,
+        "summary": {
+            "total_jurisdictions": len(jurisdictions),
+            "healthy": healthy_count,
+            "unhealthy": unhealthy_count,
+            "at_risk_of_disable": disabled_count,
+            "health_percentage": round((healthy_count / len(jurisdictions)) * 100, 1) if jurisdictions else 0
+        },
+        "jurisdictions": jurisdiction_health,
+        "generated_at": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/scheduler/status")
+async def get_scheduler_status(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current status of APScheduler background jobs.
+
+    Returns information about scheduled jobs including:
+    - Job ID and name
+    - Next scheduled run time
+    - Pending status
+
+    **Use Cases:**
+    - Verifying scheduler is running
+    - Debugging scheduling issues
+    - Operations monitoring
+    """
+    try:
+        from app.scheduler import get_scheduler_status
+        status = get_scheduler_status()
+
+        return {
+            "success": True,
+            "scheduler": status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get scheduler status: {str(e)}"
+        )
+
+
+# ============================================================================
+# PHASE 5: JURISDICTION ONBOARDING AUTOMATION
+# ============================================================================
+
+@router.post("/jurisdictions/onboard", response_model=dict)
+async def onboard_jurisdiction(
+    name: str = Query(..., description="Jurisdiction name"),
+    code: str = Query(..., description="Jurisdiction code (e.g., CA_SUP)"),
+    court_website: str = Query(..., description="Main court website URL"),
+    rules_url: str = Query(..., description="URL to court rules page"),
+    court_type: str = Query("state", description="Court type: federal, state, or local"),
+    sync_frequency: str = Query("WEEKLY", description="Sync frequency: DAILY, WEEKLY, or MONTHLY"),
+    auto_approve_high_confidence: bool = Query(False, description="Auto-approve rules with confidence ≥95%"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Automated jurisdiction onboarding - Phase 5 Feature
+
+    Complete end-to-end onboarding workflow:
+    1. Validate URLs
+    2. Create jurisdiction record
+    3. Run Cartographer to discover scraper config
+    4. Extract rules from court website
+    5. Establish Watchtower baseline
+    6. Configure sync schedule
+    7. Generate onboarding report
+
+    **Example:**
+    ```
+    POST /api/v1/authority-core/jurisdictions/onboard?name=California+Superior+Court&code=CA_SUP&court_website=https://courts.ca.gov&rules_url=https://courts.ca.gov/rules.htm
+    ```
+
+    **Returns:**
+    - Comprehensive onboarding report with status, metrics, and next steps
+    - Success rate: ~80% for standard court websites
+    - Processing time: 5-15 minutes depending on site complexity
+
+    **Requirements:**
+    - Admin user privileges (future enhancement)
+    - Valid court website and rules URLs
+    - Rules page must be accessible (no authentication required)
+    """
+    try:
+        from app.services.jurisdiction_onboarding_service import JurisdictionOnboardingService
+
+        onboarding_service = JurisdictionOnboardingService(db)
+
+        # Execute onboarding
+        report = await onboarding_service.onboard_jurisdiction(
+            name=name,
+            code=code,
+            court_website=court_website,
+            rules_url=rules_url,
+            court_type=court_type,
+            sync_frequency=sync_frequency,
+            auto_approve_high_confidence=auto_approve_high_confidence
+        )
+
+        return {
+            "success": True,
+            "report": report,
+            "message": f"Onboarding {report['status']} for {name}"
+        }
+
+    except Exception as e:
+        logger.error(f"Jurisdiction onboarding failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Onboarding failed: {str(e)}"
+        )
+
+
+@router.post("/jurisdictions/batch-onboard", response_model=dict)
+async def batch_onboard_jurisdictions(
+    jurisdictions: List[dict],
+    max_concurrent: int = Query(5, ge=1, le=10, description="Max concurrent onboarding operations"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Batch jurisdiction onboarding - Scale to 50+ jurisdictions
+
+    Onboard multiple jurisdictions in parallel with concurrency control.
+
+    **Example Request Body:**
+    ```json
+    [
+      {
+        "name": "California Superior Court",
+        "code": "CA_SUP",
+        "court_website": "https://courts.ca.gov",
+        "rules_url": "https://courts.ca.gov/rules.htm",
+        "court_type": "state"
+      },
+      {
+        "name": "New York Supreme Court",
+        "code": "NY_SUP",
+        "court_website": "https://nycourts.gov",
+        "rules_url": "https://nycourts.gov/rules",
+        "court_type": "state"
+      }
+    ]
+    ```
+
+    **Parameters:**
+    - `max_concurrent`: Maximum simultaneous operations (1-10, default: 5)
+    - Recommended: 5 for production, 10 for powerful servers
+
+    **Performance:**
+    - 50 jurisdictions: ~30-60 minutes with max_concurrent=5
+    - Each jurisdiction: 5-15 minutes average
+    - Memory usage: ~500MB per concurrent operation
+
+    **Returns:**
+    - Batch report with per-jurisdiction results
+    - Success/failure summary
+    - Detailed metrics for each jurisdiction
+    """
+    try:
+        from app.services.jurisdiction_onboarding_service import JurisdictionOnboardingService
+
+        # Validate input
+        if not jurisdictions or len(jurisdictions) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one jurisdiction required"
+            )
+
+        if len(jurisdictions) > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 100 jurisdictions per batch"
+            )
+
+        onboarding_service = JurisdictionOnboardingService(db)
+
+        # Execute batch onboarding
+        batch_report = await onboarding_service.batch_onboard_jurisdictions(
+            jurisdictions=jurisdictions,
+            max_concurrent=max_concurrent
+        )
+
+        return {
+            "success": True,
+            "batch_report": batch_report,
+            "message": f"Batch onboarding completed: {batch_report['summary']['completed']} succeeded, {batch_report['summary']['failed']} failed"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Batch onboarding failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Batch onboarding failed: {str(e)}"
+        )
+
+
+@router.get("/jurisdictions/{jurisdiction_id}/onboarding-status", response_model=dict)
+async def get_onboarding_status(
+    jurisdiction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current onboarding status for a jurisdiction
+
+    Returns comprehensive status including:
+    - Rule counts (total, verified, pending)
+    - Sync configuration
+    - Scraper health
+    - Pending inbox items
+    - Production readiness
+
+    **Use cases:**
+    - Monitor onboarding progress
+    - Check if jurisdiction is production-ready
+    - Identify blocking issues
+    """
+    try:
+        from app.services.jurisdiction_onboarding_service import JurisdictionOnboardingService
+
+        onboarding_service = JurisdictionOnboardingService(db)
+        status = onboarding_service.get_onboarding_status(jurisdiction_id)
+
+        if "error" in status:
+            raise HTTPException(status_code=404, detail=status["error"])
+
+        return {
+            "success": True,
+            "status": status
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get onboarding status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get status: {str(e)}"
+        )

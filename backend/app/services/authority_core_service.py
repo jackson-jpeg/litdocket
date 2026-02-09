@@ -39,6 +39,7 @@ from app.services.rule_extraction_service import (
     ExtractedRuleData,
     rule_extraction_service
 )
+from app.services.inbox_service import InboxService
 from app.schemas.authority_core import (
     ScrapeProgress,
     DeadlineSpec,
@@ -340,6 +341,50 @@ class AuthorityCoreService:
         self.db.add(proposal)
         self.db.commit()
         self.db.refresh(proposal)
+
+        # Phase 3: Create inbox item for attorney review
+        try:
+            inbox_service = InboxService(self.db)
+
+            # Get jurisdiction name for display
+            jurisdiction = self.db.query(Jurisdiction).filter(
+                Jurisdiction.id == jurisdiction_id
+            ).first()
+            jurisdiction_name = jurisdiction.name if jurisdiction else "Unknown"
+
+            # Determine priority based on confidence score
+            if extracted_data.confidence_score >= 0.95:
+                priority = "low"  # High confidence - likely auto-approved
+            elif extracted_data.confidence_score >= 0.80:
+                priority = "medium"  # Medium confidence - recommend approval
+            else:
+                priority = "high"  # Low confidence - requires careful review
+
+            inbox_service.create_inbox_item(
+                type="RULE_VERIFICATION",
+                title=f"New Rule: {extracted_data.rule_name}",
+                description=f"Extracted rule from {jurisdiction_name} requires verification. Confidence: {extracted_data.confidence_score:.0%}",
+                jurisdiction_id=jurisdiction_id,
+                rule_id=None,  # Will be set when approved
+                metadata={
+                    "proposal_id": proposal.id,
+                    "rule_code": extracted_data.rule_code,
+                    "citation": extracted_data.citation,
+                    "trigger_type": extracted_data.trigger_type,
+                    "deadlines_count": len(extracted_data.deadlines),
+                    "confidence": extracted_data.confidence_score,
+                    "source_url": extracted_data.source_url,
+                    "complexity": extracted_data.complexity,
+                    "extraction_notes": extracted_data.extraction_notes
+                },
+                priority=priority
+            )
+
+            logger.info(f"Created inbox item for proposal {proposal.id}")
+
+        except Exception as e:
+            logger.error(f"Failed to create inbox item for proposal {proposal.id}: {str(e)}")
+            # Don't fail proposal creation if inbox item fails
 
         logger.info(
             f"Created proposal {proposal.id} for rule {extracted_data.rule_code} "
@@ -1022,12 +1067,23 @@ class AuthorityCoreService:
                 }
                 calc_method = method_map.get(method_str, CalculationMethod.CALENDAR_DAYS)
 
-                # Calculate the date
-                deadline_date = calculator.calculate_deadline(
-                    start_date=trigger_date,
-                    days=days,
-                    method=calc_method
+                # Calculate the date using AuthoritativeDeadlineCalculator
+                # Get jurisdiction name for the calculator
+                jurisdiction_obj = self.db.query(Jurisdiction).filter(
+                    Jurisdiction.id == jurisdiction_id
+                ).first()
+                jurisdiction_name = "state" if jurisdiction_obj and jurisdiction_obj.code == "FL" else "federal"
+
+                calculation = calculator.calculate_deadline(
+                    trigger_date=trigger_date,
+                    base_days=days,
+                    service_method=service_method,
+                    calculation_method=calc_method,
+                    jurisdiction=jurisdiction_name
                 )
+
+                # Extract the deadline date from the DeadlineCalculation object
+                deadline_date = calculation.final_deadline
 
                 calculated.append(CalculatedDeadline(
                     title=deadline_spec.get("title", "Unknown"),
