@@ -99,6 +99,18 @@ class ProposalStatus(enum.Enum):
     NEEDS_REVISION = "needs_revision"
 
 
+class ProposalActionType(enum.Enum):
+    """Phase 7 Step 11: Types of actions that AI can propose for user approval"""
+    CREATE_DEADLINE = "create_deadline"
+    UPDATE_DEADLINE = "update_deadline"
+    DELETE_DEADLINE = "delete_deadline"
+    MOVE_DEADLINE = "move_deadline"
+    UPDATE_CASE = "update_case"
+    ADD_PARTY = "add_party"
+    REMOVE_PARTY = "remove_party"
+    UPLOAD_DOCUMENT = "upload_document"
+
+
 class ScrapeStatus(enum.Enum):
     """Status of web scraping jobs for rule extraction"""
     QUEUED = "queued"

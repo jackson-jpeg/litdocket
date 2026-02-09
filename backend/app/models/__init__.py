@@ -56,6 +56,7 @@ from app.models.enums import (
     CalculationMethod,
     AuthorityTier,
     ProposalStatus,
+    ProposalActionType,
     ScrapeStatus,
     ConflictResolution,
     InboxItemType,
@@ -109,6 +110,9 @@ from app.models.ai_agent import (
 from app.models.inbox import InboxItem, ScraperHealthLog
 from app.models.watchtower import WatchtowerHash
 
+# Phase 7 Step 11: Proposal System for AI Safety Rails
+from app.models.proposal import Proposal
+
 __all__ = [
     "Base",
     "User",
@@ -157,6 +161,7 @@ __all__ = [
     "CalculationMethod",
     "AuthorityTier",
     "ProposalStatus",
+    "ProposalActionType",
     "ScrapeStatus",
     "ConflictResolution",
     "InboxItemType",
@@ -194,4 +199,6 @@ __all__ = [
     "InboxItem",
     "ScraperHealthLog",
     "WatchtowerHash",
+    # Phase 7 Step 11: Proposal System
+    "Proposal",
 ]

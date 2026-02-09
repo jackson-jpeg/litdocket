@@ -43,6 +43,9 @@ class Case(Base):
     # AI Agent analytics
     agent_analytics = relationship("AgentAnalytics", back_populates="case", cascade="all, delete-orphan")
 
+    # Phase 7 Step 11: AI Proposals for Safety Rails
+    proposals = relationship("Proposal", back_populates="case", cascade="all, delete-orphan")
+
     # Unique constraint on user_id + case_number
     __table_args__ = (
         UniqueConstraint('user_id', 'case_number', name='uq_user_case_number'),
