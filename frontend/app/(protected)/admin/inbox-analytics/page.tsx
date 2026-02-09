@@ -15,7 +15,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/api-client';
+import apiClient from '@/lib/api-client';
 
 interface InboxStats {
   total_items: number;

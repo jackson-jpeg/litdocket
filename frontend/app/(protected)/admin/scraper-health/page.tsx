@@ -14,7 +14,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/api-client';
+import apiClient from '@/lib/api-client';
 
 interface ScraperHealth {
   jurisdiction_id: string;
