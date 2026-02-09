@@ -3,7 +3,7 @@ from app.api.v1 import (
     auth, documents, cases, deadlines, chat, chat_stream, dashboard, triggers,
     search, insights, verification, notifications, jurisdictions,
     rag_search, workload, rules, audit, authority_core, health, case_intelligence,
-    case_access, agents
+    case_access, agents, inbox
 )
 
 api_router = APIRouter()
@@ -52,3 +52,6 @@ api_router.include_router(case_access.router, tags=["case-access"])
 
 # AI Agents - Specialized Chat Personas
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])
+
+# Inbox - Unified Approval Workflow
+api_router.include_router(inbox.router, prefix="/inbox", tags=["inbox"])

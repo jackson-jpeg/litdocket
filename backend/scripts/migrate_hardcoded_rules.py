@@ -17,7 +17,7 @@ import sys
 import os
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import uuid
 
@@ -41,26 +41,23 @@ JURISDICTION_MAPPING = {
     "florida": "FL",
 }
 
-# Trigger type mapping
+# Trigger type mapping (maps enum to string values for Authority Core)
 TRIGGER_TYPE_MAPPING = {
     TriggerType.CASE_FILED: "case_filed",
+    TriggerType.SERVICE_COMPLETED: "service_completed",
     TriggerType.COMPLAINT_SERVED: "complaint_served",
-    TriggerType.ANSWER_FILED: "answer_filed",
-    TriggerType.DISCOVERY_SERVED: "discovery_served",
+    TriggerType.ANSWER_DUE: "answer_due",
+    TriggerType.DISCOVERY_COMMENCED: "discovery_commenced",
     TriggerType.DISCOVERY_DEADLINE: "discovery_deadline",
-    TriggerType.MOTION_FILED: "motion_filed",
-    TriggerType.MOTION_HEARING: "motion_hearing",
-    TriggerType.TRIAL_DATE: "trial_date",
+    TriggerType.DISPOSITIVE_MOTIONS_DUE: "dispositive_motions_due",
     TriggerType.PRETRIAL_CONFERENCE: "pretrial_conference",
-    TriggerType.MEDIATION: "mediation",
-    TriggerType.ARBITRATION: "arbitration",
-    TriggerType.APPEAL_FILED: "appeal_filed",
-    TriggerType.JUDGMENT_ENTERED: "judgment_entered",
-    TriggerType.ORDER_ENTERED: "order_entered",
+    TriggerType.TRIAL_DATE: "trial_date",
     TriggerType.HEARING_SCHEDULED: "hearing_scheduled",
-    TriggerType.DEPOSITION_NOTICED: "deposition_noticed",
-    TriggerType.EXPERT_DISCLOSED: "expert_disclosed",
-    TriggerType.CUSTOM: "custom",
+    TriggerType.MOTION_FILED: "motion_filed",
+    TriggerType.ORDER_ENTERED: "order_entered",
+    TriggerType.APPEAL_FILED: "appeal_filed",
+    TriggerType.MEDIATION_SCHEDULED: "mediation_scheduled",
+    TriggerType.CUSTOM_TRIGGER: "custom_trigger",
 }
 
 # Priority mapping
@@ -165,6 +162,29 @@ def get_jurisdiction_id(db: Session, jurisdiction_str: str) -> Optional[str]:
     return jurisdiction.id if jurisdiction else None
 
 
+def calculate_complexity(rule: Dict[str, Any]) -> int:
+    """
+    Calculate complexity score (1-10) for tiered AI pipeline.
+
+    Factors:
+    - Number of deadlines (base score)
+    - Presence of conditions (+2)
+    - Service extensions (+1)
+    - Number of condition fields (+1 each)
+    """
+    complexity = min(len(rule["deadlines"]), 5)  # Base: 1-5 based on deadline count
+
+    if rule.get("conditions"):
+        complexity += 2
+        complexity += len(rule["conditions"]) - 1  # Additional conditions
+
+    if rule.get("service_extensions") and any(v > 0 for v in rule.get("service_extensions", {}).values()):
+        complexity += 1
+
+    # Cap at 10
+    return min(complexity, 10)
+
+
 def create_authority_rule(
     db: Session,
     rule: Dict[str, Any],
@@ -172,6 +192,9 @@ def create_authority_rule(
     user_id: Optional[str] = None
 ) -> AuthorityRule:
     """Create an AuthorityRule from a hardcoded rule definition."""
+    # Build raw_text for content hashing
+    raw_text = f"{rule['rule_name']}\n{rule.get('citation', '')}\n{rule.get('description', '')}"
+
     authority_rule = AuthorityRule(
         id=str(uuid.uuid4()),
         user_id=user_id,
@@ -182,13 +205,18 @@ def create_authority_rule(
         trigger_type=rule["trigger_type"],
         citation=rule["citation"],
         source_text=rule.get("description"),
+        raw_text=raw_text,
         deadlines=rule["deadlines"],
         conditions=rule.get("conditions"),
         service_extensions=rule.get("service_extensions", {"mail": 3, "electronic": 0, "personal": 0}),
         confidence_score=1.0,  # Hardcoded rules have perfect confidence
         is_verified=True,
-        verified_at=datetime.utcnow(),
+        verified_at=datetime.now(timezone.utc),
         is_active=True,
+        # Rules Harvester integration fields
+        complexity=calculate_complexity(rule),
+        version=1,  # Initial version
+        previous_raw_text=None,  # No previous version for initial migration
     )
 
     return authority_rule
@@ -300,6 +328,7 @@ def preview_migration() -> List[Dict[str, Any]]:
             "citation": rule["citation"],
             "deadlines_count": len(rule["deadlines"]),
             "authority_tier": rule["authority_tier"].value if hasattr(rule["authority_tier"], "value") else str(rule["authority_tier"]),
+            "complexity": calculate_complexity(rule),
         })
 
     return preview
@@ -326,6 +355,7 @@ def main():
             print(f"    Citation: {rule['citation']}")
             print(f"    Deadlines: {rule['deadlines_count']}")
             print(f"    Tier: {rule['authority_tier']}")
+            print(f"    Complexity: {rule['complexity']}/10 (AI tier: {'BASIC' if rule['complexity'] <= 3 else 'STANDARD' if rule['complexity'] <= 6 else 'ADVANCED'})")
             print()
         return
 

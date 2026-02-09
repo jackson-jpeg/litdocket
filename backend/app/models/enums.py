@@ -116,3 +116,30 @@ class ConflictResolution(enum.Enum):
     USE_RULE_B = "use_rule_b"
     MANUAL = "manual"
     IGNORED = "ignored"
+
+
+class InboxItemType(enum.Enum):
+    """
+    Types of items in the unified inbox approval workflow.
+
+    This consolidates multiple approval workflows into a single queue.
+    """
+    JURISDICTION_APPROVAL = "JURISDICTION_APPROVAL"  # New jurisdiction from Cartographer
+    RULE_VERIFICATION = "RULE_VERIFICATION"  # Rule needing review (low confidence)
+    WATCHTOWER_CHANGE = "WATCHTOWER_CHANGE"  # Detected rule change
+    SCRAPER_FAILURE = "SCRAPER_FAILURE"  # Scraper needs manual intervention
+    CONFLICT_RESOLUTION = "CONFLICT_RESOLUTION"  # Rule conflict pending review
+
+
+class InboxStatus(enum.Enum):
+    """Status of inbox items"""
+    PENDING = "PENDING"
+    REVIEWED = "REVIEWED"
+    DEFERRED = "DEFERRED"
+
+
+class SyncFrequency(enum.Enum):
+    """How often watchtower should check a jurisdiction for updates"""
+    DAILY = "DAILY"  # Checked at 6:00 AM UTC
+    WEEKLY = "WEEKLY"  # Checked Sundays at 3:00 AM UTC
+    MANUAL_ONLY = "MANUAL_ONLY"  # Only checked via manual trigger

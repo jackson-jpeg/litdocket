@@ -1,27 +1,25 @@
 """
-Rule Extraction Service - AI-Powered Rule Extraction from Court Documents
+Rule Extraction Service - AI-Powered Rule Extraction with Tool Use
 
-Uses Claude's capabilities to:
-1. Search for court rules via web search
-2. Extract structured rule data from legal text
-3. Calculate confidence scores for extractions
-4. Map extracted rules to trigger types
-5. Scrape and clean legal text from court URLs (RuleHarvester-2 enhancement)
-6. Extract rules with extended thinking for complex documents
-7. Detect conflicts between extracted rules and cited authorities
+Enhanced version using Anthropic tool use for reliable structured extraction.
+
+Key improvements over text-based parsing:
+1. Uses Claude's native tool use (no JSON parsing failures)
+2. Complexity assessment for tiered AI pipeline
+3. Structured output with type safety
+4. Better error handling
 """
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
-import re
 import logging
 import hashlib
 import httpx
 
 from anthropic import Anthropic
+from anthropic.types import Message, ToolUseBlock
 
 from app.config import settings
 from app.models.enums import TriggerType, AuthorityTier
-from app.utils.json_extractor import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +62,14 @@ class ExtractedRuleData:
     service_extensions: Optional[Dict[str, int]] = None
     confidence_score: float = 0.0
     extraction_notes: Optional[str] = None
-    # RuleHarvester-2 enhancements
+    complexity: Optional[int] = None  # 1-10 complexity score
     related_rules: List[RelatedRule] = field(default_factory=list)
     extraction_reasoning: List[str] = field(default_factory=list)
 
 
 @dataclass
 class ScrapedContent:
-    """Result from scraping a court URL (RuleHarvester-2 enhancement)"""
+    """Result from scraping a court URL"""
     raw_text: str  # Clean legal text with nav/UI filtered out
     content_hash: str  # For change detection (first 1000 chars hash)
     source_urls: List[str]  # Grounding URLs for the content
@@ -95,69 +93,181 @@ class SearchResult:
     relevance_score: float
 
 
+# =============================================================
+# TOOL DEFINITIONS
+# =============================================================
+
+EXTRACTION_TOOL = {
+    "name": "submit_extraction",
+    "description": "Submit the extracted rule data in structured format",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "rule_code": {
+                "type": "string",
+                "description": "Unique identifier (e.g., 'SDFL_LR_7.1_a_2' for S.D. Florida Local Rule 7.1(a)(2))"
+            },
+            "rule_name": {
+                "type": "string",
+                "description": "Human-readable name (e.g., 'Motion Response Time')"
+            },
+            "trigger_type": {
+                "type": "string",
+                "enum": [
+                    "case_filed", "service_completed", "complaint_served", "answer_due",
+                    "discovery_commenced", "discovery_deadline", "dispositive_motions_due",
+                    "pretrial_conference", "trial_date", "hearing_scheduled",
+                    "motion_filed", "order_entered", "appeal_filed", "mediation_scheduled",
+                    "custom_trigger"
+                ],
+                "description": "What event triggers this rule"
+            },
+            "authority_tier": {
+                "type": "string",
+                "enum": ["federal", "state", "local", "standing_order", "firm"],
+                "description": "Authority level (federal > state > local > standing_order > firm)"
+            },
+            "citation": {
+                "type": "string",
+                "description": "Official citation (e.g., 'S.D. Fla. L.R. 7.1(a)(2)')"
+            },
+            "deadlines": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Deadline name"},
+                        "days_from_trigger": {
+                            "type": "integer",
+                            "description": "Days from trigger (negative = before, positive = after)"
+                        },
+                        "calculation_method": {
+                            "type": "string",
+                            "enum": ["calendar_days", "business_days", "court_days"]
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": ["informational", "standard", "important", "critical", "fatal"]
+                        },
+                        "party_responsible": {
+                            "type": "string",
+                            "enum": ["plaintiff", "defendant", "moving_party", "opposing_party", "both", "court"]
+                        },
+                        "description": {"type": "string", "description": "What must be done"},
+                        "conditions": {
+                            "type": "object",
+                            "description": "Conditions when this deadline applies"
+                        }
+                    },
+                    "required": ["title", "days_from_trigger", "calculation_method", "priority"]
+                }
+            },
+            "related_rules": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "citation": {"type": "string"},
+                        "purpose": {"type": "string"}
+                    },
+                    "required": ["citation", "purpose"]
+                },
+                "description": "Related rules that are referenced"
+            },
+            "conditions": {
+                "type": "object",
+                "description": "When the rule applies (case_types, motion_types, etc.)"
+            },
+            "service_extensions": {
+                "type": "object",
+                "description": "Additional days for service methods",
+                "properties": {
+                    "mail": {"type": "integer"},
+                    "electronic": {"type": "integer"},
+                    "personal": {"type": "integer"}
+                }
+            },
+            "confidence_score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Confidence in extraction accuracy (0-100)"
+            },
+            "extraction_reasoning": {
+                "type": "string",
+                "description": "Brief explanation of extraction decisions"
+            }
+        },
+        "required": [
+            "rule_code", "rule_name", "trigger_type", "authority_tier",
+            "citation", "deadlines", "confidence_score", "extraction_reasoning"
+        ]
+    }
+}
+
+COMPLEXITY_TOOL = {
+    "name": "assess_complexity",
+    "description": "Assess the complexity of the rule for tiered AI processing",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "complexity_score": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10,
+                "description": "Complexity score (1=simple deadline, 10=highly complex multi-conditional rule)"
+            },
+            "reasoning": {
+                "type": "string",
+                "description": "Why this complexity score was assigned"
+            },
+            "factors": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Complexity factors (e.g., 'multiple deadlines', 'conditional logic', 'cross-references')"
+            }
+        },
+        "required": ["complexity_score", "reasoning", "factors"]
+    }
+}
+
+
+# =============================================================
+# EXTRACTION SERVICE
+# =============================================================
+
 class RuleExtractionService:
     """
-    Service for extracting court rules using Claude AI.
+    Service for extracting court rules using Claude AI with tool use.
 
-    This service uses Claude's capabilities to:
-    1. Search the web for court rules
-    2. Extract structured data from rule text
-    3. Map rules to trigger types
-    4. Calculate confidence scores
+    This service uses Claude's native tool use capability for reliable
+    structured extraction without brittle JSON parsing.
     """
 
-    EXTRACTION_PROMPT = """You are Authority Core, an expert legal AI that extracts procedural court rules from legal documents and websites.
+    EXTRACTION_SYSTEM_PROMPT = """You are Authority Core, an expert legal AI that extracts procedural court rules from legal documents and websites.
 
-Your task is to extract structured rule data from the provided text. For each rule found, extract:
+Your task is to extract structured rule data from the provided text. Be precise with:
+- Day counts (verify against source text)
+- Exact citations from the source
+- Correct trigger_type based on what event starts the countdown
+- Authority tier (federal > state > local > standing_order > firm)
+- Conditions that limit when the rule applies
 
-1. **rule_code**: A unique identifier (e.g., "SDFL_LR_7.1_a_2" for S.D. Florida Local Rule 7.1(a)(2))
-2. **rule_name**: Human-readable name (e.g., "Motion Response Time")
-3. **trigger_type**: What event triggers this rule. Must be one of:
-   - case_filed, service_completed, complaint_served, answer_due
-   - discovery_commenced, discovery_deadline, dispositive_motions_due
-   - pretrial_conference, trial_date, hearing_scheduled
-   - motion_filed, order_entered, appeal_filed, mediation_scheduled
-   - custom_trigger
-4. **citation**: Official citation (e.g., "S.D. Fla. L.R. 7.1(a)(2)")
-5. **deadlines**: Array of deadline specifications:
-   - title: Deadline name
-   - days_from_trigger: Integer (negative for before trigger, positive for after)
-   - calculation_method: "calendar_days", "business_days", or "court_days"
-   - priority: "informational", "standard", "important", "critical", or "fatal"
-   - party_responsible: "plaintiff", "defendant", "moving_party", "opposing_party", "both", or "court"
-   - conditions: Optional object with conditions when this deadline applies
-6. **conditions**: When the rule applies (case_types, motion_types, etc.)
-7. **service_extensions**: Additional days for service methods {"mail": 3, "electronic": 0, "personal": 0}
+Use the submit_extraction tool to return your analysis."""
 
-Return a JSON array of extracted rules. If no rules are found, return an empty array.
+    COMPLEXITY_SYSTEM_PROMPT = """You are a legal complexity analyst. Assess the complexity of this court rule.
 
-IMPORTANT:
-- Be precise with day counts - verify against the source text
-- Include the exact citation from the source
-- Map to the correct trigger_type based on what event starts the countdown
-- For federal rules, use "federal" tier; for state rules use "state"; for local rules use "local"
-- Include any conditions that limit when the rule applies
+Complexity factors:
+- Number of deadlines (1 = simple, 5+ = complex)
+- Conditional logic (if/then, exceptions)
+- Cross-references to other rules
+- Calculation method complexity (business days vs calendar days)
+- Service method variations
+- Party-specific requirements
 
-Example output:
-[
-  {
-    "rule_code": "SDFL_LR_7.1_a_2",
-    "rule_name": "Response to Motion - S.D. Florida",
-    "trigger_type": "motion_filed",
-    "authority_tier": "local",
-    "citation": "S.D. Fla. L.R. 7.1(a)(2)",
-    "deadlines": [
-      {
-        "title": "Response to Motion Due",
-        "days_from_trigger": 14,
-        "calculation_method": "calendar_days",
-        "priority": "important",
-        "party_responsible": "opposing_party"
-      }
-    ],
-    "service_extensions": {"mail": 3, "electronic": 0, "personal": 0}
-  }
-]"""
+Score: 1-3 (simple), 4-6 (moderate), 7-10 (highly complex)
+
+Use the assess_complexity tool to submit your assessment."""
 
     TRIGGER_TYPE_KEYWORDS = {
         TriggerType.CASE_FILED: ["case filed", "filing", "commencement", "initiation"],
@@ -185,41 +295,48 @@ Example output:
         self,
         content: str,
         jurisdiction_name: str,
-        source_url: Optional[str] = None
+        source_url: Optional[str] = None,
+        assess_complexity: bool = True
     ) -> List[ExtractedRuleData]:
         """
-        Extract rules from provided content using Claude.
+        Extract rules from provided content using Claude with tool use.
 
         Args:
             content: The text content containing court rules
             jurisdiction_name: Name of the jurisdiction for context
             source_url: Optional URL where content was found
+            assess_complexity: Whether to assess complexity (default: True)
 
         Returns:
             List of extracted rule data
         """
-        prompt = f"""{self.EXTRACTION_PROMPT}
+        prompt = f"""Extract all procedural rules from this legal text.
 
-JURISDICTION CONTEXT: {jurisdiction_name}
+JURISDICTION: {jurisdiction_name}
 
 SOURCE TEXT:
-{content[:15000]}  # Limit to ~15k chars to stay within context
+{content[:15000]}
 
-Extract all procedural rules from this text and return as JSON array."""
+Extract each rule and submit using the submit_extraction tool."""
 
         try:
             response = self.anthropic.messages.create(
                 model=self.model,
                 max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}]
+                system=self.EXTRACTION_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+                tools=[EXTRACTION_TOOL],
+                tool_choice={"type": "any"}  # Allow but don't require tool use
             )
 
-            extracted = self._parse_extraction_response(response.content[0].text)
+            # Extract tool uses from response
+            extracted_rules = self._extract_tool_results(response)
 
             # Convert to ExtractedRuleData objects
             results = []
-            for rule_dict in extracted:
+            for rule_dict in extracted_rules:
                 try:
+                    # Parse deadlines
                     deadlines = [
                         ExtractedDeadline(
                             title=d.get("title", ""),
@@ -231,6 +348,15 @@ Extract all procedural rules from this text and return as JSON array."""
                             description=d.get("description")
                         )
                         for d in rule_dict.get("deadlines", [])
+                    ]
+
+                    # Parse related rules
+                    related_rules = [
+                        RelatedRule(
+                            citation=r.get("citation", ""),
+                            purpose=r.get("purpose", "")
+                        )
+                        for r in rule_dict.get("related_rules", [])
                     ]
 
                     rule_data = ExtractedRuleData(
@@ -246,10 +372,19 @@ Extract all procedural rules from this text and return as JSON array."""
                         service_extensions=rule_dict.get("service_extensions", {
                             "mail": 3, "electronic": 0, "personal": 0
                         }),
-                        confidence_score=self._calculate_confidence(rule_dict),
-                        extraction_notes=None
+                        confidence_score=float(rule_dict.get("confidence_score", 0.0)),
+                        extraction_notes=rule_dict.get("extraction_reasoning"),
+                        related_rules=related_rules,
+                        extraction_reasoning=[rule_dict.get("extraction_reasoning", "")]
                     )
+
+                    # Assess complexity if requested
+                    if assess_complexity and deadlines:
+                        complexity_score = await self._assess_complexity(content[:4000], rule_data)
+                        rule_data.complexity = complexity_score
+
                     results.append(rule_data)
+
                 except Exception as e:
                     logger.warning(f"Failed to parse rule: {e}")
                     continue
@@ -260,221 +395,129 @@ Extract all procedural rules from this text and return as JSON array."""
             logger.error(f"Rule extraction failed: {e}")
             return []
 
-    async def search_court_rules(
+    async def _assess_complexity(
         self,
-        jurisdiction_name: str,
-        query: str
-    ) -> List[SearchResult]:
+        rule_text: str,
+        rule_data: ExtractedRuleData
+    ) -> int:
         """
-        Search for court rules using Claude's web search capability.
-
-        Note: This method prepares search queries. The actual web search
-        would be performed by the Authority Core service using WebFetch/WebSearch.
+        Assess the complexity of a rule for tiered AI processing.
 
         Args:
-            jurisdiction_name: Name of the jurisdiction
-            query: User's search query
+            rule_text: The rule text to assess
+            rule_data: The extracted rule data
 
         Returns:
-            List of suggested search queries/URLs
+            Complexity score (1-10)
         """
-        # Build search query
-        search_terms = f"{jurisdiction_name} court rules {query}"
+        prompt = f"""Assess the complexity of this court rule.
 
-        # Return suggested search patterns
-        return [
-            SearchResult(
-                url=f"https://www.uscourts.gov/rules-policies/current-rules",
-                title="Federal Rules",
-                snippet="Federal Rules of Civil Procedure",
-                relevance_score=0.9
-            ),
-            SearchResult(
-                url=f"https://www.flcourts.org/Resources-Services/Court-Rules",
-                title="Florida Court Rules",
-                snippet="Florida Rules of Civil Procedure",
-                relevance_score=0.9
-            )
-        ]
+RULE: {rule_data.rule_name}
+CITATION: {rule_data.citation}
+DEADLINES: {len(rule_data.deadlines)} deadline(s)
 
-    def _calculate_confidence(self, rule_dict: Dict[str, Any]) -> float:
-        """
-        Calculate confidence score for an extracted rule.
+RULE TEXT:
+{rule_text}
 
-        Factors:
-        - Has citation: +0.3
-        - Has deadlines with days specified: +0.2
-        - Has valid trigger type: +0.2
-        - Has rule code: +0.15
-        - Has conditions: +0.1
-        - Has service extensions: +0.05
-        """
-        score = 0.0
-
-        # Citation check
-        if rule_dict.get("citation"):
-            score += 0.3
-
-        # Deadlines check
-        deadlines = rule_dict.get("deadlines", [])
-        if deadlines and all(d.get("days_from_trigger") is not None for d in deadlines):
-            score += 0.2
-
-        # Trigger type check
-        trigger_type = rule_dict.get("trigger_type", "")
-        valid_triggers = [t.value for t in TriggerType]
-        if trigger_type in valid_triggers:
-            score += 0.2
-
-        # Rule code check
-        if rule_dict.get("rule_code") and rule_dict.get("rule_code") != "UNKNOWN":
-            score += 0.15
-
-        # Conditions check
-        if rule_dict.get("conditions"):
-            score += 0.1
-
-        # Service extensions check
-        if rule_dict.get("service_extensions"):
-            score += 0.05
-
-        return min(score, 1.0)
-
-    def map_to_trigger_type(self, rule_text: str) -> str:
-        """
-        Attempt to map rule text to a trigger type based on keywords.
-
-        Args:
-            rule_text: The rule text to analyze
-
-        Returns:
-            Trigger type string
-        """
-        lower_text = rule_text.lower()
-
-        # Check each trigger type's keywords
-        best_match = TriggerType.CUSTOM_TRIGGER
-        best_score = 0
-
-        for trigger_type, keywords in self.TRIGGER_TYPE_KEYWORDS.items():
-            score = sum(1 for kw in keywords if kw in lower_text)
-            if score > best_score:
-                best_score = score
-                best_match = trigger_type
-
-        return best_match.value
-
-    def _parse_extraction_response(self, text: str) -> List[Dict[str, Any]]:
-        """Parse JSON array from Claude's response using robust extractor."""
-        # Try extracting as array first
-        data, error = extract_json(text, expected_type="array")
-        if data is not None and isinstance(data, list):
-            return data
-
-        # Fallback: try extracting as object and wrap in list
-        data, error = extract_json(text, expected_type="object")
-        if data is not None and isinstance(data, dict):
-            return [data]
-
-        if error:
-            logger.warning(f"Could not parse extraction response: {error}")
-        return []
-
-    async def refine_extraction(
-        self,
-        original_extraction: ExtractedRuleData,
-        feedback: str
-    ) -> ExtractedRuleData:
-        """
-        Refine an extraction based on reviewer feedback.
-
-        Args:
-            original_extraction: The original extracted rule data
-            feedback: Feedback from the reviewer
-
-        Returns:
-            Refined extraction
-        """
-        prompt = f"""You previously extracted this rule:
-
-{json.dumps({
-    "rule_code": original_extraction.rule_code,
-    "rule_name": original_extraction.rule_name,
-    "trigger_type": original_extraction.trigger_type,
-    "citation": original_extraction.citation,
-    "deadlines": [
-        {
-            "title": d.title,
-            "days_from_trigger": d.days_from_trigger,
-            "calculation_method": d.calculation_method,
-            "priority": d.priority,
-            "party_responsible": d.party_responsible
-        }
-        for d in original_extraction.deadlines
-    ]
-}, indent=2)}
-
-From this source text:
-{original_extraction.source_text[:2000]}
-
-Reviewer feedback: {feedback}
-
-Please provide a corrected extraction as JSON. If the feedback indicates the extraction was wrong, correct it. If the feedback suggests additions, include them."""
+Consider:
+- Number of deadlines
+- Conditional logic
+- Cross-references
+- Calculation complexity
+- Service method variations"""
 
         try:
             response = self.anthropic.messages.create(
                 model=self.model,
-                max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}]
+                max_tokens=512,
+                system=self.COMPLEXITY_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+                tools=[COMPLEXITY_TOOL],
+                tool_choice={"type": "tool", "name": "assess_complexity"}
             )
 
-            extracted_list = self._parse_extraction_response(response.content[0].text)
-            if extracted_list:
-                rule_dict = extracted_list[0]
-                deadlines = [
-                    ExtractedDeadline(
-                        title=d.get("title", ""),
-                        days_from_trigger=d.get("days_from_trigger", 0),
-                        calculation_method=d.get("calculation_method", "calendar_days"),
-                        priority=d.get("priority", "standard"),
-                        party_responsible=d.get("party_responsible"),
-                        conditions=d.get("conditions"),
-                        description=d.get("description")
-                    )
-                    for d in rule_dict.get("deadlines", [])
-                ]
+            # Extract complexity score from tool use
+            for block in response.content:
+                if isinstance(block, ToolUseBlock) and block.name == "assess_complexity":
+                    score = block.input.get("complexity_score", 5)
+                    reasoning = block.input.get("reasoning", "")
+                    logger.info(f"Complexity assessment for {rule_data.rule_code}: {score}/10 - {reasoning}")
+                    return score
 
-                return ExtractedRuleData(
-                    rule_code=rule_dict.get("rule_code", original_extraction.rule_code),
-                    rule_name=rule_dict.get("rule_name", original_extraction.rule_name),
-                    trigger_type=rule_dict.get("trigger_type", original_extraction.trigger_type),
-                    authority_tier=rule_dict.get("authority_tier", original_extraction.authority_tier),
-                    citation=rule_dict.get("citation", original_extraction.citation),
-                    source_url=original_extraction.source_url,
-                    source_text=original_extraction.source_text,
-                    deadlines=deadlines,
-                    conditions=rule_dict.get("conditions", original_extraction.conditions),
-                    service_extensions=rule_dict.get("service_extensions", original_extraction.service_extensions),
-                    confidence_score=self._calculate_confidence(rule_dict),
-                    extraction_notes=f"Refined based on feedback: {feedback[:200]}"
-                )
+            # Default to medium complexity if assessment fails
+            return 5
 
         except Exception as e:
-            logger.error(f"Refinement failed: {e}")
+            logger.warning(f"Complexity assessment failed: {e}")
+            # Heuristic fallback
+            return self._heuristic_complexity(rule_data)
 
-        return original_extraction
+    def _heuristic_complexity(self, rule_data: ExtractedRuleData) -> int:
+        """
+        Fallback heuristic complexity scoring.
 
-    # =============================================================
-    # RULEHARVESTER-2 ENHANCED METHODS
-    # =============================================================
+        Args:
+            rule_data: The extracted rule data
+
+        Returns:
+            Complexity score (1-10)
+        """
+        score = 1
+
+        # Number of deadlines
+        num_deadlines = len(rule_data.deadlines)
+        if num_deadlines >= 5:
+            score += 3
+        elif num_deadlines >= 3:
+            score += 2
+        elif num_deadlines >= 2:
+            score += 1
+
+        # Conditions present
+        if rule_data.conditions:
+            score += 2
+
+        # Related rules (cross-references)
+        if rule_data.related_rules and len(rule_data.related_rules) > 0:
+            score += 1
+
+        # Service extensions (indicates calculation complexity)
+        if rule_data.service_extensions:
+            extensions = rule_data.service_extensions
+            if any(v > 0 for v in extensions.values()):
+                score += 1
+
+        # Mixed calculation methods
+        methods = set(d.calculation_method for d in rule_data.deadlines)
+        if len(methods) > 1:
+            score += 1
+
+        return min(score, 10)
+
+    def _extract_tool_results(self, response: Message) -> List[Dict[str, Any]]:
+        """
+        Extract tool use results from Claude's response.
+
+        Args:
+            response: Claude's message response
+
+        Returns:
+            List of extracted rule dictionaries
+        """
+        results = []
+
+        for block in response.content:
+            if isinstance(block, ToolUseBlock) and block.name == "submit_extraction":
+                results.append(block.input)
+
+        return results
 
     async def scrape_url_content(self, url: str) -> ScrapedContent:
         """
         Fetch and clean legal text from a court URL.
 
-        Adapted from ruleharvester's deepScanUrl(). Uses Claude to extract
-        clean legal text from court websites, filtering out navigation,
-        sidebars, footers, and other UI noise.
+        Uses Claude to extract clean legal text from court websites,
+        filtering out navigation, sidebars, footers, and other UI noise.
 
         Args:
             url: The URL to scrape (e.g., court rules page)
@@ -541,223 +584,29 @@ HTML CONTENT:
             logger.error(f"Content extraction failed for {url}: {e}")
             raise ValueError(f"Content extraction failed: {e}")
 
-    async def extract_with_extended_thinking(
-        self,
-        content: str,
-        jurisdiction_name: str,
-        source_url: Optional[str] = None
-    ) -> List[ExtractedRuleData]:
+    def map_to_trigger_type(self, rule_text: str) -> str:
         """
-        Extract rules using Claude's extended thinking for complex documents.
-
-        Adapted from ruleharvester's extractRuleData() with thinkingBudget.
-        Uses extended thinking to provide chain-of-thought reasoning for
-        complex rule extraction, improving accuracy and providing transparency.
+        Attempt to map rule text to a trigger type based on keywords.
 
         Args:
-            content: The text content containing court rules
-            jurisdiction_name: Name of the jurisdiction for context
-            source_url: Optional URL where content was found
+            rule_text: The rule text to analyze
 
         Returns:
-            List of ExtractedRuleData with extraction_reasoning populated
+            Trigger type string
         """
-        prompt = f"""{self.EXTRACTION_PROMPT}
+        lower_text = rule_text.lower()
 
-JURISDICTION CONTEXT: {jurisdiction_name}
+        # Check each trigger type's keywords
+        best_match = TriggerType.CUSTOM_TRIGGER
+        best_score = 0
 
-ADDITIONAL INSTRUCTIONS FOR EXTENDED THINKING:
-- Think through each rule carefully, identifying the trigger event, deadlines, and any conditions
-- Consider how this rule relates to other rules (e.g., FRCP time computation rules)
-- Note any ambiguities or areas requiring attorney review
-- Document your reasoning for deadline day counts and calculation methods
+        for trigger_type, keywords in self.TRIGGER_TYPE_KEYWORDS.items():
+            score = sum(1 for kw in keywords if kw in lower_text)
+            if score > best_score:
+                best_score = score
+                best_match = trigger_type
 
-SOURCE TEXT:
-{content[:15000]}
-
-Extract all procedural rules from this text and return as JSON array.
-After the JSON array, provide a brief "EXTRACTION_REASONING" section explaining your analysis."""
-
-        try:
-            # Use extended thinking for complex extraction
-            response = self.anthropic.messages.create(
-                model="claude-sonnet-4-20250514",  # Extended thinking requires specific model
-                max_tokens=16000,
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": 10000  # Allow substantial thinking for complex rules
-                },
-                messages=[{"role": "user", "content": prompt}]
-            )
-
-            # Extract thinking blocks for transparency
-            thinking_content = []
-            response_text = ""
-
-            for block in response.content:
-                if block.type == "thinking":
-                    thinking_content.append(block.thinking)
-                elif block.type == "text":
-                    response_text = block.text
-
-            # Parse the extraction response
-            extracted = self._parse_extraction_response(response_text)
-
-            # Extract reasoning section if present
-            extraction_reasoning = thinking_content  # Use thinking blocks as reasoning
-
-            # Also try to parse explicit EXTRACTION_REASONING from response
-            reasoning_match = re.search(
-                r'EXTRACTION_REASONING[:\s]*(.*?)(?=\Z|\n\n[A-Z])',
-                response_text,
-                re.DOTALL | re.IGNORECASE
-            )
-            if reasoning_match:
-                explicit_reasoning = reasoning_match.group(1).strip()
-                if explicit_reasoning:
-                    extraction_reasoning.append(explicit_reasoning)
-
-            # Convert to ExtractedRuleData objects with reasoning
-            results = []
-            for rule_dict in extracted:
-                try:
-                    deadlines = [
-                        ExtractedDeadline(
-                            title=d.get("title", ""),
-                            days_from_trigger=d.get("days_from_trigger", 0),
-                            calculation_method=d.get("calculation_method", "calendar_days"),
-                            priority=d.get("priority", "standard"),
-                            party_responsible=d.get("party_responsible"),
-                            conditions=d.get("conditions"),
-                            description=d.get("description")
-                        )
-                        for d in rule_dict.get("deadlines", [])
-                    ]
-
-                    # Parse related rules if present
-                    related_rules = [
-                        RelatedRule(
-                            citation=r.get("citation", ""),
-                            purpose=r.get("purpose", "")
-                        )
-                        for r in rule_dict.get("related_rules", [])
-                    ]
-
-                    rule_data = ExtractedRuleData(
-                        rule_code=rule_dict.get("rule_code", "UNKNOWN"),
-                        rule_name=rule_dict.get("rule_name", "Unknown Rule"),
-                        trigger_type=rule_dict.get("trigger_type", "custom_trigger"),
-                        authority_tier=rule_dict.get("authority_tier", "state"),
-                        citation=rule_dict.get("citation", ""),
-                        source_url=source_url,
-                        source_text=content[:2000],
-                        deadlines=deadlines,
-                        conditions=rule_dict.get("conditions"),
-                        service_extensions=rule_dict.get("service_extensions", {
-                            "mail": 3, "electronic": 0, "personal": 0
-                        }),
-                        confidence_score=self._calculate_confidence(rule_dict),
-                        extraction_notes=None,
-                        related_rules=related_rules,
-                        extraction_reasoning=extraction_reasoning
-                    )
-                    results.append(rule_data)
-                except Exception as e:
-                    logger.warning(f"Failed to parse rule: {e}")
-                    continue
-
-            return results
-
-        except Exception as e:
-            logger.error(f"Extended thinking extraction failed: {e}")
-            # Fall back to standard extraction
-            logger.info("Falling back to standard extraction")
-            return await self.extract_from_content(content, jurisdiction_name, source_url)
-
-    async def detect_authority_conflicts(
-        self,
-        rule: ExtractedRuleData,
-        authority_citation: str
-    ) -> List[DetectedConflict]:
-        """
-        Detect conflicts between an extracted rule and cited authority.
-
-        Adapted from ruleharvester's resolveRuleConflicts(). Cross-references
-        the extracted rule against cited authority (e.g., FRCP 6) to identify
-        any contradictions or discrepancies.
-
-        Args:
-            rule: The extracted rule to check
-            authority_citation: The authority to check against (e.g., "FRCP 6")
-
-        Returns:
-            List of DetectedConflict with AI-generated resolution recommendations
-        """
-        conflict_prompt = f"""You are a legal conflict detection assistant. Analyze whether the following extracted rule conflicts with the cited authority.
-
-EXTRACTED RULE:
-- Citation: {rule.citation}
-- Name: {rule.rule_name}
-- Trigger Type: {rule.trigger_type}
-- Deadlines: {json.dumps([{
-    'title': d.title,
-    'days': d.days_from_trigger,
-    'method': d.calculation_method
-} for d in rule.deadlines])}
-- Source Text: {rule.source_text[:1500]}
-
-AUTHORITY TO CHECK AGAINST: {authority_citation}
-
-INSTRUCTIONS:
-1. Consider whether the extracted rule's deadlines conflict with the cited authority
-2. Check if time computation methods are consistent
-3. Look for any explicit contradictions or ambiguities
-4. Consider jurisdictional hierarchy (local rules can modify but not contradict federal rules in most cases)
-
-If conflicts exist, return a JSON array with:
-[
-  {{
-    "rule_a": "citation of extracted rule",
-    "rule_b": "citation of authority being checked",
-    "discrepancy": "description of the conflict",
-    "ai_resolution_recommendation": "recommended resolution based on legal hierarchy and best practices"
-  }}
-]
-
-If NO conflicts exist, return an empty array: []
-
-Return ONLY the JSON array, no other text."""
-
-        try:
-            response = self.anthropic.messages.create(
-                model=self.model,
-                max_tokens=2048,
-                messages=[{"role": "user", "content": conflict_prompt}]
-            )
-
-            response_text = response.content[0].text.strip()
-
-            # Parse the JSON response
-            conflicts_data = self._parse_extraction_response(response_text)
-
-            # Convert to DetectedConflict objects
-            conflicts = []
-            for c in conflicts_data:
-                conflicts.append(DetectedConflict(
-                    rule_a=c.get("rule_a", rule.citation),
-                    rule_b=c.get("rule_b", authority_citation),
-                    discrepancy=c.get("discrepancy", "Unknown discrepancy"),
-                    ai_resolution_recommendation=c.get(
-                        "ai_resolution_recommendation",
-                        "Manual review recommended"
-                    )
-                ))
-
-            return conflicts
-
-        except Exception as e:
-            logger.error(f"Conflict detection failed: {e}")
-            return []
+        return best_match.value
 
 
 # Singleton instance

@@ -58,6 +58,9 @@ from app.models.enums import (
     ProposalStatus,
     ScrapeStatus,
     ConflictResolution,
+    InboxItemType,
+    InboxStatus,
+    SyncFrequency,
 )
 
 # Authority Core - AI-Powered Rules Database
@@ -101,6 +104,10 @@ from app.models.ai_agent import (
     UserAgentPreferences,
     AgentAnalytics,
 )
+
+# Rules Harvester Integration - Inbox & Watchtower
+from app.models.inbox import InboxItem, ScraperHealthLog
+from app.models.watchtower import WatchtowerHash
 
 __all__ = [
     "Base",
@@ -152,6 +159,9 @@ __all__ = [
     "ProposalStatus",
     "ScrapeStatus",
     "ConflictResolution",
+    "InboxItemType",
+    "InboxStatus",
+    "SyncFrequency",
     # Authority Core
     "AuthorityRule",
     "ScrapeJob",
@@ -180,4 +190,8 @@ __all__ = [
     "AIAgent",
     "UserAgentPreferences",
     "AgentAnalytics",
+    # Rules Harvester Integration
+    "InboxItem",
+    "ScraperHealthLog",
+    "WatchtowerHash",
 ]

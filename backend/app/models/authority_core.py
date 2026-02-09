@@ -58,6 +58,7 @@ class AuthorityRule(Base):
     citation = Column(Text)
     source_url = Column(Text)
     source_text = Column(Text)
+    raw_text = Column(Text)  # Raw text for content hashing (Watchtower change detection)
 
     # Deadline specifications (JSONB array)
     # Structure: [{ title, days_from_trigger, calculation_method, priority, party_responsible, conditions }]
@@ -73,6 +74,13 @@ class AuthorityRule(Base):
 
     # AI extraction confidence (0.00 - 1.00)
     confidence_score = Column(Numeric(3, 2), default=0.00)
+
+    # Complexity scoring for tiered AI pipeline (1-10 scale)
+    complexity = Column(Integer)  # 1-3: BASIC, 4-6: STANDARD, 7-10: ADVANCED
+
+    # Version tracking for change detection
+    version = Column(Integer, default=1)
+    previous_raw_text = Column(Text)  # Previous version's raw_text for diffing
 
     # Verification status
     is_verified = Column(Boolean, default=False, index=True)

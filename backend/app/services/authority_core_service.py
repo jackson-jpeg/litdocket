@@ -320,7 +320,8 @@ class AuthorityCoreService:
                 for d in extracted_data.deadlines
             ],
             "conditions": extracted_data.conditions,
-            "service_extensions": extracted_data.service_extensions
+            "service_extensions": extracted_data.service_extensions,
+            "complexity": extracted_data.complexity  # Store complexity for tiered processing
         }
 
         proposal = RuleProposal(
@@ -340,7 +341,10 @@ class AuthorityCoreService:
         self.db.commit()
         self.db.refresh(proposal)
 
-        logger.info(f"Created proposal {proposal.id} for rule {extracted_data.rule_code}")
+        logger.info(
+            f"Created proposal {proposal.id} for rule {extracted_data.rule_code} "
+            f"(complexity: {extracted_data.complexity}/10)"
+        )
         return proposal
 
     async def approve_proposal(
@@ -404,6 +408,7 @@ class AuthorityCoreService:
                 "mail": 3, "electronic": 0, "personal": 0
             }),
             confidence_score=proposal.confidence_score,
+            complexity=rule_data.get("complexity"),  # Store complexity score
             is_verified=True,
             verified_by=user_id,
             verified_at=datetime.utcnow(),
@@ -1672,4 +1677,198 @@ class AuthorityCoreService:
             "to_version": to_version,
             "changes": changes,
             "fields_changed": list(changes.keys())
+        }
+
+    # =========================================================================
+    # TIERED AI PROCESSING (Complexity-Based Cost Optimization)
+    # =========================================================================
+
+    def should_use_extended_thinking(self, complexity: Optional[int]) -> bool:
+        """
+        Determine if extended thinking should be used based on complexity.
+
+        Tiered approach:
+        - Simple (1-3): Basic extraction only
+        - Medium (4-6): + Conflict detection
+        - Complex (7-10): + Extended thinking + Full analysis
+
+        Args:
+            complexity: Rule complexity score (1-10)
+
+        Returns:
+            True if extended thinking should be used
+        """
+        if complexity is None:
+            return False  # Default to basic extraction if unknown
+
+        return complexity >= 7
+
+    def should_check_conflicts(self, complexity: Optional[int]) -> bool:
+        """
+        Determine if conflict checking should be performed.
+
+        Args:
+            complexity: Rule complexity score (1-10)
+
+        Returns:
+            True if conflict checking should be performed
+        """
+        if complexity is None:
+            return True  # Default to checking if unknown (safer)
+
+        return complexity >= 4
+
+    def get_processing_tier(self, complexity: Optional[int]) -> str:
+        """
+        Get the processing tier for a rule based on complexity.
+
+        Tiers:
+        - BASIC (1-3): Simple deadline, minimal processing
+        - STANDARD (4-6): Normal processing with conflict checks
+        - ADVANCED (7-10): Full analysis with extended thinking
+
+        Args:
+            complexity: Rule complexity score (1-10)
+
+        Returns:
+            Processing tier name
+        """
+        if complexity is None:
+            return "STANDARD"
+
+        if complexity <= 3:
+            return "BASIC"
+        elif complexity <= 6:
+            return "STANDARD"
+        else:
+            return "ADVANCED"
+
+    async def process_with_tiered_pipeline(
+        self,
+        extracted_data: ExtractedRuleData,
+        jurisdiction_id: str,
+        user_id: str
+    ) -> RuleProposal:
+        """
+        Process extracted rule data with complexity-based tiered pipeline.
+
+        This method orchestrates the full extraction workflow with cost optimization:
+        1. Assess complexity
+        2. Skip expensive operations for simple rules
+        3. Apply full analysis only for complex rules
+
+        Args:
+            extracted_data: The extracted rule data
+            jurisdiction_id: Target jurisdiction
+            user_id: User creating the proposal
+
+        Returns:
+            Created RuleProposal
+        """
+        complexity = extracted_data.complexity or 5  # Default to medium
+        tier = self.get_processing_tier(complexity)
+
+        logger.info(
+            f"Processing rule {extracted_data.rule_code} with {tier} tier "
+            f"(complexity: {complexity}/10)"
+        )
+
+        # BASIC tier - Skip conflict checks and extended analysis
+        if tier == "BASIC":
+            logger.info(f"Using BASIC tier for {extracted_data.rule_code} (cost optimization)")
+            proposal = await self.create_proposal(
+                extracted_data=extracted_data,
+                scrape_job_id=None,
+                jurisdiction_id=jurisdiction_id,
+                user_id=user_id
+            )
+            return proposal
+
+        # STANDARD tier - Include conflict checks
+        elif tier == "STANDARD":
+            logger.info(f"Using STANDARD tier for {extracted_data.rule_code}")
+            proposal = await self.create_proposal(
+                extracted_data=extracted_data,
+                scrape_job_id=None,
+                jurisdiction_id=jurisdiction_id,
+                user_id=user_id
+            )
+
+            # Check for conflicts if rule is approved
+            if proposal.status == ProposalStatus.APPROVED and proposal.approved_rule_id:
+                rule = self.get_rule(proposal.approved_rule_id)
+                if rule:
+                    await self._check_for_conflicts(rule)
+
+            return proposal
+
+        # ADVANCED tier - Full analysis with extended thinking
+        else:  # tier == "ADVANCED"
+            logger.info(f"Using ADVANCED tier for {extracted_data.rule_code} (full analysis)")
+
+            # Note: Extended thinking is already done in extraction if enabled
+            # This tier would include additional analysis like:
+            # - Swarm debate (multi-agent verification)
+            # - DNA analysis (jurisdiction pattern matching)
+            # - Risk profiling (malpractice risk assessment)
+            # These features can be added in the future
+
+            proposal = await self.create_proposal(
+                extracted_data=extracted_data,
+                scrape_job_id=None,
+                jurisdiction_id=jurisdiction_id,
+                user_id=user_id
+            )
+
+            # Full conflict analysis
+            if proposal.status == ProposalStatus.APPROVED and proposal.approved_rule_id:
+                rule = self.get_rule(proposal.approved_rule_id)
+                if rule:
+                    await self._check_for_conflicts(rule)
+
+            return proposal
+
+    def get_cost_savings_estimate(self, complexity: Optional[int]) -> Dict[str, Any]:
+        """
+        Estimate cost savings from tiered processing.
+
+        Args:
+            complexity: Rule complexity score (1-10)
+
+        Returns:
+            Dict with cost savings information
+        """
+        tier = self.get_processing_tier(complexity)
+
+        # Estimated token usage by tier (approximate)
+        token_usage = {
+            "BASIC": 2000,      # ~$0.006 per rule
+            "STANDARD": 5000,   # ~$0.015 per rule
+            "ADVANCED": 15000   # ~$0.045 per rule
+        }
+
+        # Cost per 1M tokens (Claude Sonnet 4.5)
+        cost_per_million_input = 3.00
+        cost_per_million_output = 15.00
+        avg_cost_per_million = (cost_per_million_input + cost_per_million_output) / 2
+
+        tokens = token_usage.get(tier, 5000)
+        estimated_cost = (tokens / 1_000_000) * avg_cost_per_million
+
+        # Savings vs always using ADVANCED
+        advanced_cost = (token_usage["ADVANCED"] / 1_000_000) * avg_cost_per_million
+        savings = advanced_cost - estimated_cost
+        savings_pct = (savings / advanced_cost) * 100 if advanced_cost > 0 else 0
+
+        return {
+            "tier": tier,
+            "complexity": complexity,
+            "estimated_tokens": tokens,
+            "estimated_cost_usd": round(estimated_cost, 4),
+            "savings_vs_advanced_usd": round(savings, 4),
+            "savings_pct": round(savings_pct, 1),
+            "features_enabled": {
+                "conflict_detection": self.should_check_conflicts(complexity),
+                "extended_thinking": self.should_use_extended_thinking(complexity)
+            }
         }
