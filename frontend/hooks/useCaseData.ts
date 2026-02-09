@@ -32,32 +32,40 @@ export interface Document {
 
 export interface Deadline {
   id: string;
+  case_id: string;  // Required field
   title: string;
-  description: string;
-  deadline_date?: string;
-  deadline_type: string;
-  priority: string;
-  status: string;
+  description?: string;
+  deadline_date: string;  // Made required to match backend
+  deadline_time?: string;
+  deadline_type?: string;
+  priority: 'informational' | 'standard' | 'important' | 'critical' | 'fatal';
+  status: 'pending' | 'completed' | 'cancelled';
   party_role?: string;
   action_required?: string;
   applicable_rule?: string;
   calculation_basis?: string;
-  rule_citation?: string;  // Full rule text
-  is_estimated: boolean;
+  rule_citation?: string;
+  trigger_event?: string;
+  trigger_date?: string;
+  is_estimated?: boolean;
   is_calculated?: boolean;
   is_dependent?: boolean;
-  trigger_event?: string;
+  is_manually_overridden?: boolean;
   source_document?: string;
-  service_method?: string;  // 'electronic' | 'mail' | 'personal'
-  created_at: string;
+  service_method?: 'electronic' | 'mail' | 'hand_delivery';
+  created_at?: string;
+  updated_at?: string;
   // Confidence scoring
-  confidence_score?: number;  // 0-100
-  confidence_level?: 'high' | 'medium' | 'low';
-  extraction_method?: 'rule-based' | 'ai' | 'manual';
-  verification_status?: 'pending' | 'verified' | 'disputed';
-  // Authority Core fields
-  source_rule_id?: string;  // Link to authority_rules table
-  authority_tier?: 'federal' | 'state' | 'local' | 'standing_order' | 'firm';
+  confidence_score?: number;
+  confidence_level?: 'low' | 'medium' | 'high';
+  extraction_method?: string;  // 'rule-based' | 'ai' | 'manual' | 'authority_core'
+  verification_status?: 'pending' | 'verified' | 'rejected';
+  // Phase 7: Authority Core Integration - "Math Trail" fields
+  source_rule_id?: string;  // Links to AuthorityRule that generated this deadline
+  calculation_type?: 'calendar_days' | 'business_days' | 'court_days';
+  days_count?: number;  // Original days in calculation before adjustments
+  extraction_quality_score?: number;  // 1-10 scale for AI extraction quality
+  original_deadline_date?: string;  // Audit trail for manual overrides
 }
 
 // Status summary for frontend badges (pre-calculated by backend)
@@ -198,7 +206,7 @@ export function useCaseData(caseId: string) {
   }, [caseId]);
 
   // Optimistic update functions for immediate UI feedback
-  const updateDeadlineStatus = useCallback((deadlineId: string, newStatus: string) => {
+  const updateDeadlineStatus = useCallback((deadlineId: string, newStatus: 'pending' | 'completed' | 'cancelled') => {
     setDeadlines(prev => prev.map(d =>
       d.id === deadlineId ? { ...d, status: newStatus } : d
     ));

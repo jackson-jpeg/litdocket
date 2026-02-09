@@ -15,12 +15,16 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
 import logging
+import os
 
 from app.models.case import Case
 from app.models.deadline import Deadline
 from app.models.document import Document
 
 logger = logging.getLogger(__name__)
+
+# Phase 7: Power Tools feature flag
+USE_POWER_TOOLS = os.environ.get("USE_POWER_TOOLS", "false").lower() == "true"
 
 
 class CaseContextBuilder:
@@ -416,6 +420,69 @@ class CaseContextBuilder:
                 "coverage_percentage": "80%"
             }
 
+    def _get_tools_guidance(self) -> str:
+        """Generate tool usage guidance based on power tools mode"""
+        if USE_POWER_TOOLS:
+            return """
+            <power_tools>
+                You have 5 powerful tools that consolidate all functionality:
+
+                1. **query_case** - Get case info, deadlines, documents, parties, statistics
+                   Use for: "Show me deadlines", "What documents do I have?", "Case summary"
+
+                2. **update_case** - Update case metadata, add/remove parties, change status
+                   Use for: "Change judge to Smith", "Add John Doe as plaintiff"
+
+                3. **manage_deadline** - Create, update, delete, move deadlines with cascade awareness
+                   Use for: "Add deadline", "Move trial date", "Mark as completed"
+                   IMPORTANT: Previews cascade impact before making changes
+
+                4. **execute_trigger** - Generate 20-50+ deadlines from trigger events using Authority Core
+                   Use for: "Trial is June 15", "I served the complaint", "Discovery deadline is March 1"
+                   This tool queries Authority Core for verified rules and creates complete deadline chains
+
+                   **CRITICAL - Clarification Protocol (Phase 7 Step 9):**
+                   If execute_trigger returns `needs_clarification: true`, you MUST:
+                   1. Read the `clarification_questions` field for specific questions
+                   2. Ask the user EXACTLY the question provided (do not paraphrase)
+                   3. Wait for user response
+                   4. Call execute_trigger again with the complete data
+
+                   NEVER guess or use default values for missing fields like service_method or jury_status.
+                   Example:
+                   - Tool returns: {"needs_clarification": true, "clarification_questions": {"service_method": "How was service completed?"}}
+                   - You respond: "How was service completed? (mail, electronic, or hand_delivery)"
+                   - User: "Mail"
+                   - You call: execute_trigger with service_method="mail"
+
+                5. **search_rules** - Search Authority Core by citation, trigger, or keyword
+                   Use for: "What's Rule 1.140?", "Show me answer deadline rules", "MSJ response time"
+
+                **Workflow for deadline generation:**
+                - User provides trigger → Use execute_trigger (automatically uses Authority Core)
+                - If tool needs clarification → Ask user the exact clarification questions provided
+                - User answers → Retry execute_trigger with complete data
+                - User asks about rules → Use search_rules
+                - User wants case info → Use query_case
+                - User wants to modify → Use manage_deadline or update_case
+
+                These tools handle ALL complexity internally - just provide the action and data.
+            </power_tools>
+            """
+        else:
+            return """
+            <legacy_tools>
+                <primary>find_applicable_rules - MAIN tool for finding rules by trigger type + jurisdiction</primary>
+                <power>generate_all_deadlines_for_case - Generate 30-50+ deadlines from multiple triggers</power>
+                <validation>validate_deadline_against_rules - Cross-check user-entered deadlines</validation>
+                <explanation>explain_deadline_from_rule - Step-by-step calculation breakdown</explanation>
+                <discovery>search_court_rules - Search by keywords, trigger type, or citation</discovery>
+                <comparison>compare_rules_across_jurisdictions - Side-by-side rule comparison</comparison>
+                <assistance>suggest_related_rules - Proactive recommendations based on context</assistance>
+                <coverage>analyze_rule_coverage - Check jurisdiction rule availability</coverage>
+            </legacy_tools>
+            """
+
     def get_system_prompt_context(self, case_id: str) -> str:
         """
         Generate XML-structured context for Claude's system prompt.
@@ -475,18 +542,11 @@ class CaseContextBuilder:
             - confidence < 60%: "Manual verification needed - low confidence extraction"
         </confidence_handling>
 
-        <available_authority_tools>
-            <primary>find_applicable_rules - MAIN tool for finding rules by trigger type + jurisdiction</primary>
-            <power>generate_all_deadlines_for_case - Generate 30-50+ deadlines from multiple triggers</power>
-            <validation>validate_deadline_against_rules - Cross-check user-entered deadlines</validation>
-            <explanation>explain_deadline_from_rule - Step-by-step calculation breakdown</explanation>
-            <discovery>search_court_rules - Search by keywords, trigger type, or citation</discovery>
-            <comparison>compare_rules_across_jurisdictions - Side-by-side rule comparison</comparison>
-            <assistance>suggest_related_rules - Proactive recommendations based on context</assistance>
-            <coverage>analyze_rule_coverage - Check jurisdiction rule availability</coverage>
-            <history>get_rule_history - View rule change timeline</history>
-            <admin>request_jurisdiction_harvest - Trigger rule extraction for new jurisdictions</admin>
-        </available_authority_tools>
+        <available_tools>
+            {"<power_tools_mode>ENABLED - You have 5 powerful, consolidated tools</power_tools_mode>" if USE_POWER_TOOLS else "<legacy_tools_mode>41 granular tools available</legacy_tools_mode>"}
+
+            {self._get_tools_guidance()}
+        </available_tools>
 
         <current_jurisdiction>
             <name>{legal['jurisdiction']}</name>

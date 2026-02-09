@@ -22,6 +22,7 @@ import DocumentSuggestionReview from '@/components/cases/DocumentSuggestionRevie
 import ActionPlanPanel from '@/components/cases/ActionPlanPanel';
 import ShareCaseModal from '@/components/cases/ShareCaseModal';
 import PresenceIndicator from '@/components/cases/PresenceIndicator';
+import { CalculationTrailCompact } from '@/components/deadlines/CalculationTrail';
 import apiClient from '@/lib/api-client';
 import { useCaseData, Trigger, Deadline } from '@/hooks/useCaseData';
 import { useToast } from '@/components/Toast';
@@ -465,6 +466,8 @@ export default function CaseRoomPage() {
                           {deadline.action_required && (
                             <p className="text-sm text-slate-500 mt-2">{deadline.action_required}</p>
                           )}
+                          {/* Phase 7: Math Trail - Show calculation basis */}
+                          <CalculationTrailCompact deadline={deadline} />
                         </div>
                         <span className={`badge ${
                           deadline.priority === 'fatal' ? 'badge-fatal' :
@@ -516,6 +519,8 @@ export default function CaseRoomPage() {
                           <p className="text-sm text-slate-600 mt-1">
                             {formatDeadlineDate(deadline.deadline_date)}
                           </p>
+                          {/* Phase 7: Math Trail - Show calculation basis */}
+                          <CalculationTrailCompact deadline={deadline} />
                         </div>
                         <span className={`badge ${
                           deadline.priority === 'fatal' ? 'badge-fatal' :
@@ -567,6 +572,8 @@ export default function CaseRoomPage() {
                           <p className="text-sm text-slate-600 mt-1">
                             {formatDeadlineDate(deadline.deadline_date)}
                           </p>
+                          {/* Phase 7: Math Trail - Show calculation basis */}
+                          <CalculationTrailCompact deadline={deadline} />
                         </div>
                         <span className={`badge ${
                           deadline.priority === 'fatal' ? 'badge-fatal' :

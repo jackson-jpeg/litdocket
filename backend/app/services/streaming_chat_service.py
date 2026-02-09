@@ -28,6 +28,16 @@ from app.models.case import Case
 from app.models.chat_message import ChatMessage
 from app.config import settings
 import re
+import os
+
+# Phase 7: Power Tools feature flag
+USE_POWER_TOOLS = os.environ.get("USE_POWER_TOOLS", "false").lower() == "true"
+
+if USE_POWER_TOOLS:
+    from app.services.power_tools import POWER_TOOLS, PowerToolExecutor
+    logger.info("✅ Power Tools enabled (5 consolidated tools)")
+else:
+    logger.info("Using legacy chat tools (41 tools)")
 
 logger = logging.getLogger(__name__)
 
@@ -295,12 +305,23 @@ class StreamingChatService:
                 "content": user_message
             })
 
-            # Initialize tool executor
-            tool_executor = ChatToolExecutor(
-                case_id=case_id,
-                user_id=user_id,
-                db=db
-            )
+            # Initialize tool executor (Phase 7: Use Power Tools if enabled)
+            if USE_POWER_TOOLS:
+                tool_executor = PowerToolExecutor(
+                    case_id=case_id,
+                    user_id=user_id,
+                    db=db
+                )
+                tools_list = POWER_TOOLS
+                logger.info(f"Using PowerToolExecutor with {len(tools_list)} power tools")
+            else:
+                tool_executor = ChatToolExecutor(
+                    case_id=case_id,
+                    user_id=user_id,
+                    db=db
+                )
+                tools_list = CHAT_TOOLS
+                logger.info(f"Using ChatToolExecutor with {len(tools_list)} legacy tools")
 
             # Track actions and tokens
             actions_taken = []
@@ -339,7 +360,7 @@ class StreamingChatService:
                         max_tokens=4096,
                         system=system_prompt,
                         messages=sanitized_messages,
-                        tools=CHAT_TOOLS
+                        tools=tools_list
                     ) as stream:
                         # Collect response content for re-adding to conversation
                         current_content = []
@@ -462,7 +483,8 @@ class StreamingChatService:
                                             )
 
                                             try:
-                                                result = tool_executor.execute_tool(
+                                                # Phase 7: execute_tool is now async for Authority Core
+                                                result = await tool_executor.execute_tool(
                                                     tool_name=block.name,
                                                     tool_input=block.input
                                                 )
@@ -573,12 +595,13 @@ class StreamingChatService:
                                     # Extract citations from the response
                                     citations = extract_legal_citations(text_buffer)
 
-                                    # Stream complete with citations and agent info
+                                    # Stream complete with citations, agent info, and action details
                                     done_data = {
                                         "status": "completed",
                                         "message_id": message_id,
                                         "tokens_used": total_tokens,
                                         "actions_taken": len(actions_taken),
+                                        "actions": actions_taken,  # Phase 7: Include action details for event bus
                                         "citations": citations
                                     }
                                     if active_agent:

@@ -111,7 +111,7 @@ export function useCaseDeadlineFilters(
       }
 
       // Type filter
-      if (selectedTypes.length > 0 && !selectedTypes.includes(deadline.deadline_type)) {
+      if (selectedTypes.length > 0 && deadline.deadline_type && !selectedTypes.includes(deadline.deadline_type)) {
         return false;
       }
 
@@ -147,7 +147,7 @@ export function useCaseDeadlineFilters(
           comparison = (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
           break;
         case 'created_at':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
           break;
         case 'title':
           comparison = a.title.localeCompare(b.title);

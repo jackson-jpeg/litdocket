@@ -273,11 +273,7 @@ export default function DeadlineRow({
               )}
               {deadline.applicable_rule && (
                 <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded cursor-help ${
-                    deadline.authority_tier && AUTHORITY_TIER_COLORS[deadline.authority_tier]
-                      ? `${AUTHORITY_TIER_COLORS[deadline.authority_tier].bg} ${AUTHORITY_TIER_COLORS[deadline.authority_tier].text}`
-                      : 'bg-slate-100 text-slate-600'
-                  }`}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded cursor-help bg-slate-100 text-slate-600"
                   title={deadline.rule_citation || deadline.calculation_basis || deadline.applicable_rule}
                 >
                   {deadline.source_rule_id ? (
@@ -437,11 +433,7 @@ export default function DeadlineRow({
             <div className="mt-2 ml-8 flex flex-wrap items-center gap-2">
               {deadline.applicable_rule && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded cursor-help ${
-                    deadline.authority_tier && AUTHORITY_TIER_COLORS[deadline.authority_tier]
-                      ? `${AUTHORITY_TIER_COLORS[deadline.authority_tier].bg} ${AUTHORITY_TIER_COLORS[deadline.authority_tier].text}`
-                      : 'bg-slate-100 text-slate-600'
-                  }`}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded cursor-help bg-slate-100 text-slate-600"
                   title={deadline.rule_citation || deadline.calculation_basis || deadline.applicable_rule}
                 >
                   {deadline.source_rule_id ? (

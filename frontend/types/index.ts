@@ -93,6 +93,16 @@ export interface Deadline {
   verification_status?: 'pending' | 'verified' | 'rejected';
   created_at?: string;
   updated_at?: string;
+
+  // Phase 7: Authority Core Integration - "Math Trail" fields
+  source_rule_id?: string;  // Links to AuthorityRule that generated this deadline
+  calculation_type?: 'calendar_days' | 'business_days' | 'court_days';  // Method used
+  service_method?: 'electronic' | 'mail' | 'hand_delivery';  // Service type affects +3/+5 days
+  days_count?: number;  // Original days in calculation before adjustments (e.g., 20)
+  source_document?: string;  // Document filename that triggered deadline creation
+  extraction_quality_score?: number;  // 1-10 scale for AI extraction quality
+  original_deadline_date?: string;  // Audit trail for manual overrides
+  extraction_method?: string;  // ai, manual, rule-based, authority_core, hybrid
 }
 
 export interface ChatMessage {

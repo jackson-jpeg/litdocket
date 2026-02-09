@@ -218,7 +218,7 @@ export default function DeadlineDetailModal({
                 {isEditing ? (
                   <select
                     value={editedDeadline.priority || 'standard'}
-                    onChange={(e) => setEditedDeadline(prev => ({ ...prev, priority: e.target.value }))}
+                    onChange={(e) => setEditedDeadline(prev => ({ ...prev, priority: e.target.value as 'informational' | 'standard' | 'important' | 'critical' | 'fatal' }))}
                     className="w-full border border-gray-300 px-3 py-2 font-mono focus:outline-none focus:border-blue-500"
                   >
                     <option value="fatal">FATAL</option>
@@ -348,7 +348,7 @@ export default function DeadlineDetailModal({
             {/* Metadata */}
             <div className="border-t border-gray-200 pt-4 mt-4 text-xs text-gray-400 font-mono">
               <div className="flex justify-between">
-                <span>Created: {formatDateTime(deadline.created_at)}</span>
+                <span>Created: {deadline.created_at ? formatDateTime(deadline.created_at) : 'N/A'}</span>
                 <span>ID: {deadline.id.slice(0, 8)}...</span>
               </div>
             </div>

@@ -232,7 +232,8 @@ class EnhancedChatService:
 
                         # Execute tool with error handling
                         try:
-                            result = tool_executor.execute_tool(
+                            # Phase 7: execute_tool is now async for Authority Core
+                            result = await tool_executor.execute_tool(
                                 tool_name=block.name,
                                 tool_input=block.input
                             )

@@ -1058,14 +1058,14 @@ class ChatToolExecutor:
             self.authority_service = None
             self.deadline_service = None
 
-    def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a tool and return results"""
+    async def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a tool and return results (Phase 7: Now async for Authority Core integration)"""
 
         # Deadline tools
         if tool_name == "create_deadline":
             return self._create_deadline(tool_input)
         elif tool_name == "create_trigger_deadline":
-            return self._create_trigger_deadline(tool_input)
+            return await self._create_trigger_deadline(tool_input)
         elif tool_name == "update_deadline":
             return self._update_deadline(tool_input)
         elif tool_name == "delete_deadline":
@@ -1103,7 +1103,7 @@ class ChatToolExecutor:
         elif tool_name == "export_deadlines":
             return self._export_deadlines(tool_input)
         elif tool_name == "get_available_templates":
-            return self._get_available_templates(tool_input)
+            return await self._get_available_templates(tool_input)
 
         # Cascade update tools
         elif tool_name == "preview_cascade_update":
@@ -1195,86 +1195,79 @@ class ChatToolExecutor:
             self.db.rollback()
             return {"success": False, "error": str(e)}
 
-    def _create_trigger_deadline(self, input_data: Dict) -> Dict:
-        """Create a trigger event with auto-generated dependent deadlines"""
+    async def _create_trigger_deadline(self, input_data: Dict) -> Dict:
+        """
+        Create a trigger event with auto-generated dependent deadlines.
+
+        Phase 7 Enhancement: Now uses AuthorityIntegratedDeadlineService to:
+        1. Query Authority Core rules first (verified rules from database)
+        2. Fall back to hardcoded rules if needed
+        3. Populate source_rule_id for audit trail
+        4. Track extraction_method as 'authority_core' or 'rule-based'
+        """
         try:
             # Get case
             case = self.db.query(Case).filter(Case.id == self.case_id).first()
             if not case:
                 return {"success": False, "error": "Case not found"}
 
-            # Parse trigger type
+            # Parse trigger type and date
             trigger_type_str = input_data['trigger_type']
             try:
                 trigger_enum = TriggerType(trigger_type_str)
             except ValueError:
                 return {"success": False, "error": f"Invalid trigger type: {trigger_type_str}"}
 
-            # Parse date
             trigger_date = date_type.fromisoformat(input_data['trigger_date'])
-            service_method = input_data.get('service_method', 'email')
-
-            # Get applicable templates
-            jurisdiction = case.jurisdiction or 'florida_state'
-            court_type = case.case_type or 'civil'
-
-            templates = rules_engine.get_applicable_rules(
-                jurisdiction=jurisdiction,
-                court_type=court_type,
-                trigger_type=trigger_enum
-            )
-
-            if not templates:
-                return {
-                    "success": False,
-                    "error": f"No templates found for {jurisdiction} {court_type} {trigger_type_str}"
-                }
-
-            # =============================================================
-            # CONVERSATIONAL INTAKE: Check for Required Fields
-            # =============================================================
-            template = templates[0]  # Use first template for required_fields check
+            service_method = input_data.get('service_method', 'electronic')
             context = input_data.get('context', {})
 
-            if template.required_fields:
-                missing_fields = []
+            # Get jurisdiction info
+            jurisdiction_name = case.jurisdiction or 'florida_state'
+            court_type = case.case_type or 'civil'
 
-                for required_field in template.required_fields:
-                    field_value = context.get(required_field.field_name)
+            # Look up jurisdiction_id from case.jurisdiction string
+            from app.models.jurisdiction import Jurisdiction
+            jurisdiction_obj = self.db.query(Jurisdiction).filter(
+                (Jurisdiction.code == jurisdiction_name.upper()) |
+                (Jurisdiction.name.ilike(f'%{jurisdiction_name}%'))
+            ).first()
 
-                    # Check if field is missing (not provided or None)
-                    if field_value is None:
-                        # Use default if available
-                        if required_field.default_value is not None:
-                            context[required_field.field_name] = required_field.default_value
-                        else:
-                            # Field is truly missing - need to ask
-                            missing_fields.append({
-                                "field_name": required_field.field_name,
-                                "question_text": required_field.display_label,
-                                "field_type": required_field.field_type,
-                                "options": required_field.enum_options,
-                                "default_value": required_field.default_value,
-                                "affects_deadlines": required_field.affects_deadlines
-                            })
+            if not jurisdiction_obj:
+                # Default to Florida if not found
+                jurisdiction_obj = self.db.query(Jurisdiction).filter(
+                    Jurisdiction.code == 'FL'
+                ).first()
 
-                # If any fields are missing, return NEEDS_CLARIFICATION
-                if missing_fields:
-                    return {
-                        "status": "needs_clarification",
-                        "success": False,  # For backward compatibility
-                        "message": f"I detected a {trigger_type_str} event. I need a few more details to generate the right deadlines.",
-                        "missing_fields": missing_fields,
-                        "detected_trigger": trigger_type_str,
-                        "context_so_far": context
-                    }
+            jurisdiction_id = str(jurisdiction_obj.id) if jurisdiction_obj else None
 
-            # All required fields present - continue with execution
-            # Store context in trigger deadline metadata for audit trail
-            trigger_metadata = {
-                "context": context,
-                "required_fields_satisfied": True
-            }
+            # =============================================================
+            # PHASE 7: Use Authority Integrated Deadline Service
+            # =============================================================
+            if not self.deadline_service:
+                return {
+                    "success": False,
+                    "error": "Deadline service not initialized. Check Authority Core setup."
+                }
+
+            # Calculate deadlines using Authority Core (with hardcoded fallback)
+            integrated_deadlines = await self.deadline_service.calculate_deadlines(
+                jurisdiction_id=jurisdiction_id,
+                trigger_type=trigger_type_str,
+                trigger_date=trigger_date,
+                jurisdiction_name=jurisdiction_name,
+                court_type=court_type,
+                service_method=service_method,
+                case_context=context,
+                user_id=self.user_id,
+                case_id=self.case_id
+            )
+
+            if not integrated_deadlines:
+                return {
+                    "success": False,
+                    "error": f"No rules found for {trigger_type_str} in {jurisdiction_name}/{court_type}"
+                }
 
             # Create trigger deadline (parent)
             trigger_deadline = Deadline(
@@ -1289,7 +1282,6 @@ class ChatToolExecutor:
                 is_dependent=False,
                 priority="important",
                 status="completed",
-                notes=input_data.get('notes'),
                 created_via_chat=True,
                 # Case OS: Confidence metadata for trigger events
                 extraction_method='manual',
@@ -1303,73 +1295,90 @@ class ChatToolExecutor:
             self.db.add(trigger_deadline)
             self.db.flush()
 
-            # Generate dependent deadlines
+            # Create dependent deadlines from integrated service
             all_dependents = []
-            for template in templates:
-                # CONVERSATIONAL INTAKE: Pass user context to filter conditional deadlines
-                dependents = rules_engine.calculate_dependent_deadlines(
-                    trigger_date=trigger_date,
-                    rule_template=template,
-                    service_method=service_method,
-                    case_context=context  # Pass user-provided context for conditional filtering
-                )
+            for integrated_dl in integrated_deadlines:
+                # Determine extraction method based on source
+                extraction_method = 'authority_core' if integrated_dl.source_rule_id else 'rule-based'
+                confidence_score = 95 if integrated_dl.source_rule_id else 90
 
-                for dep_data in dependents:
-                    deadline = Deadline(
-                        case_id=self.case_id,
-                        user_id=self.user_id,
-                        parent_deadline_id=str(trigger_deadline.id),
-                        title=dep_data['title'],
-                        description=dep_data['description'],
-                        deadline_date=dep_data['deadline_date'],
-                        priority=dep_data['priority'],
-                        party_role=dep_data['party_role'],
-                        action_required=dep_data['action_required'],
-                        applicable_rule=dep_data['rule_citation'],
-                        calculation_basis=dep_data['calculation_basis'],
-                        trigger_event=dep_data['trigger_event'],
-                        trigger_date=dep_data['trigger_date'],
-                        is_calculated=True,
-                        is_dependent=True,
-                        service_method=dep_data.get('service_method', service_method),
-                        # PHASE 3: Advanced deadline calculation fields
-                        calculation_type=dep_data.get('calculation_type', 'calendar_days'),
-                        days_count=dep_data.get('days_count'),
-                        created_via_chat=True,
-                        # Case OS: Confidence metadata for rules-engine deadlines
-                        extraction_method='rule-based',
-                        confidence_score=90,  # High confidence for rules-based calculations
-                        confidence_level='high',
-                        confidence_factors={'rules_engine': True, 'calculated': True, 'has_citation': bool(dep_data.get('rule_citation'))},
-                        verification_status='pending',  # Still needs verification even though calculated
-                        extraction_quality_score=9
-                    )
-                    self.db.add(deadline)
-                    all_dependents.append(dep_data)
+                deadline = Deadline(
+                    case_id=self.case_id,
+                    user_id=self.user_id,
+                    parent_deadline_id=str(trigger_deadline.id),
+                    title=integrated_dl.title,
+                    description=integrated_dl.description,
+                    deadline_date=integrated_dl.deadline_date,
+                    priority=integrated_dl.priority.lower(),
+                    party_role=integrated_dl.party_role,
+                    action_required=integrated_dl.action_required,
+                    applicable_rule=integrated_dl.rule_citation,
+                    calculation_basis=integrated_dl.calculation_basis,
+                    trigger_event=integrated_dl.trigger_event,
+                    trigger_date=integrated_dl.trigger_date,
+                    is_calculated=True,
+                    is_dependent=True,
+                    service_method=service_method,
+                    # Phase 7: Authority Core integration fields
+                    source_rule_id=integrated_dl.source_rule_id,
+                    calculation_type=integrated_dl.calculation_type,
+                    days_count=integrated_dl.days_count,
+                    created_via_chat=True,
+                    # Case OS: Confidence metadata
+                    extraction_method=extraction_method,
+                    confidence_score=confidence_score,
+                    confidence_level='high',
+                    confidence_factors={
+                        'authority_core': bool(integrated_dl.source_rule_id),
+                        'calculated': True,
+                        'has_citation': bool(integrated_dl.rule_citation),
+                        'source_rule_id': integrated_dl.source_rule_id
+                    },
+                    verification_status='pending',
+                    extraction_quality_score=9 if integrated_dl.source_rule_id else 8
+                )
+                self.db.add(deadline)
+                all_dependents.append({
+                    "title": integrated_dl.title,
+                    "deadline_date": integrated_dl.deadline_date,
+                    "priority": integrated_dl.priority,
+                    "source_rule_id": integrated_dl.source_rule_id,
+                    "citation": integrated_dl.rule_citation
+                })
 
             self.db.commit()
 
+            # Count Authority Core vs hardcoded
+            authority_count = sum(1 for d in integrated_deadlines if d.source_rule_id)
+            hardcoded_count = len(integrated_deadlines) - authority_count
+
             return {
-                "status": "success",  # NEW: Conversational intake status
-                "success": True,      # Keep for backward compatibility
+                "status": "success",
+                "success": True,
                 "trigger_id": str(trigger_deadline.id),
                 "trigger_type": trigger_type_str,
                 "trigger_date": trigger_date.isoformat(),
                 "dependent_deadlines_created": len(all_dependents),
+                "authority_core_count": authority_count,
+                "hardcoded_count": hardcoded_count,
                 "deadlines": [
                     {
                         "title": d['title'],
                         "date": d['deadline_date'].isoformat(),
-                        "priority": d['priority']
+                        "priority": d['priority'],
+                        "source": "Authority Core" if d.get('source_rule_id') else "Hardcoded Rules",
+                        "citation": d.get('citation', '')
                     }
                     for d in all_dependents
                 ],
-                "context_used": context,  # Show what context was used
-                "message": f"✓ Created trigger event '{trigger_type_str}' with {len(all_dependents)} dependent deadlines"
+                "context_used": context,
+                "message": f"✓ Created '{trigger_type_str}' with {len(all_dependents)} deadlines ({authority_core_count} from Authority Core, {hardcoded_count} from hardcoded rules)"
             }
 
         except Exception as e:
             self.db.rollback()
+            import traceback
+            logger.error(f"Error in _create_trigger_deadline: {traceback.format_exc()}")
             return {
                 "status": "error",
                 "success": False,
@@ -1529,38 +1538,99 @@ class ChatToolExecutor:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def _get_available_templates(self, input_data: Dict) -> Dict:
-        """Get available deadline templates"""
+    async def _get_available_templates(self, input_data: Dict) -> Dict:
+        """
+        Get available deadline templates/rules.
+
+        Phase 7: Now queries Authority Core rules database instead of hardcoded templates.
+        Falls back to hardcoded if Authority Core has no rules.
+        """
         try:
-            templates = rules_engine.get_all_templates()
+            if not self.authority_service:
+                return {"success": False, "error": "Authority service not initialized"}
 
-            # Filter by jurisdiction if specified
-            if 'jurisdiction' in input_data:
-                templates = [t for t in templates if t.jurisdiction == input_data['jurisdiction']]
+            # Get jurisdiction if specified
+            jurisdiction_id = input_data.get('jurisdiction_id')
+            if not jurisdiction_id and 'jurisdiction' in input_data:
+                # Look up by name
+                from app.models.jurisdiction import Jurisdiction
+                jurisdiction_obj = self.db.query(Jurisdiction).filter(
+                    (Jurisdiction.code == input_data['jurisdiction'].upper()) |
+                    (Jurisdiction.name.ilike(f'%{input_data["jurisdiction"]}%'))
+                ).first()
+                jurisdiction_id = str(jurisdiction_obj.id) if jurisdiction_obj else None
 
-            # Filter by court type if specified
-            if 'court_type' in input_data:
-                templates = [t for t in templates if t.court_type == input_data['court_type']]
+            # Query Authority Core rules
+            from app.models.authority_core import AuthorityRule
+            query = self.db.query(AuthorityRule).filter(
+                AuthorityRule.is_active == True,
+                AuthorityRule.is_verified == True
+            )
 
+            if jurisdiction_id:
+                query = query.filter(AuthorityRule.jurisdiction_id == jurisdiction_id)
+
+            rules = query.all()
+
+            # If no Authority Core rules, fall back to hardcoded
+            if not rules:
+                templates = rules_engine.get_all_templates()
+
+                # Filter by jurisdiction if specified
+                if 'jurisdiction' in input_data:
+                    templates = [t for t in templates if t.jurisdiction == input_data['jurisdiction']]
+
+                # Filter by court type if specified
+                if 'court_type' in input_data:
+                    templates = [t for t in templates if t.court_type == input_data['court_type']]
+
+                return {
+                    "success": True,
+                    "source": "hardcoded_rules",
+                    "count": len(templates),
+                    "templates": [
+                        {
+                            "rule_id": t.rule_id,
+                            "name": t.name,
+                            "description": t.description,
+                            "jurisdiction": t.jurisdiction,
+                            "court_type": t.court_type,
+                            "trigger_type": t.trigger_type.value,
+                            "dependent_deadlines_count": len(t.dependent_deadlines),
+                            "citation": t.citation,
+                            "source": "hardcoded"
+                        }
+                        for t in templates
+                    ]
+                }
+
+            # Return Authority Core rules
             return {
                 "success": True,
-                "count": len(templates),
-                "templates": [
+                "source": "authority_core",
+                "count": len(rules),
+                "rules": [
                     {
-                        "rule_id": t.rule_id,
-                        "name": t.name,
-                        "description": t.description,
-                        "jurisdiction": t.jurisdiction,
-                        "court_type": t.court_type,
-                        "trigger_type": t.trigger_type.value,
-                        "dependent_deadlines_count": len(t.dependent_deadlines),
-                        "citation": t.citation
+                        "rule_id": str(r.id),
+                        "rule_code": r.rule_code,
+                        "name": r.rule_name,
+                        "trigger_type": r.trigger_type,
+                        "jurisdiction_name": r.jurisdiction.name if r.jurisdiction else None,
+                        "authority_tier": r.authority_tier.value if hasattr(r.authority_tier, 'value') else r.authority_tier,
+                        "citation": r.citation,
+                        "deadlines_count": len(r.deadlines),
+                        "confidence_score": r.confidence_score,
+                        "is_verified": r.is_verified,
+                        "usage_count": r.usage_count,
+                        "source": "authority_core"
                     }
-                    for t in templates
+                    for r in rules
                 ]
             }
 
         except Exception as e:
+            import traceback
+            logger.error(f"Error in _get_available_templates: {traceback.format_exc()}")
             return {"success": False, "error": str(e)}
 
     def _update_case_info(self, input_data: Dict) -> Dict:

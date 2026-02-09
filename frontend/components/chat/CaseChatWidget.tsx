@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/config';
 import AgentSelector, { Agent } from './AgentSelector';
+import { deadlineEvents, chatEvents } from '@/lib/eventBus';
 
 interface ChatMessage {
   id: string;
@@ -323,6 +324,51 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
       setMessages((prev) => [...prev, assistantMessage]);
       setStreamingContent('');
       setIsStreaming(false);
+
+      // Phase 7: Emit event bus events for actions taken
+      if (data.actions && Array.isArray(data.actions)) {
+        data.actions.forEach((action: any) => {
+          const tool = action.tool;
+          const result = action.result;
+
+          // Emit deadline events based on tool used
+          if (tool === 'create_deadline' || tool === 'create_trigger_deadline' || tool === 'execute_trigger') {
+            if (result.success && result.deadline_id) {
+              deadlineEvents.created({ id: result.deadline_id, ...result });
+            }
+            // Handle bulk deadline creation from triggers
+            if (result.success && result.deadlines && Array.isArray(result.deadlines)) {
+              result.deadlines.forEach((dl: any) => {
+                if (dl.id) {
+                  deadlineEvents.created({ id: dl.id, ...dl });
+                }
+              });
+            }
+          } else if (tool === 'update_deadline' || tool === 'move_deadline') {
+            if (result.success && result.deadline_id) {
+              deadlineEvents.updated({ id: result.deadline_id, ...result });
+            }
+          } else if (tool === 'delete_deadline') {
+            if (result.success && action.tool_input?.deadline_id) {
+              deadlineEvents.deleted(action.tool_input.deadline_id);
+            }
+          } else if (tool === 'manage_deadline') {
+            // Handle power tool actions
+            const actionType = action.tool_input?.action;
+            if (actionType === 'create' && result.success && result.deadline_id) {
+              deadlineEvents.created({ id: result.deadline_id, ...result });
+            } else if (actionType === 'update' && result.success) {
+              deadlineEvents.updated({ id: action.tool_input?.deadline_id, ...result });
+            } else if (actionType === 'delete' && result.success) {
+              deadlineEvents.deleted(action.tool_input?.deadline_id);
+            }
+          }
+
+          // Emit general chat action event
+          chatEvents.actionTaken({ type: tool, payload: result });
+        });
+      }
+
       eventSource.close();
     });
 

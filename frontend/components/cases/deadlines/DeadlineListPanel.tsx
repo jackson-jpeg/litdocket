@@ -227,9 +227,9 @@ export default function DeadlineListPanel({
   }, [selectedIds, showSuccess, showError, clearSelection, onRefresh, onOptimisticUpdate]);
 
   // Stats
-  const activeCount = deadlines.filter(d => d.status === 'pending' || d.status === 'in_progress').length;
+  const activeCount = deadlines.filter(d => d.status === 'pending').length;
   const overdueCount = deadlines.filter(d =>
-    (d.status === 'pending' || d.status === 'in_progress') &&
+    d.status === 'pending' &&
     d.deadline_date &&
     new Date(d.deadline_date) < new Date(new Date().setHours(0, 0, 0, 0))
   ).length;
