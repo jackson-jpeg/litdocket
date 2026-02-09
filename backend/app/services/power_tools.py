@@ -20,18 +20,28 @@ from datetime import date as date_type, datetime
 from sqlalchemy.orm import Session
 import logging
 import uuid
+import os
 
 from app.models.case import Case
 from app.models.deadline import Deadline
 from app.models.document import Document
 from app.models.authority_core import AuthorityRule
 from app.models.jurisdiction import Jurisdiction
+from app.models.proposal import Proposal
 from app.services.authority_integrated_deadline_service import AuthorityIntegratedDeadlineService
 from app.services.authority_core_service import AuthorityCoreService
 from app.services.dependency_listener import DependencyListener
-from app.models.enums import TriggerType
+from app.models.enums import TriggerType, ProposalStatus, ProposalActionType
 
 logger = logging.getLogger(__name__)
+
+# Phase 7 Step 11: Feature flag for proposal/approval workflow
+USE_PROPOSALS = os.environ.get("USE_PROPOSALS", "false").lower() == "true"
+
+if USE_PROPOSALS:
+    logger.info("✅ Proposal workflow enabled - AI actions require user approval")
+else:
+    logger.info("ℹ️  Proposal workflow disabled - AI writes directly to database")
 
 
 # Phase 7 Step 9: Required field validation for conversational intake
@@ -291,8 +301,18 @@ class PowerToolExecutor:
             self.dependency_listener = None
 
     async def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a power tool"""
+        """
+        Execute a power tool.
 
+        Phase 7 Step 11: If USE_PROPOSALS is enabled and this is a write operation,
+        creates a Proposal instead of executing directly.
+        """
+
+        # Phase 7 Step 11: Check if this is a write operation that needs approval
+        if USE_PROPOSALS and self._is_write_operation(tool_name, tool_input):
+            return self._create_proposal_for_action(tool_name, tool_input)
+
+        # Execute tool directly
         if tool_name == "query_case":
             return await self._query_case(tool_input)
         elif tool_name == "update_case":
@@ -305,6 +325,168 @@ class PowerToolExecutor:
             return await self._search_rules(tool_input)
         else:
             return {"success": False, "error": f"Unknown power tool: {tool_name}"}
+
+    def _is_write_operation(self, tool_name: str, tool_input: Dict) -> bool:
+        """
+        Phase 7 Step 11: Determine if a tool operation requires approval.
+
+        Read operations (query_case, search_rules) don't need approval.
+        Write operations (manage_deadline, execute_trigger, update_case) do.
+        """
+        # Read operations - no approval needed
+        if tool_name in ["query_case", "search_rules"]:
+            return False
+
+        # Write operations - need approval
+        if tool_name in ["manage_deadline", "execute_trigger", "update_case"]:
+            return True
+
+        # Default to requiring approval for unknown operations
+        return True
+
+    def _create_proposal_for_action(self, tool_name: str, tool_input: Dict) -> Dict:
+        """
+        Phase 7 Step 11: Create a Proposal record instead of executing action.
+
+        Returns a success response with proposal_id, requiring user approval.
+        """
+        try:
+            # Map tool_name to ProposalActionType
+            action_type_map = {
+                "manage_deadline": self._get_manage_deadline_action_type(tool_input),
+                "execute_trigger": ProposalActionType.CREATE_DEADLINE,
+                "update_case": ProposalActionType.UPDATE_CASE
+            }
+
+            action_type = action_type_map.get(tool_name)
+            if not action_type:
+                return {"success": False, "error": f"Cannot create proposal for tool: {tool_name}"}
+
+            # Generate preview summary
+            preview_summary = self._generate_preview_summary(tool_name, tool_input)
+
+            # Create proposal
+            proposal = Proposal(
+                id=str(uuid.uuid4()),
+                case_id=self.case_id,
+                user_id=self.user_id,
+                action_type=action_type,
+                action_data=tool_input,
+                ai_reasoning=self._generate_ai_reasoning(tool_name, tool_input),
+                status=ProposalStatus.PENDING,
+                preview_summary=preview_summary,
+                affected_items=self._calculate_affected_items(tool_name, tool_input)
+            )
+
+            self.db.add(proposal)
+            self.db.commit()
+
+            logger.info(f"✅ Created proposal {proposal.id} for {tool_name}")
+
+            return {
+                "success": True,
+                "requires_approval": True,
+                "proposal_id": proposal.id,
+                "preview_summary": preview_summary,
+                "message": "This action requires your approval. Please approve or reject the proposal.",
+                "approval_url": f"/api/v1/proposals/{proposal.id}"
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Failed to create proposal: {str(e)}")
+            return {"success": False, "error": f"Failed to create proposal: {str(e)}"}
+
+    def _get_manage_deadline_action_type(self, tool_input: Dict) -> ProposalActionType:
+        """Map manage_deadline action to ProposalActionType"""
+        action = tool_input.get("action")
+
+        if action == "create":
+            return ProposalActionType.CREATE_DEADLINE
+        elif action == "update":
+            return ProposalActionType.UPDATE_DEADLINE
+        elif action == "delete":
+            return ProposalActionType.DELETE_DEADLINE
+        elif action == "move":
+            return ProposalActionType.MOVE_DEADLINE
+        else:
+            return ProposalActionType.UPDATE_DEADLINE  # Default
+
+    def _generate_preview_summary(self, tool_name: str, tool_input: Dict) -> str:
+        """Generate human-readable summary for proposal"""
+
+        if tool_name == "manage_deadline":
+            action = tool_input.get("action")
+            data = tool_input.get("data", {})
+
+            if action == "create":
+                title = data.get("title", "Unnamed deadline")
+                date = data.get("deadline_date", "unknown date")
+                return f"Create deadline: {title} on {date}"
+            elif action == "update":
+                deadline_id = tool_input.get("deadline_id")
+                return f"Update deadline {deadline_id}"
+            elif action == "delete":
+                deadline_id = tool_input.get("deadline_id")
+                return f"Delete deadline {deadline_id}"
+            elif action == "move":
+                deadline_id = tool_input.get("deadline_id")
+                new_date = data.get("deadline_date", "unknown date")
+                return f"Move deadline {deadline_id} to {new_date}"
+
+        elif tool_name == "execute_trigger":
+            trigger_type = tool_input.get("trigger_type", "unknown trigger")
+            trigger_date = tool_input.get("trigger_date", "unknown date")
+            return f"Generate deadlines from {trigger_type.replace('_', ' ')} on {trigger_date}"
+
+        elif tool_name == "update_case":
+            action = tool_input.get("action")
+            return f"Update case: {action}"
+
+        return f"Execute {tool_name}"
+
+    def _generate_ai_reasoning(self, tool_name: str, tool_input: Dict) -> str:
+        """Generate AI reasoning for why this action was proposed"""
+
+        if tool_name == "execute_trigger":
+            trigger_type = tool_input.get("trigger_type", "unknown")
+            return f"Based on your statement, I identified a {trigger_type.replace('_', ' ')} trigger event and calculated the dependent deadlines using Authority Core rules."
+
+        elif tool_name == "manage_deadline":
+            action = tool_input.get("action")
+            return f"Based on your request, I need to {action} a deadline."
+
+        elif tool_name == "update_case":
+            return "Based on your request, I need to update case information."
+
+        return f"AI proposed {tool_name} action"
+
+    def _calculate_affected_items(self, tool_name: str, tool_input: Dict) -> Dict:
+        """Calculate which items will be affected by this action"""
+
+        if tool_name == "execute_trigger":
+            # Would create multiple deadlines
+            return {
+                "estimated_deadlines": "20-50+",
+                "type": "bulk_creation"
+            }
+
+        elif tool_name == "manage_deadline":
+            action = tool_input.get("action")
+
+            if action == "move":
+                # Check for dependent deadlines
+                deadline_id = tool_input.get("deadline_id")
+                dependents = self.db.query(Deadline).filter(
+                    Deadline.parent_deadline_id == deadline_id,
+                    Deadline.auto_recalculate == True
+                ).count()
+
+                return {
+                    "dependent_deadlines": dependents,
+                    "type": "cascade_update"
+                }
+
+        return {}
 
     # =============================================================================
     # POWER TOOL 1: QUERY_CASE
