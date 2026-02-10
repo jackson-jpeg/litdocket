@@ -105,6 +105,43 @@ export interface Deadline {
   extraction_method?: string;  // ai, manual, rule-based, authority_core, hybrid
 }
 
+// Phase 7 Step 11: Proposal for AI Safety Rails
+export interface Proposal {
+  id: string;
+  case_id: string;
+  user_id: string;
+
+  // What action is being proposed
+  action_type: 'create_deadline' | 'update_deadline' | 'delete_deadline' | 'move_deadline' | 'update_case' | 'add_party' | 'remove_party' | 'upload_document';
+  action_data: Record<string, any>;  // The proposed changes
+
+  // AI reasoning and context
+  ai_reasoning?: string;  // Why AI proposed this action
+  ai_message_id?: string;  // Reference to the chat message
+  conversation_context?: Record<string, any>;
+
+  // Approval workflow
+  status: 'pending' | 'approved' | 'rejected' | 'needs_revision';
+
+  // Resolution tracking
+  resolved_by?: string;  // User ID who approved/rejected
+  resolved_at?: string;  // When was it resolved
+  resolution_notes?: string;  // User notes on approval/rejection
+
+  // Result tracking
+  executed_successfully?: string;  // 'true'/'false'/null
+  execution_error?: string;  // Error message if execution failed
+  created_resource_id?: string;  // ID of created resource
+
+  // Preview data
+  preview_summary?: string;  // Human-readable summary
+  affected_items?: Record<string, any>;  // Items that will be affected
+
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
