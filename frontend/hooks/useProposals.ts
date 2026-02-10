@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { apiClient } from '@/lib/api-client';
+import apiClient from '@/lib/api-client';
 import { Proposal } from '@/types';
 
 interface UseProposalsReturn {

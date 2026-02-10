@@ -19,6 +19,9 @@ import {
 import { getApiBaseUrl } from '@/lib/config';
 import AgentSelector, { Agent } from './AgentSelector';
 import { deadlineEvents, chatEvents } from '@/lib/eventBus';
+import { ProposalApprovalCard } from './ProposalApprovalCard';
+import { useProposals } from '@/hooks/useProposals';
+import { Proposal } from '@/types';
 
 interface ChatMessage {
   id: string;
@@ -85,6 +88,10 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
   const [isBubbleHidden, setIsBubbleHidden] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
 
+  // Phase 7 Step 11: Proposal state
+  const [pendingProposals, setPendingProposals] = useState<Proposal[]>([]);
+  const { fetchProposal, fetchProposals } = useProposals();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -143,6 +150,24 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
 
     fetchAgents();
   }, []);
+
+  // Phase 7 Step 11: Fetch pending proposals for this case
+  useEffect(() => {
+    const loadPendingProposals = async () => {
+      if (!caseId) return;
+
+      try {
+        // Fetch proposals with 'pending' status for this case
+        const response = await fetchProposals(caseId, 'pending');
+        // The fetchProposals hook updates its internal state, but we also
+        // want to track proposals locally for this chat session
+      } catch (err) {
+        console.warn('Failed to fetch pending proposals:', err);
+      }
+    };
+
+    loadPendingProposals();
+  }, [caseId, fetchProposals]);
 
   // Detect suggested agent based on input
   useEffect(() => {
@@ -327,40 +352,61 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
 
       // Phase 7: Emit event bus events for actions taken
       if (data.actions && Array.isArray(data.actions)) {
-        data.actions.forEach((action: any) => {
+        data.actions.forEach(async (action: any) => {
           const tool = action.tool;
           const result = action.result;
 
-          // Emit deadline events based on tool used
-          if (tool === 'create_deadline' || tool === 'create_trigger_deadline' || tool === 'execute_trigger') {
-            if (result.success && result.deadline_id) {
-              deadlineEvents.created({ id: result.deadline_id, ...result });
+          // Phase 7 Step 11: Check for proposals that need approval
+          if (result.requires_approval && result.proposal_id) {
+            // Fetch the full proposal details
+            try {
+              const proposal = await fetchProposal(result.proposal_id);
+              if (proposal) {
+                setPendingProposals(prev => {
+                  // Avoid duplicates
+                  if (prev.some(p => p.id === proposal.id)) {
+                    return prev;
+                  }
+                  return [...prev, proposal];
+                });
+              }
+            } catch (err) {
+              console.error('Failed to fetch proposal:', err);
             }
-            // Handle bulk deadline creation from triggers
-            if (result.success && result.deadlines && Array.isArray(result.deadlines)) {
-              result.deadlines.forEach((dl: any) => {
-                if (dl.id) {
-                  deadlineEvents.created({ id: dl.id, ...dl });
-                }
-              });
-            }
-          } else if (tool === 'update_deadline' || tool === 'move_deadline') {
-            if (result.success && result.deadline_id) {
-              deadlineEvents.updated({ id: result.deadline_id, ...result });
-            }
-          } else if (tool === 'delete_deadline') {
-            if (result.success && action.tool_input?.deadline_id) {
-              deadlineEvents.deleted(action.tool_input.deadline_id);
-            }
-          } else if (tool === 'manage_deadline') {
-            // Handle power tool actions
-            const actionType = action.tool_input?.action;
-            if (actionType === 'create' && result.success && result.deadline_id) {
-              deadlineEvents.created({ id: result.deadline_id, ...result });
-            } else if (actionType === 'update' && result.success) {
-              deadlineEvents.updated({ id: action.tool_input?.deadline_id, ...result });
-            } else if (actionType === 'delete' && result.success) {
-              deadlineEvents.deleted(action.tool_input?.deadline_id);
+          }
+
+          // Emit deadline events based on tool used (only if not a proposal)
+          if (!result.requires_approval) {
+            if (tool === 'create_deadline' || tool === 'create_trigger_deadline' || tool === 'execute_trigger') {
+              if (result.success && result.deadline_id) {
+                deadlineEvents.created({ id: result.deadline_id, ...result });
+              }
+              // Handle bulk deadline creation from triggers
+              if (result.success && result.deadlines && Array.isArray(result.deadlines)) {
+                result.deadlines.forEach((dl: any) => {
+                  if (dl.id) {
+                    deadlineEvents.created({ id: dl.id, ...dl });
+                  }
+                });
+              }
+            } else if (tool === 'update_deadline' || tool === 'move_deadline') {
+              if (result.success && result.deadline_id) {
+                deadlineEvents.updated({ id: result.deadline_id, ...result });
+              }
+            } else if (tool === 'delete_deadline') {
+              if (result.success && action.tool_input?.deadline_id) {
+                deadlineEvents.deleted(action.tool_input.deadline_id);
+              }
+            } else if (tool === 'manage_deadline') {
+              // Handle power tool actions
+              const actionType = action.tool_input?.action;
+              if (actionType === 'create' && result.success && result.deadline_id) {
+                deadlineEvents.created({ id: result.deadline_id, ...result });
+              } else if (actionType === 'update' && result.success) {
+                deadlineEvents.updated({ id: action.tool_input?.deadline_id, ...result });
+              } else if (actionType === 'delete' && result.success) {
+                deadlineEvents.deleted(action.tool_input?.deadline_id);
+              }
             }
           }
 
@@ -649,6 +695,24 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                 <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />
                   <p className="text-xs text-red-700">{error}</p>
+                </div>
+              )}
+
+              {/* Phase 7 Step 11: Pending Proposals */}
+              {pendingProposals.length > 0 && (
+                <div className="space-y-3 mt-4">
+                  {pendingProposals.map((proposal) => (
+                    <ProposalApprovalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      onApprovalComplete={() => {
+                        // Remove from pending list
+                        setPendingProposals(prev => prev.filter(p => p.id !== proposal.id));
+                        // Scroll to bottom
+                        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    />
+                  ))}
                 </div>
               )}
 
