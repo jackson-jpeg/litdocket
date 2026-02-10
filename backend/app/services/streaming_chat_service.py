@@ -30,6 +30,9 @@ from app.config import settings
 import re
 import os
 
+# Initialize logger first
+logger = logging.getLogger(__name__)
+
 # Phase 7: Power Tools feature flag
 USE_POWER_TOOLS = os.environ.get("USE_POWER_TOOLS", "false").lower() == "true"
 
@@ -38,8 +41,6 @@ if USE_POWER_TOOLS:
     logger.info("✅ Power Tools enabled (5 consolidated tools)")
 else:
     logger.info("Using legacy chat tools (41 tools)")
-
-logger = logging.getLogger(__name__)
 
 
 def extract_legal_citations(text: str) -> List[str]:
