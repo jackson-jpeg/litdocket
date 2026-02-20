@@ -95,8 +95,8 @@ app.add_middleware(
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*", "Content-Type", "Cache-Control", "X-Accel-Buffering"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
+    expose_headers=["Content-Type", "Cache-Control", "X-Accel-Buffering", "X-Process-Time"],
 )
 
 
@@ -133,14 +133,21 @@ async def global_exception_handler(request: Request, exc: Exception):
     return response
 
 
-# Request timing middleware
+# Request timing and correlation ID middleware
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
+async def add_request_metadata(request: Request, call_next):
+    import uuid as _uuid
     start_time = time.time()
+
+    # Generate or propagate request ID for tracing
+    request_id = request.headers.get("X-Request-ID", str(_uuid.uuid4()))
+    request.state.request_id = request_id
+
     response = await call_next(request)
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
-    logger.info(f"{request.method} {request.url.path} - {process_time:.2f}s")
+    response.headers["X-Request-ID"] = request_id
+    logger.info(f"[{request_id[:8]}] {request.method} {request.url.path} - {process_time:.2f}s")
     return response
 
 # Health check
@@ -159,7 +166,7 @@ async def health_check():
         health_status["scheduler"] = scheduler_status
     except Exception as e:
         logger.error(f"Error getting scheduler status: {e}")
-        health_status["scheduler"] = {"running": False, "error": str(e)}
+        health_status["scheduler"] = {"running": False, "error": "Scheduler unavailable"}
 
     return health_status
 

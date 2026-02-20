@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
@@ -12,6 +12,7 @@ from app.services.chat_service import ChatService
 from app.services.enhanced_chat_service import enhanced_chat_service
 from app.utils.auth import get_current_user  # Real JWT authentication
 from app.config import settings
+from app.middleware.security import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -62,8 +63,10 @@ class ChatMessageResponse(BaseModel):
 
 
 @router.post("/message")
+@limiter.limit("20/minute")
 async def send_message(
-    request: ChatMessageRequest,
+    request: Request,
+    chat_request: ChatMessageRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> ChatMessageResponse:
@@ -80,25 +83,25 @@ async def send_message(
     - Explain deadline calculations
     - Provide procedural guidance
     """
-    logger.info(f"Chat request from user {current_user.id} for case {request.case_id or 'GLOBAL'}")
+    logger.info(f"Chat request from user {current_user.id} for case {chat_request.case_id or 'GLOBAL'}")
 
     # Verify case belongs to user only if case_id provided
     case = None
-    if request.case_id:
+    if chat_request.case_id:
         case = db.query(Case).filter(
-            Case.id == request.case_id,
+            Case.id == chat_request.case_id,
             Case.user_id == str(current_user.id)
         ).first()
 
         if not case:
-            logger.warning(f"Case {request.case_id} not found for user {current_user.id}")
+            logger.warning(f"Case {chat_request.case_id} not found for user {current_user.id}")
             raise HTTPException(status_code=404, detail="Case not found")
 
     try:
         # Process message with enhanced RAG-powered chat service
         result = await enhanced_chat_service.process_message(
-            user_message=request.message,
-            case_id=request.case_id,
+            user_message=chat_request.message,
+            case_id=chat_request.case_id,
             user_id=str(current_user.id),
             db=db
         )
@@ -120,7 +123,7 @@ async def send_message(
             logger.error(f"Chat service hard error: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result['error'])
 
-        logger.info(f"Chat response generated successfully for case {request.case_id}")
+        logger.info(f"Chat response generated successfully for case {chat_request.case_id}")
         return ChatMessageResponse(**result)
 
     except HTTPException:

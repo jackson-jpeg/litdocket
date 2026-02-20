@@ -2,7 +2,7 @@
 RAG-Powered Semantic Search API
 Enables natural language questions across all case documents
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
@@ -14,6 +14,7 @@ from app.models.document import Document
 from app.utils.auth import get_current_user
 from app.services.rag_service import rag_service
 from app.services.ai_service import ai_service
+from app.middleware.security import limiter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,8 +46,10 @@ class RAGAnswerRequest(BaseModel):
 
 
 @router.post("/semantic", response_model=SemanticSearchResponse)
+@limiter.limit("20/minute")
 async def semantic_search(
-    request: SemanticSearchRequest,
+    request: Request,
+    search_request: SemanticSearchRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -63,7 +66,7 @@ async def semantic_search(
 
     # Verify case ownership
     case = db.query(Case).filter(
-        Case.id == request.case_id,
+        Case.id == search_request.case_id,
         Case.user_id == str(current_user.id)
     ).first()
 
@@ -73,18 +76,18 @@ async def semantic_search(
     # Perform semantic search
     try:
         results = await rag_service.semantic_search(
-            query=request.query,
-            case_id=request.case_id,
+            query=search_request.query,
+            case_id=search_request.case_id,
             db=db,
-            top_k=request.top_k
+            top_k=search_request.top_k
         )
 
         if not results:
             return SemanticSearchResponse(
-                query=request.query,
+                query=search_request.query,
                 answer="No relevant information found in the case documents.",
                 sources=[],
-                case_id=request.case_id,
+                case_id=search_request.case_id,
                 total_chunks_searched=0
             )
 
@@ -109,21 +112,23 @@ async def semantic_search(
         answer = f"Found {len(enriched_sources)} relevant sections. Most relevant: {top_result['chunk_text'][:200]}..."
 
         return SemanticSearchResponse(
-            query=request.query,
+            query=search_request.query,
             answer=answer,
             sources=enriched_sources,
-            case_id=request.case_id,
+            case_id=search_request.case_id,
             total_chunks_searched=len(results)
         )
 
     except Exception as e:
         logger.error(f"Semantic search error: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Search failed")
 
 
 @router.post("/ask")
+@limiter.limit("20/minute")
 async def ask_question(
-    request: RAGAnswerRequest,
+    request: Request,
+    rag_request: RAGAnswerRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -143,7 +148,7 @@ async def ask_question(
 
     # Verify case ownership
     case = db.query(Case).filter(
-        Case.id == request.case_id,
+        Case.id == rag_request.case_id,
         Case.user_id == str(current_user.id)
     ).first()
 
@@ -153,8 +158,8 @@ async def ask_question(
     try:
         # Step 1: Semantic search for relevant chunks
         relevant_chunks = await rag_service.semantic_search(
-            query=request.question,
-            case_id=request.case_id,
+            query=rag_request.question,
+            case_id=rag_request.case_id,
             db=db,
             top_k=5
         )
@@ -163,7 +168,7 @@ async def ask_question(
             return {
                 "success": True,
                 "data": {
-                    "question": request.question,
+                    "question": rag_request.question,
                     "answer": "I couldn't find any relevant information in the case documents to answer this question. Please try rephrasing or upload more documents.",
                     "sources": [],
                     "confidence": "low"
@@ -205,7 +210,7 @@ IMPORTANT RULES:
 5. Use clear, professional legal language
 6. If documents conflict, note the discrepancy"""
 
-        user_prompt = f"""Question: {request.question}
+        user_prompt = f"""Question: {rag_request.question}
 
 Relevant Document Excerpts:
 {context}
@@ -231,9 +236,9 @@ Please answer the question based on the excerpts above. Always cite your sources
         return {
             "success": True,
             "data": {
-                "question": request.question,
+                "question": rag_request.question,
                 "answer": answer,
-                "sources": sources_metadata if request.include_sources else [],
+                "sources": sources_metadata if rag_request.include_sources else [],
                 "confidence": confidence,
                 "total_sources": len(relevant_chunks)
             },
@@ -242,7 +247,7 @@ Please answer the question based on the excerpts above. Always cite your sources
 
     except Exception as e:
         logger.error(f"RAG Q&A error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to answer question: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to answer question")
 
 
 @router.post("/embed/{document_id}")
@@ -290,7 +295,7 @@ async def generate_embeddings(
 
     except Exception as e:
         logger.error(f"Embedding generation error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate embeddings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate embeddings")
 
 
 @router.get("/stats/{case_id}")

@@ -87,15 +87,24 @@ async def upload_document(
             if not case:
                 raise HTTPException(status_code=404, detail="Case not found or access denied")
 
-        # Validate file extension
-        if not file.filename.endswith('.pdf'):
+        # Validate file extension (case-insensitive)
+        if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are accepted")
 
         # Read file bytes
         try:
             pdf_bytes = await file.read()
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to read file: {str(e)}")
+            logger.error(f"Failed to read uploaded file {file.filename}: {str(e)}")
+            raise HTTPException(status_code=400, detail="Failed to read uploaded file")
+
+        # SECURITY: Enforce file size limit (50MB)
+        MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
+        if len(pdf_bytes) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size is 50MB, got {len(pdf_bytes) / (1024*1024):.1f}MB"
+            )
 
         # SECURITY: Validate PDF magic number to prevent malicious file uploads
         if not validate_pdf_magic_number(pdf_bytes):
@@ -144,7 +153,7 @@ async def upload_document(
             logger.error(f"Failed to upload document to Firebase Storage: {e}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to upload document to cloud storage: {str(e)}"
+                detail="Failed to upload document to cloud storage"
             )
 
         # Create document record with Firebase Storage path
@@ -249,7 +258,7 @@ async def upload_document(
         import traceback
         traceback.print_exc()
         logger.error(f"Document upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Upload failed")
 
 
 @router.get("/{document_id}")
@@ -449,7 +458,7 @@ async def bulk_upload_documents(
                 results.append(BulkUploadResult(
                     filename=file.filename,
                     success=False,
-                    error=f"Failed to upload to cloud storage: {str(e)}"
+                    error="Failed to upload to cloud storage"
                 ))
                 continue
 
@@ -487,7 +496,7 @@ async def bulk_upload_documents(
             results.append(BulkUploadResult(
                 filename=file.filename,
                 success=False,
-                error=str(e)
+                error="An internal error occurred during processing"
             ))
 
     # Summary stats
@@ -943,7 +952,7 @@ Be thorough and accurate. Extract all relevant information."""
         raise HTTPException(status_code=500, detail="Failed to parse analysis")
     except Exception as e:
         logger.error(f"Document analysis failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Document analysis failed")
 
 
 @router.get("/{document_id}/summary")
@@ -1000,7 +1009,7 @@ Respond with only the summary, no additional formatting."""
 
     except Exception as e:
         logger.error(f"Document summarization failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Document summarization failed")
 
 
 # Add datetime import at top if not present
@@ -1251,7 +1260,7 @@ async def apply_deadline_suggestions(
             results.append({
                 "suggestion_id": suggestion_id,
                 "success": False,
-                "error": str(e)
+                "error": "Failed to apply suggestion"
             })
 
     # Commit all changes

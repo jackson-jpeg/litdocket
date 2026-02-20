@@ -88,6 +88,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # max-age=31536000 = 1 year
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
+        # Content Security Policy - Prevent XSS
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://*.firebaseapp.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.anthropic.com wss://*.firebaseio.com; "
+            "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; "
+            "object-src 'none'; "
+            "base-uri 'self'"
+        )
+
         # Permissions Policy - Restrict browser features
         response.headers["Permissions-Policy"] = (
             "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "

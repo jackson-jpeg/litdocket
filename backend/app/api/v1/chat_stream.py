@@ -21,6 +21,7 @@ from app.services.approval_manager import approval_manager
 from app.services.agent_service import get_agent_service
 from app.utils.auth import get_current_user, get_current_user_from_query
 from app.config import settings
+from app.middleware.security import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -60,6 +61,7 @@ class ApprovalRequest(BaseModel):
 
 
 @router.get("/stream")
+@limiter.limit("20/minute")
 async def stream_chat(
     request: Request,
     session_id: str = Query(..., description="Unique session ID"),

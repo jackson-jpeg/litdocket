@@ -2,7 +2,7 @@
 Workload Analysis API
 Intelligent calendar workload management and optimization
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel, Field
@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.user import User
 from app.utils.auth import get_current_user
 from app.services.workload_optimizer import workload_optimizer
+from app.middleware.security import limiter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,9 @@ router = APIRouter()
 
 
 @router.get("/analysis")
+@limiter.limit("20/minute")
 async def analyze_workload(
+    request: Request,
     days_ahead: int = Query(default=60, ge=7, le=180, description="Days to analyze ahead"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -55,11 +58,13 @@ async def analyze_workload(
 
     except Exception as e:
         logger.error(f"Workload analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Workload analysis failed")
 
 
 @router.get("/heatmap")
+@limiter.limit("20/minute")
 async def get_workload_heatmap(
+    request: Request,
     days_ahead: int = Query(default=60, ge=7, le=180),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -96,11 +101,13 @@ async def get_workload_heatmap(
 
     except Exception as e:
         logger.error(f"Heatmap generation error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Heatmap generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Heatmap generation failed")
 
 
 @router.get("/suggestions")
+@limiter.limit("20/minute")
 async def get_rebalancing_suggestions(
+    request: Request,
     days_ahead: int = Query(default=60, ge=7, le=180),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -151,4 +158,4 @@ async def get_rebalancing_suggestions(
 
     except Exception as e:
         logger.error(f"Suggestion generation error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate suggestions")
