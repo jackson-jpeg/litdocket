@@ -33,6 +33,9 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcuts-modal-title"
         className="bg-paper border-2 border-ink shadow-modal max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -42,10 +45,11 @@ export default function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShor
             <div className="p-2 bg-steel border border-ink">
               <Keyboard className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-xl font-heading font-semibold text-ink">Keyboard Shortcuts</h2>
+            <h2 id="keyboard-shortcuts-modal-title" className="text-xl font-heading font-semibold text-ink">Keyboard Shortcuts</h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close keyboard shortcuts"
             className="p-2 hover:bg-surface transition-transform hover:translate-x-0.5"
           >
             <X className="w-5 h-5 text-ink-muted" />

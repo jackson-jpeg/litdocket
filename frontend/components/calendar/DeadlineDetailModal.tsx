@@ -126,6 +126,9 @@ export default function DeadlineDetailModal({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="deadline-detail-modal-title"
             className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
@@ -139,7 +142,7 @@ export default function DeadlineDetailModal({
                   <span>OVERDUE</span>
                 </div>
               )}
-              <h2 className="text-lg font-semibold text-slate-800 break-words">
+              <h2 id="deadline-detail-modal-title" className="text-lg font-semibold text-slate-800 break-words">
                 {deadline.title}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
@@ -148,6 +151,7 @@ export default function DeadlineDetailModal({
             </div>
             <button
               onClick={onClose}
+              aria-label="Close deadline details"
               className="p-1 rounded-lg hover:bg-slate-200 transition-colors"
             >
               <X className="w-5 h-5 text-slate-500" />
@@ -308,6 +312,10 @@ export default function DeadlineDetailModal({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="delete-confirm-title"
+              aria-describedby="delete-confirm-description"
               className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 p-6"
               onClick={(e) => e.stopPropagation()}
             >
@@ -315,12 +323,12 @@ export default function DeadlineDetailModal({
               <div className="p-2 bg-red-100 rounded-full">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-800">
+              <h3 id="delete-confirm-title" className="text-lg font-semibold text-slate-800">
                 Delete Deadline?
               </h3>
             </div>
 
-            <p className="text-sm text-slate-600 mb-6">
+            <p id="delete-confirm-description" className="text-sm text-slate-600 mb-6">
               Are you sure you want to delete <span className="font-medium text-slate-800">"{deadline.title}"</span>? This action cannot be undone.
             </p>
 

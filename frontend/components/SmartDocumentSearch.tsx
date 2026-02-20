@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Search, FileText, AlertCircle, Sparkles, ExternalLink } from 'lucide-react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 
 interface Source {
@@ -59,8 +60,11 @@ export default function SmartDocumentSearch({ caseId, onOpenDocument }: SmartDoc
       } else {
         setError(response.data.message || 'Search failed');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to search documents');
+    } catch (err: unknown) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to search documents';
+      setError(message);
       console.error('RAG search error:', err);
     } finally {
       setLoading(false);

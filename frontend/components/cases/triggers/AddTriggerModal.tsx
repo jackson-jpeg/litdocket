@@ -15,6 +15,7 @@ import {
   Clock,
   Info,
 } from 'lucide-react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 
@@ -200,8 +201,11 @@ export default function AddTriggerModal({
       showSuccess(`Created trigger with ${dependent_deadlines_created} deadlines`);
       onSuccess();
       onClose();
-    } catch (err: any) {
-      showError(err.response?.data?.detail || 'Failed to create trigger');
+    } catch (err: unknown) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to create trigger';
+      showError(message);
     } finally {
       setCreating(false);
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, AlertTriangle, ArrowRight, Loader2, CheckCircle2, Clock, Lock } from 'lucide-react';
 import type { Trigger, Deadline } from '@/hooks/useCaseData';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 
@@ -138,8 +139,11 @@ export default function EditTriggerModal({
       showSuccess('Trigger date updated');
       onSuccess();
       onClose();
-    } catch (err: any) {
-      showError(err.response?.data?.detail || 'Failed to update trigger');
+    } catch (err: unknown) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to update trigger';
+      showError(message);
     } finally {
       setLoading(false);
     }

@@ -63,8 +63,9 @@ export default function CompleteProfilePage() {
       });
 
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Failed to complete profile');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to complete profile';
+      setError(message);
     } finally {
       setLoading(false);
     }

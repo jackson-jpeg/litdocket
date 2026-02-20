@@ -341,6 +341,9 @@ export default function UnifiedAddEventModal({
       onClick={handleClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-event-modal-title"
         className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -352,7 +355,7 @@ export default function UnifiedAddEventModal({
                 <Plus className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">Add Event</h2>
+                <h2 id="add-event-modal-title" className="text-lg font-semibold text-slate-800">Add Event</h2>
                 <p className="text-sm text-slate-600">
                   Create a deadline or apply a rule
                 </p>
@@ -361,6 +364,7 @@ export default function UnifiedAddEventModal({
             <button
               onClick={handleClose}
               disabled={isSubmitting}
+              aria-label="Close dialog"
               className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
             >
               <X className="w-5 h-5 text-slate-500" />
@@ -368,8 +372,11 @@ export default function UnifiedAddEventModal({
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex border border-slate-200 rounded-lg bg-white p-1">
+          <div role="tablist" aria-label="Event creation mode" className="flex border border-slate-200 rounded-lg bg-white p-1">
             <button
+              role="tab"
+              aria-selected={activeTab === 'quick'}
+              aria-controls="tab-panel-quick"
               onClick={() => setActiveTab('quick')}
               disabled={isSubmitting}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -382,6 +389,9 @@ export default function UnifiedAddEventModal({
               Quick Add
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === 'rule'}
+              aria-controls="tab-panel-rule"
               onClick={() => setActiveTab('rule')}
               disabled={isSubmitting}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -394,6 +404,9 @@ export default function UnifiedAddEventModal({
               Apply Rule
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === 'trigger'}
+              aria-controls="tab-panel-trigger"
               onClick={() => setActiveTab('trigger')}
               disabled={isSubmitting}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -506,6 +519,7 @@ export default function UnifiedAddEventModal({
                       <button
                         type="button"
                         onClick={() => setQuickRule(null)}
+                        aria-label="Remove selected rule"
                         className="p-1 text-blue-400 hover:text-blue-600 rounded"
                       >
                         <X className="w-4 h-4" />
@@ -564,6 +578,7 @@ export default function UnifiedAddEventModal({
                       </div>
                       <button
                         onClick={() => setSelectedRule(null)}
+                        aria-label="Remove selected rule"
                         className="p-1 text-blue-400 hover:text-blue-600 rounded"
                       >
                         <X className="w-4 h-4" />
@@ -644,7 +659,7 @@ export default function UnifiedAddEventModal({
               {triggerStep === 'select' && (
                 <>
                   {templatesLoading ? (
-                    <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center justify-center py-12" role="status" aria-label="Loading rule templates">
                       <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
                     </div>
                   ) : Object.keys(groupedTemplates).length === 0 ? (

@@ -11,6 +11,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import { deadlineEvents, filterEvents, eventBus, caseEvents } from '@/lib/eventBus';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
@@ -304,12 +305,18 @@ export function AITerminal() {
         deadlineEvents.created({ id: 'batch', case_id: activeCaseId });
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[AI] Upload failed:', err);
+      let detail = 'Unknown error';
+      if (axios.isAxiosError(err)) {
+        detail = err.response?.data?.detail || err.message;
+      } else if (err instanceof Error) {
+        detail = err.message;
+      }
       const errorMsg: Message = {
         id: `error-${Date.now()}`,
         type: 'error',
-        content: `Upload failed: ${err.response?.data?.detail || err.message || 'Unknown error'}`,
+        content: `Upload failed: ${detail}`,
         timestamp: new Date(),
       };
       setMessages(prev => prev.filter(m => m.id !== uploadingMsg.id).concat(errorMsg));
@@ -401,7 +408,7 @@ export function AITerminal() {
     // Send to AI via streaming
     try {
       await sendMessage(command);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[AI] Streaming error:', err);
     }
   };

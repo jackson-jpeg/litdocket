@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 
 interface Source {
@@ -67,8 +68,10 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
       } else {
         throw new Error(response.data.message || 'Failed to get answer');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to search documents';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to search documents';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return null;
@@ -101,8 +104,10 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
       } else {
         throw new Error(response.data.message || 'Search failed');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to search';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to search';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return null;
@@ -123,7 +128,7 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
         return statsData;
       }
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch RAG stats:', err);
       return null;
     }
@@ -136,7 +141,7 @@ export function useRAG({ caseId, onSuccess, onError }: UseRAGOptions) {
     try {
       const response = await apiClient.post(`/api/v1/rag/embed/${documentId}`);
       return response.data.success;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to generate embeddings:', err);
       return false;
     }

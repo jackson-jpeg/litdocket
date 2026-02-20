@@ -124,9 +124,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       // Auth state change listener will handle the rest
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
-      throw new Error(error.message || 'Failed to sign in');
+      const message = error instanceof Error ? error.message : 'Failed to sign in';
+      throw new Error(message);
     }
   };
 
@@ -140,9 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await updateProfile(userCredential.user, { displayName: name });
 
       // Auth state change listener will handle backend sync
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
-      throw new Error(error.message || 'Failed to sign up');
+      const message = error instanceof Error ? error.message : 'Failed to sign up';
+      throw new Error(message);
     }
   };
 
@@ -153,9 +155,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       // Auth state change listener will handle the rest
-    } catch (error: any) {
+    } catch (error: unknown) {
       setLoading(false);
-      throw new Error(error.message || 'Failed to sign in with Google');
+      const message = error instanceof Error ? error.message : 'Failed to sign in with Google';
+      throw new Error(message);
     }
   };
 
@@ -167,8 +170,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(null);
       setUser(null);
       localStorage.removeItem('accessToken');
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to sign out');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to sign out';
+      throw new Error(message);
     } finally {
       setLoading(false);
     }

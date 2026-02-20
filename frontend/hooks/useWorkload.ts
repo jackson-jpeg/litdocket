@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import { eventBus } from '@/lib/eventBus';
 
@@ -101,8 +102,10 @@ export function useWorkload({
       } else {
         throw new Error(response.data.message || 'Analysis failed');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to analyze workload';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to analyze workload';
       setError(errorMessage);
       console.error('Workload analysis error:', err);
       return null;
@@ -124,7 +127,7 @@ export function useWorkload({
         return response.data.data;
       }
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Heatmap fetch error:', err);
       return null;
     }
@@ -143,7 +146,7 @@ export function useWorkload({
         return response.data.data;
       }
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Suggestions fetch error:', err);
       return null;
     }

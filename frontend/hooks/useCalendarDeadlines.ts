@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import { eventBus, useEventBus } from '@/lib/eventBus';
 
@@ -111,9 +112,12 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
       });
       setCases(Array.from(caseMap.values()));
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch deadlines:', err);
-      setError(err.response?.data?.detail || 'Failed to load deadlines');
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to load deadlines';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -151,7 +155,7 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
       });
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to reschedule deadline:', err);
       // Revert on error
       fetchDeadlines();
@@ -173,7 +177,7 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
       }));
 
       return newDeadline;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create deadline:', err);
       return null;
     }
@@ -192,7 +196,7 @@ export function useCalendarDeadlines(filters?: CalendarFilters): UseCalendarDead
 
       await apiClient.patch(`/api/v1/deadlines/${deadlineId}/status?status=${status}`);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to update deadline status:', err);
       fetchDeadlines();
       return false;

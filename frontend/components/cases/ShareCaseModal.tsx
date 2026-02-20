@@ -99,6 +99,7 @@ function AccessListItem({
               onClick={onRevoke}
               className="p-1.5 text-ink-muted hover:text-fatal hover:bg-fatal/10 transition-transform hover:translate-x-0.5"
               title="Revoke access"
+              aria-label="Revoke access"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -223,15 +224,21 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
 
   return (
     <div className="fixed inset-0 bg-ink/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-paper border-2 border-ink shadow-modal max-w-lg w-full max-h-[90vh] overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-case-modal-title"
+        className="bg-paper border-2 border-ink shadow-modal max-w-lg w-full max-h-[90vh] overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-ink bg-surface">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-steel" />
-            <h2 className="text-lg font-heading font-semibold text-ink">Share Case</h2>
+            <h2 id="share-case-modal-title" className="text-lg font-heading font-semibold text-ink">Share Case</h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close share dialog"
             className="p-1 text-ink-muted hover:text-ink transition-transform hover:translate-x-0.5"
           >
             <X className="w-5 h-5" />
@@ -255,6 +262,8 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter email address"
+                    aria-label="Email address to share with"
+                    aria-required="true"
                     className="w-full pl-10 pr-4 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
                     disabled={sharing}
                   />
@@ -310,7 +319,7 @@ export default function ShareCaseModal({ caseId, caseTitle, isOpen, onClose }: S
             <h3 className="text-sm font-mono font-medium text-ink uppercase tracking-wide mb-2">People with access</h3>
 
             {loading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center py-8" role="status" aria-label="Loading access list">
                 <span className="font-mono text-ink-secondary">LOADING<span className="animate-pulse">_</span></span>
               </div>
             ) : error ? (

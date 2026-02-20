@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 
 interface RuleTemplate {
@@ -116,8 +117,10 @@ export function useRules({
       } else {
         throw new Error(response.data.message || 'Failed to fetch rules');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch rules';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to fetch rules';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return [];
@@ -145,8 +148,10 @@ export function useRules({
       } else {
         throw new Error(response.data.message || 'Failed to fetch rule');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch rule';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to fetch rule';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return null;
@@ -172,8 +177,10 @@ export function useRules({
       } else {
         throw new Error(response.data.message || 'Failed to create rule');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to create rule';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to create rule';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return null;
@@ -199,8 +206,10 @@ export function useRules({
       } else {
         throw new Error(response.data.message || 'Failed to execute rule');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to execute rule';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to execute rule';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return null;
@@ -226,8 +235,10 @@ export function useRules({
       } else {
         throw new Error(response.data.message || 'Failed to activate rule');
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to activate rule';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to activate rule';
       setError(errorMessage);
       onError?.(new Error(errorMessage));
       return false;
@@ -253,7 +264,7 @@ export function useRules({
         return response.data.data;
       }
       return [];
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch executions:', err);
       return [];
     }
@@ -281,8 +292,10 @@ export function useRules({
         return response.data.data;
       }
       return [];
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch marketplace rules';
+    } catch (err: unknown) {
+      const errorMessage = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to fetch marketplace rules';
       setError(errorMessage);
       return [];
     } finally {

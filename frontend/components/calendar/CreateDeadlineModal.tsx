@@ -109,8 +109,9 @@ export default function CreateDeadlineModal({
       } else {
         setError('Failed to create deadline. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to create deadline');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create deadline';
+      setError(message);
     } finally {
       setCreating(false);
     }
@@ -132,6 +133,9 @@ export default function CreateDeadlineModal({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-deadline-modal-title"
             className="bg-paper border-2 border-ink shadow-modal max-w-md w-full max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
@@ -140,11 +144,12 @@ export default function CreateDeadlineModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-steel" />
-              <h2 className="text-lg font-heading font-semibold text-ink">New Deadline</h2>
+              <h2 id="create-deadline-modal-title" className="text-lg font-heading font-semibold text-ink">New Deadline</h2>
             </div>
             <button
               onClick={onClose}
               disabled={creating}
+              aria-label="Close dialog"
               className="p-1 hover:bg-surface transition-transform hover:translate-x-0.5 disabled:opacity-50"
             >
               <X className="w-5 h-5 text-ink-muted" />
@@ -172,6 +177,7 @@ export default function CreateDeadlineModal({
               onChange={(e) => setCaseId(e.target.value)}
               className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
               required
+              aria-required="true"
             >
               <option value="">Select a case...</option>
               {cases.map((c) => (
@@ -194,6 +200,7 @@ export default function CreateDeadlineModal({
               placeholder="e.g., File Motion for Summary Judgment"
               className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink"
               required
+              aria-required="true"
               maxLength={500}
             />
           </div>
@@ -210,6 +217,7 @@ export default function CreateDeadlineModal({
                 onChange={(e) => setDeadlineDate(e.target.value)}
                 className="w-full px-3 py-2 border border-ink/20 bg-paper focus:outline-none focus:border-ink font-mono"
                 required
+                aria-required="true"
               />
             </div>
           </div>
@@ -300,6 +308,7 @@ export default function CreateDeadlineModal({
                       setSelectedRule(null);
                       setApplicableRule('');
                     }}
+                    aria-label="Remove selected rule"
                     className="p-1 text-ink-muted hover:text-ink"
                   >
                     <X className="w-4 h-4" />

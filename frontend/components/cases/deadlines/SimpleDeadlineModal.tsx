@@ -10,6 +10,7 @@
 
 import { useState } from 'react';
 import { X, Calendar, AlertCircle, Scale, ChevronDown, ChevronUp } from 'lucide-react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import { useToast } from '@/components/Toast';
 import { deadlineEvents } from '@/lib/eventBus';
@@ -89,9 +90,12 @@ export default function SimpleDeadlineModal({
 
       onSuccess?.();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to create deadline:', err);
-      showError(err.response?.data?.detail || 'Failed to create deadline');
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.detail || err.message
+        : err instanceof Error ? err.message : 'Failed to create deadline';
+      showError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -120,7 +124,12 @@ export default function SimpleDeadlineModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="simple-deadline-modal-title"
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -128,13 +137,14 @@ export default function SimpleDeadlineModal({
               <Calendar className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Quick Add Deadline</h2>
+              <h2 id="simple-deadline-modal-title" className="text-lg font-semibold text-slate-900">Quick Add Deadline</h2>
               <p className="text-sm text-slate-500">Simple deadline creation</p>
             </div>
           </div>
           <button
             onClick={handleClose}
             disabled={isSubmitting}
+            aria-label="Close dialog"
             className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
@@ -156,6 +166,7 @@ export default function SimpleDeadlineModal({
               placeholder="e.g., File Motion to Compel"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
+              aria-required="true"
               autoFocus
               disabled={isSubmitting}
             />
@@ -173,6 +184,7 @@ export default function SimpleDeadlineModal({
               onChange={(e) => setDate(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
+              aria-required="true"
               disabled={isSubmitting}
             />
           </div>
@@ -240,6 +252,7 @@ export default function SimpleDeadlineModal({
                   <button
                     type="button"
                     onClick={() => setSelectedRule(null)}
+                    aria-label="Remove selected rule"
                     className="p-1 text-blue-400 hover:text-blue-600 rounded"
                   >
                     <X className="w-4 h-4" />

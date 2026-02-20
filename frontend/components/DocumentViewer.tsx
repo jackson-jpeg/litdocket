@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from 'lucide-react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 
 // Import react-pdf CSS for proper rendering
@@ -55,13 +56,18 @@ export default function DocumentViewer({
         // Create blob URL for PDF.js to load
         blobUrl = URL.createObjectURL(response.data);
         setPdfBlob(blobUrl);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('[DocumentViewer] Failed to fetch PDF:', err);
-        const errorMessage = err.response?.status === 401
-          ? 'Authentication failed. Please refresh the page and try again.'
-          : err.response?.status === 404
-          ? 'Document not found on server.'
-          : err.message || 'Failed to load PDF document';
+        let errorMessage = 'Failed to load PDF document';
+        if (axios.isAxiosError(err)) {
+          errorMessage = err.response?.status === 401
+            ? 'Authentication failed. Please refresh the page and try again.'
+            : err.response?.status === 404
+            ? 'Document not found on server.'
+            : err.message || 'Failed to load PDF document';
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
+        }
         setError(errorMessage);
         setLoading(false);
       }

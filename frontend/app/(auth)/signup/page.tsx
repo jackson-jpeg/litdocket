@@ -86,8 +86,9 @@ export default function SignupPage() {
       await signInWithGoogle();
       // Redirect to complete profile
       router.push('/complete-profile');
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign up with Google');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign up with Google';
+      setError(message);
     } finally {
       setLoading(false);
     }
