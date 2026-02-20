@@ -477,6 +477,8 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
       {/* Toggle Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? 'Close chat assistant' : 'Open chat assistant'}
+        aria-expanded={isOpen}
         className={`fixed bottom-6 right-6 w-14 h-14 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-40 ${
           selectedAgent?.color === 'red'
             ? 'bg-red-600 hover:bg-red-700'
@@ -544,6 +546,8 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setShowAgentSelector(!showAgentSelector)}
+                  aria-label="Select AI Agent"
+                  aria-expanded={showAgentSelector}
                   className={`p-1.5 rounded transition-colors ${
                     showAgentSelector
                       ? 'bg-blue-100 text-blue-600'
@@ -559,6 +563,7 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                     setIsBubbleHidden(true);
                     localStorage.setItem(BUBBLE_HIDDEN_KEY, 'true');
                   }}
+                  aria-label="Hide chat widget"
                   className="p-1 text-slate-400 hover:text-slate-600 rounded"
                   title="Hide chat widget"
                 >
@@ -566,6 +571,7 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
+                  aria-label="Close chat"
                   className="p-1 text-slate-400 hover:text-slate-600 rounded"
                 >
                   <X className="w-5 h-5" />
@@ -676,7 +682,7 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
 
               {/* Loading Indicator */}
               {isStreaming && !streamingContent && (
-                <div className="flex gap-2 justify-start">
+                <div className="flex gap-2 justify-start" role="status" aria-label="Assistant is thinking">
                   <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                     <Bot className="w-4 h-4 text-blue-600" />
                   </div>
@@ -692,8 +698,8 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
 
               {/* Error */}
               {error && (
-                <div className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />
+                <div role="alert" className="flex items-start gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" aria-hidden="true" />
                   <p className="text-xs text-red-700">{error}</p>
                 </div>
               )}
@@ -754,6 +760,7 @@ export default function CaseChatWidget({ caseId, caseName }: CaseChatWidgetProps
                 <button
                   onClick={sendMessage}
                   disabled={isStreaming || !inputValue.trim()}
+                  aria-label={isStreaming ? 'Sending message' : 'Send message'}
                   className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isStreaming ? (

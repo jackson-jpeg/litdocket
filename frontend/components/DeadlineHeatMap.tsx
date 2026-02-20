@@ -174,11 +174,14 @@ export default function DeadlineHeatMap({ heatMapData, onCaseClick }: DeadlineHe
                             {deadlines.slice(0, 4).map((deadline) => (
                               <div
                                 key={deadline.id}
+                                role="button"
+                                tabIndex={0}
                                 className="text-xs border-b border-ink/20 pb-3 last:border-0 cursor-pointer hover:bg-surface -mx-2 px-2 py-2 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onCaseClick?.(deadline.case_id);
                                 }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onCaseClick?.(deadline.case_id); } }}
                               >
                                 <p className="font-semibold text-ink truncate" title={deadline.title}>
                                   {deadline.title}

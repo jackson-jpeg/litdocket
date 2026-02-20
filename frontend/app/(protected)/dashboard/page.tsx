@@ -575,8 +575,10 @@ export default function DashboardPage() {
   // Show loading only on initial page load
   if (isInitialLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      <div className="h-full flex items-center justify-center" aria-busy="true">
+        <div role="status" aria-label="Loading dashboard">
+          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        </div>
       </div>
     );
   }

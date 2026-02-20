@@ -22,7 +22,7 @@ export function CockpitHeader() {
   };
 
   return (
-    <header className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
+    <header role="banner" className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
       {/* Logo & Brand */}
       <div className="flex items-center gap-4">
         <div className="font-bold text-base tracking-tight text-blue-600">
