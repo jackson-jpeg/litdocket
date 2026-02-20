@@ -38,6 +38,7 @@ class InboxService:
 
     def create_jurisdiction_approval_item(
         self,
+        user_id: str,
         jurisdiction_id: str,
         title: str,
         description: Optional[str],
@@ -60,6 +61,7 @@ class InboxService:
             Created InboxItem
         """
         item = InboxItem(
+            user_id=user_id,
             type=InboxItemType.JURISDICTION_APPROVAL,
             status=InboxStatus.PENDING,
             title=title,
@@ -79,6 +81,7 @@ class InboxService:
 
     def create_rule_verification_item(
         self,
+        user_id: str,
         rule_id: str,
         title: str,
         description: Optional[str],
@@ -101,6 +104,7 @@ class InboxService:
             Created InboxItem
         """
         item = InboxItem(
+            user_id=user_id,
             type=InboxItemType.RULE_VERIFICATION,
             status=InboxStatus.PENDING,
             title=title,
@@ -120,6 +124,7 @@ class InboxService:
 
     def create_watchtower_change_item(
         self,
+        user_id: str,
         rule_id: str,
         title: str,
         description: Optional[str],
@@ -140,6 +145,7 @@ class InboxService:
             Created InboxItem
         """
         item = InboxItem(
+            user_id=user_id,
             type=InboxItemType.WATCHTOWER_CHANGE,
             status=InboxStatus.PENDING,
             title=title,
@@ -158,6 +164,7 @@ class InboxService:
 
     def create_scraper_failure_item(
         self,
+        user_id: str,
         jurisdiction_id: str,
         title: str,
         description: Optional[str],
@@ -178,6 +185,7 @@ class InboxService:
             Created InboxItem
         """
         item = InboxItem(
+            user_id=user_id,
             type=InboxItemType.SCRAPER_FAILURE,
             status=InboxStatus.PENDING,
             title=title,
@@ -196,6 +204,7 @@ class InboxService:
 
     def create_conflict_resolution_item(
         self,
+        user_id: str,
         conflict_id: str,
         title: str,
         description: Optional[str],
@@ -214,6 +223,7 @@ class InboxService:
             Created InboxItem
         """
         item = InboxItem(
+            user_id=user_id,
             type=InboxItemType.CONFLICT_RESOLUTION,
             status=InboxStatus.PENDING,
             title=title,
@@ -235,6 +245,7 @@ class InboxService:
 
     def list_inbox_items(
         self,
+        user_id: str,
         item_type: Optional[InboxItemType] = None,
         status: Optional[InboxStatus] = None,
         limit: int = 50,
@@ -244,6 +255,7 @@ class InboxService:
         List inbox items with optional filters.
 
         Args:
+            user_id: Owner user ID (required for IDOR prevention)
             item_type: Optional filter by item type
             status: Optional filter by status
             limit: Maximum items to return
@@ -252,7 +264,7 @@ class InboxService:
         Returns:
             List of InboxItem objects
         """
-        query = self.db.query(InboxItem)
+        query = self.db.query(InboxItem).filter(InboxItem.user_id == user_id)
 
         if item_type:
             query = query.filter(InboxItem.type == item_type)
@@ -261,38 +273,49 @@ class InboxService:
 
         return query.order_by(desc(InboxItem.created_at)).offset(offset).limit(limit).all()
 
-    def get_inbox_item(self, item_id: str) -> Optional[InboxItem]:
+    def get_inbox_item(self, item_id: str, user_id: Optional[str] = None) -> Optional[InboxItem]:
         """
         Get a single inbox item by ID.
 
         Args:
             item_id: Inbox item UUID
+            user_id: Owner user ID (when provided, enforces ownership check)
 
         Returns:
             InboxItem or None
         """
-        return self.db.query(InboxItem).filter(InboxItem.id == item_id).first()
+        query = self.db.query(InboxItem).filter(InboxItem.id == item_id)
+        if user_id:
+            query = query.filter(InboxItem.user_id == user_id)
+        return query.first()
 
-    def get_pending_count(self, item_type: Optional[InboxItemType] = None) -> int:
+    def get_pending_count(self, user_id: str, item_type: Optional[InboxItemType] = None) -> int:
         """
         Get count of pending inbox items.
 
         Args:
+            user_id: Owner user ID (required for IDOR prevention)
             item_type: Optional filter by item type
 
         Returns:
             Count of pending items
         """
-        query = self.db.query(InboxItem).filter(InboxItem.status == InboxStatus.PENDING)
+        query = self.db.query(InboxItem).filter(
+            InboxItem.user_id == user_id,
+            InboxItem.status == InboxStatus.PENDING
+        )
 
         if item_type:
             query = query.filter(InboxItem.type == item_type)
 
         return query.count()
 
-    def get_pending_summary(self) -> Dict[str, int]:
+    def get_pending_summary(self, user_id: str) -> Dict[str, int]:
         """
         Get summary of pending items by type.
+
+        Args:
+            user_id: Owner user ID (required for IDOR prevention)
 
         Returns:
             Dict mapping item type to count
@@ -303,6 +326,7 @@ class InboxService:
             InboxItem.type,
             func.count(InboxItem.id).label("count")
         ).filter(
+            InboxItem.user_id == user_id,
             InboxItem.status == InboxStatus.PENDING
         ).group_by(InboxItem.type).all()
 
@@ -339,7 +363,7 @@ class InboxService:
         Raises:
             ValueError: If item not found
         """
-        item = self.get_inbox_item(item_id)
+        item = self.get_inbox_item(item_id, user_id=user_id)
 
         if not item:
             raise ValueError(f"Inbox item {item_id} not found")
@@ -413,7 +437,7 @@ class InboxService:
         Raises:
             ValueError: If item not found
         """
-        item = self.get_inbox_item(item_id)
+        item = self.get_inbox_item(item_id, user_id=user_id)
 
         if not item:
             raise ValueError(f"Inbox item {item_id} not found")
@@ -449,7 +473,10 @@ class InboxService:
         Returns:
             List of updated InboxItem objects
         """
-        items = self.db.query(InboxItem).filter(InboxItem.id.in_(item_ids)).all()
+        items = self.db.query(InboxItem).filter(
+            InboxItem.id.in_(item_ids),
+            InboxItem.user_id == user_id
+        ).all()
 
         for item in items:
             item.status = InboxStatus.REVIEWED
@@ -503,17 +530,18 @@ class InboxService:
 
         return query.first() is not None
 
-    def delete_item(self, item_id: str) -> bool:
+    def delete_item(self, item_id: str, user_id: str) -> bool:
         """
         Delete an inbox item.
 
         Args:
             item_id: Inbox item UUID
+            user_id: Owner user ID (required for IDOR prevention)
 
         Returns:
             True if deleted, False if not found
         """
-        item = self.get_inbox_item(item_id)
+        item = self.get_inbox_item(item_id, user_id=user_id)
 
         if not item:
             return False

@@ -272,6 +272,7 @@ class SelfHealingScraperService:
         try:
             # Create inbox item for manual intervention
             self.inbox_service.create_scraper_failure_item(
+                user_id="system",
                 jurisdiction_id=jurisdiction.id,
                 title=f"Scraper Auto-Heal Failed: {jurisdiction.name}",
                 description=f"Self-healing attempted but failed. Manual intervention required.\n\n"

@@ -67,6 +67,9 @@ class InboxItem(Base):
     source_url = Column(Text)
     item_metadata = Column(JSONB, default={})  # Flexible metadata storage
 
+    # Ownership — every inbox item belongs to a user
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
     # Workflow tracking
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     reviewed_at = Column(DateTime(timezone=True))
@@ -75,6 +78,7 @@ class InboxItem(Base):
     resolution_notes = Column(Text)
 
     # Relationships
+    user = relationship("User", foreign_keys=[user_id])
     jurisdiction = relationship("Jurisdiction", foreign_keys=[jurisdiction_id])
     rule = relationship("AuthorityRule", foreign_keys=[rule_id])
     conflict = relationship("RuleConflict", foreign_keys=[conflict_id])
@@ -85,6 +89,7 @@ class InboxItem(Base):
         """Convert to dictionary for API responses"""
         return {
             "id": self.id,
+            "user_id": self.user_id,
             "type": self.type.value if self.type else None,
             "status": self.status.value if self.status else None,
             "title": self.title,

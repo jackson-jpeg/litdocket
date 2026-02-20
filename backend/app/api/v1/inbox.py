@@ -104,6 +104,7 @@ async def list_inbox_items(
             raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
 
     items = service.list_inbox_items(
+        user_id=str(current_user.id),
         item_type=item_type_filter,
         status=status_filter,
         limit=limit,
@@ -125,7 +126,7 @@ async def get_pending_summary(
     """
     service = InboxService(db)
 
-    summary = service.get_pending_summary()
+    summary = service.get_pending_summary(user_id=str(current_user.id))
     total = sum(summary.values())
 
     return {
@@ -154,7 +155,7 @@ async def get_pending_count(
         except KeyError:
             raise HTTPException(status_code=400, detail=f"Invalid item type: {type}")
 
-    count = service.get_pending_count(item_type=item_type_filter)
+    count = service.get_pending_count(user_id=str(current_user.id), item_type=item_type_filter)
 
     return {
         "count": count,
@@ -173,7 +174,7 @@ async def get_inbox_item(
     """
     service = InboxService(db)
 
-    item = service.get_inbox_item(item_id)
+    item = service.get_inbox_item(item_id, user_id=str(current_user.id))
 
     if not item:
         raise HTTPException(status_code=404, detail="Inbox item not found")
@@ -205,8 +206,8 @@ async def review_inbox_item(
 
         return item.to_dict()
 
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Inbox item not found")
 
 
 @router.post("/{item_id}/defer", response_model=InboxItemResponse)
@@ -230,8 +231,8 @@ async def defer_inbox_item(
 
         return item.to_dict()
 
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Inbox item not found")
 
 
 @router.post("/bulk-review", response_model=List[InboxItemResponse])
@@ -268,7 +269,7 @@ async def delete_inbox_item(
     """
     service = InboxService(db)
 
-    deleted = service.delete_item(item_id)
+    deleted = service.delete_item(item_id, user_id=str(current_user.id))
 
     if not deleted:
         raise HTTPException(status_code=404, detail="Inbox item not found")

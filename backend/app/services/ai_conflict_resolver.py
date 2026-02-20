@@ -41,8 +41,9 @@ class AIConflictResolver:
     RECOMMEND_THRESHOLD = 0.70  # Minimum confidence for recommendation
     MAX_CONFLICTS_PER_RUN = 50  # Batch size for conflict processing
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user_id: str = "system"):
         self.db = db
+        self.user_id = user_id
         self.inbox_service = InboxService(db)
 
     async def detect_conflicts(self, jurisdiction_id: Optional[str] = None) -> List[RuleConflict]:
@@ -441,6 +442,7 @@ Please review the conflicting rules and make a final determination.
 """
 
             self.inbox_service.create_conflict_resolution_item(
+                user_id=self.user_id,
                 conflict_id=conflict.id,
                 title=title,
                 description=description,

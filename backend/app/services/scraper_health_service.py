@@ -182,6 +182,7 @@ class ScraperHealthService:
             jurisdiction.id
         ):
             inbox_service.create_scraper_failure_item(
+                user_id="system",
                 jurisdiction_id=jurisdiction.id,
                 title=f"Scraper Disabled: {jurisdiction.name}",
                 description=(
