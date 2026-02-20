@@ -127,14 +127,14 @@ export function EnhancedSidebar() {
   };
 
   return (
-    <aside className="w-[280px] bg-steel-dark flex-shrink-0 flex flex-col h-screen border-r border-ink/20">
+    <aside aria-label="Main navigation" className="w-[280px] bg-steel-dark flex-shrink-0 flex flex-col h-screen border-r border-ink/20">
       {/* Logo */}
       <div className="px-5 py-6 border-b border-white/10">
         <h1 className="text-xl font-heading font-bold text-white tracking-tight">LitDocket</h1>
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 px-4 py-4 overflow-y-auto">
+      <nav aria-label="Primary navigation" className="flex-1 px-4 py-4 overflow-y-auto">
         {/* Primary Navigation */}
         <div className="mb-6">
           <div className="text-xs font-mono font-semibold text-terminal-text/40 uppercase tracking-wider px-4 mb-2">
@@ -285,6 +285,7 @@ export function EnhancedSidebar() {
         </div>
         <button
           onClick={() => signOut()}
+          aria-label="Sign out"
           className="text-sm text-terminal-text/40 hover:text-white transition-colors"
         >
           Logout
@@ -293,7 +294,7 @@ export function EnhancedSidebar() {
 
       {/* Pending Approvals Panel (Modal) */}
       {showPendingPanel && (
-        <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Pending approvals" className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4">
           <PendingApprovalsPanel
             onClose={() => setShowPendingPanel(false)}
             className="w-full max-w-lg"

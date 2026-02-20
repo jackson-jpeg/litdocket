@@ -102,7 +102,7 @@ export default function SignupPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -160,6 +160,9 @@ export default function SignupPage() {
               id="name"
               type="text"
               {...getFieldProps('name')}
+              aria-required="true"
+              aria-invalid={!!getFieldError('name')}
+              aria-describedby={getFieldError('name') ? 'name-error' : undefined}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg transition-all ${
                 getFieldError('name')
                   ? 'border-red-300 focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-red-50'
@@ -169,8 +172,8 @@ export default function SignupPage() {
             />
           </div>
           {getFieldError('name') && (
-            <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="name-error" role="alert" className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {getFieldError('name')}
             </p>
           )}
@@ -186,6 +189,9 @@ export default function SignupPage() {
               id="email"
               type="email"
               {...getFieldProps('email')}
+              aria-required="true"
+              aria-invalid={!!getFieldError('email')}
+              aria-describedby={getFieldError('email') ? 'signup-email-error' : undefined}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg transition-all ${
                 getFieldError('email')
                   ? 'border-red-300 focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-red-50'
@@ -195,8 +201,8 @@ export default function SignupPage() {
             />
           </div>
           {getFieldError('email') && (
-            <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="signup-email-error" role="alert" className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {getFieldError('email')}
             </p>
           )}
@@ -212,6 +218,9 @@ export default function SignupPage() {
               id="password"
               type="password"
               {...getFieldProps('password')}
+              aria-required="true"
+              aria-invalid={!!getFieldError('password')}
+              aria-describedby={getFieldError('password') ? 'signup-password-error' : undefined}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg transition-all ${
                 getFieldError('password')
                   ? 'border-red-300 focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-red-50'
@@ -231,8 +240,8 @@ export default function SignupPage() {
             </div>
           )}
           {getFieldError('password') && (
-            <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="signup-password-error" role="alert" className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {getFieldError('password')}
             </p>
           )}
@@ -248,6 +257,9 @@ export default function SignupPage() {
               id="confirmPassword"
               type="password"
               {...getFieldProps('confirmPassword')}
+              aria-required="true"
+              aria-invalid={!!getFieldError('confirmPassword')}
+              aria-describedby={getFieldError('confirmPassword') ? 'confirm-password-error' : undefined}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg transition-all ${
                 getFieldError('confirmPassword')
                   ? 'border-red-300 focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-red-50'
@@ -257,8 +269,8 @@ export default function SignupPage() {
             />
           </div>
           {getFieldError('confirmPassword') && (
-            <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="confirm-password-error" role="alert" className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {getFieldError('confirmPassword')}
             </p>
           )}

@@ -73,7 +73,7 @@ export default function LoginPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -131,6 +131,9 @@ export default function LoginPage() {
               id="email"
               type="email"
               {...getFieldProps('email')}
+              aria-required="true"
+              aria-invalid={!!getFieldError('email')}
+              aria-describedby={getFieldError('email') ? 'email-error' : undefined}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg transition-all ${
                 getFieldError('email')
                   ? 'border-red-300 focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-red-50'
@@ -140,8 +143,8 @@ export default function LoginPage() {
             />
           </div>
           {getFieldError('email') && (
-            <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="email-error" role="alert" className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {getFieldError('email')}
             </p>
           )}
@@ -157,6 +160,9 @@ export default function LoginPage() {
               id="password"
               type="password"
               {...getFieldProps('password')}
+              aria-required="true"
+              aria-invalid={!!getFieldError('password')}
+              aria-describedby={getFieldError('password') ? 'password-error' : undefined}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg transition-all ${
                 getFieldError('password')
                   ? 'border-red-300 focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-red-50'
@@ -166,8 +172,8 @@ export default function LoginPage() {
             />
           </div>
           {getFieldError('password') && (
-            <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p id="password-error" role="alert" className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
               {getFieldError('password')}
             </p>
           )}

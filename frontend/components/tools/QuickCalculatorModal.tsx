@@ -186,16 +186,20 @@ export default function QuickCalculatorModal({ isOpen, onClose }: QuickCalculato
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quick-calculator-modal-title"
           className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-200">
             <div className="flex items-center gap-2">
               <Calculator className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-slate-900">Quick Deadline Calculator</h2>
+              <h2 id="quick-calculator-modal-title" className="text-lg font-semibold text-slate-900">Quick Deadline Calculator</h2>
             </div>
             <button
               onClick={onClose}
+              aria-label="Close calculator"
               className="p-1 text-slate-400 hover:text-slate-600 rounded"
             >
               <X className="w-5 h-5" />

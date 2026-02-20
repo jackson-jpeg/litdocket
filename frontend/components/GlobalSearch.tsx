@@ -224,6 +224,9 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Global search"
             className="bg-paper border-2 border-ink shadow-modal w-full max-w-4xl mx-4 flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={handleKeyDown}
@@ -238,11 +241,12 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search cases, documents, deadlines..."
+              aria-label="Search cases, documents, and deadlines"
               className="flex-1 bg-transparent text-ink text-base placeholder-ink-muted focus:outline-none font-mono"
               spellCheck={false}
             />
             {loading && (
-              <span className="text-steel text-sm font-mono">SEARCHING<span className="animate-pulse">_</span></span>
+              <span role="status" aria-label="Searching" className="text-steel text-sm font-mono">SEARCHING<span className="animate-pulse">_</span></span>
             )}
           </div>
         </div>
@@ -295,11 +299,13 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
           )}
 
           {flatResults.length > 0 && (
-            <div className="divide-y divide-ink/20">
+            <div role="listbox" aria-label="Search results" className="divide-y divide-ink/20">
               {flatResults.map((result, idx) => (
                 <div
                   key={`${result.type}-${result.id}`}
                   data-result
+                  role="option"
+                  aria-selected={idx === selectedIndex}
                   onClick={() => navigateToResult(result)}
                   className={`cursor-pointer px-6 py-4 transition-transform ${
                     idx === selectedIndex

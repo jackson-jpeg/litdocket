@@ -172,6 +172,9 @@ export default function EditTriggerModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-trigger-modal-title"
         className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -179,7 +182,7 @@ export default function EditTriggerModal({
         <div className="p-4 border-b border-slate-200 bg-purple-50">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">
+              <h2 id="edit-trigger-modal-title" className="text-lg font-semibold text-slate-800">
                 Edit Trigger: {trigger.title || triggerLabel}
               </h2>
               <p className="text-sm text-slate-600 mt-0.5">
@@ -189,6 +192,7 @@ export default function EditTriggerModal({
             <button
               onClick={onClose}
               disabled={loading}
+              aria-label="Close dialog"
               className="p-1.5 rounded-lg hover:bg-purple-200 transition-colors"
             >
               <X className="w-5 h-5 text-slate-500" />

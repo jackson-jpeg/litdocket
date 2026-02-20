@@ -238,6 +238,8 @@ export default function DeadlineActions({ deadlines, onDeadlinesUpdated }: Deadl
           e.stopPropagation();
           toggleSelection(deadline.id);
         }}
+        aria-label={isSelected ? `Deselect ${deadline.title}` : `Select ${deadline.title}`}
+        aria-pressed={isSelected}
         className="flex-shrink-0"
       >
         {isSelected ? (
@@ -264,10 +266,10 @@ export default function DeadlineActions({ deadlines, onDeadlinesUpdated }: Deadl
       {/* Bulk Edit Modal */}
       {bulkEditOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setBulkEditOpen(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby="bulk-edit-title" className="bg-white rounded-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">Bulk Edit Deadlines</h3>
-              <button onClick={() => setBulkEditOpen(false)} className="p-1 hover:bg-slate-100 rounded">
+              <h3 id="bulk-edit-title" className="text-lg font-semibold text-slate-800">Bulk Edit Deadlines</h3>
+              <button onClick={() => setBulkEditOpen(false)} aria-label="Close bulk edit" className="p-1 hover:bg-slate-100 rounded">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
@@ -331,10 +333,10 @@ export default function DeadlineActions({ deadlines, onDeadlinesUpdated }: Deadl
       {/* Snooze Modal */}
       {snoozeOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSnoozeOpen(false)}>
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby="snooze-title" className="bg-white rounded-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">Snooze Deadlines</h3>
-              <button onClick={() => setSnoozeOpen(false)} className="p-1 hover:bg-slate-100 rounded">
+              <h3 id="snooze-title" className="text-lg font-semibold text-slate-800">Snooze Deadlines</h3>
+              <button onClick={() => setSnoozeOpen(false)} aria-label="Close snooze dialog" className="p-1 hover:bg-slate-100 rounded">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>

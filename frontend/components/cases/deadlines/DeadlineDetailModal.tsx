@@ -151,6 +151,7 @@ export default function DeadlineDetailModal({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close deadline details"
             className="text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />

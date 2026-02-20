@@ -108,7 +108,11 @@ function DeadlineEditor({
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       {/* Collapsed Header */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsExpanded(!isExpanded); } }}
         className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 transition-colors"
       >
         <div className="flex items-center gap-3">
@@ -294,15 +298,21 @@ export default function ProposalEditModal({ proposal, onClose, onSave }: Proposa
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-50 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="proposal-edit-modal-title"
+        className="bg-slate-50 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      >
         {/* Header */}
         <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Edit Proposal</h2>
+            <h2 id="proposal-edit-modal-title" className="text-lg font-semibold text-slate-900">Edit Proposal</h2>
             <p className="text-sm text-slate-500">Modify the rule before approval</p>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
           >
             <X className="w-5 h-5" />

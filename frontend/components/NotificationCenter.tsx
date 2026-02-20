@@ -249,7 +249,9 @@ export default function NotificationCenter({ className = '' }: NotificationCente
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        aria-label="Notifications"
+        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -287,7 +289,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
           {/* Notifications List */}
           <div className="max-h-96 overflow-y-auto">
             {loading && notifications.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-gray-500" role="status" aria-label="Loading notifications">
                 <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
                 Loading notifications...
               </div>
@@ -302,7 +304,10 @@ export default function NotificationCenter({ className = '' }: NotificationCente
                 {notifications.map((notification) => (
                   <div
                     key={notification.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleNotificationClick(notification)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(notification); } }}
                     className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                       !notification.is_read ? 'bg-blue-50/50' : ''
                     }`}
@@ -326,6 +331,7 @@ export default function NotificationCenter({ className = '' }: NotificationCente
                           </div>
                           <button
                             onClick={(e) => dismissNotification(notification.id, e)}
+                            aria-label={`Dismiss notification: ${notification.title}`}
                             className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                           >
                             <X className="w-4 h-4" />

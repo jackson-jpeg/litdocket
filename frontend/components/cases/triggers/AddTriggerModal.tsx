@@ -219,6 +219,9 @@ export default function AddTriggerModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-trigger-modal-title"
         className="bg-paper border-2 border-ink shadow-modal max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -230,7 +233,7 @@ export default function AddTriggerModal({
                 <Zap className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-heading font-semibold text-ink">
+                <h2 id="add-trigger-modal-title" className="text-lg font-heading font-semibold text-ink">
                   {step === 'select' && 'Add Event'}
                   {step === 'configure' && `Configure: ${selectedTemplate?.name}`}
                   {step === 'preview' && 'Preview Deadlines'}
@@ -245,6 +248,7 @@ export default function AddTriggerModal({
             <button
               onClick={onClose}
               disabled={creating}
+              aria-label="Close dialog"
               className="p-1.5 hover:bg-surface transition-transform hover:translate-x-0.5"
             >
               <X className="w-5 h-5 text-ink-muted" />
@@ -280,7 +284,7 @@ export default function AddTriggerModal({
           {step === 'select' && (
             <div className="space-y-4">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12" role="status" aria-label="Loading trigger templates">
                   <span className="font-mono text-ink-secondary">LOADING<span className="animate-pulse">_</span></span>
                 </div>
               ) : Object.keys(groupedTemplates).length === 0 ? (
