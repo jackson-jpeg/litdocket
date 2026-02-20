@@ -144,7 +144,7 @@ async def login_with_firebase(
         logger.debug(f"Full traceback: {error_details}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Firebase token: {str(e)}",
+            detail="Invalid Firebase token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -282,26 +282,25 @@ async def complete_signup(
     try:
         from firebase_admin import auth as firebase_auth
         from app.services.firebase_service import firebase_service
-        from jose import jwt as jose_jwt
-        import os
         import logging
 
         logger = logging.getLogger(__name__)
 
-        # Decode token to get email - only bypass if explicitly enabled
-        dev_auth_bypass = os.getenv("DEV_AUTH_BYPASS", "false").lower() == "true"
+        # ====================================================================
+        # SECURITY FIX: DEV_AUTH_BYPASS REMOVED
+        #
+        # Previously allowed bypassing Firebase token verification when
+        # DEV_AUTH_BYPASS=true and DEBUG=true. This was a critical security
+        # hole that could be accidentally enabled in production.
+        #
+        # For local development, use Firebase Local Emulator Suite instead:
+        #   https://firebase.google.com/docs/emulator-suite
+        # ====================================================================
 
-        if dev_auth_bypass and settings.DEBUG:
-            logger.warning("DEV_AUTH_BYPASS enabled in complete_signup")
-            try:
-                unverified_payload = jose_jwt.decode(signup_request.id_token, options={"verify_signature": False})
-                email = unverified_payload.get('email') or 'dev@docketassist.com'
-            except Exception:
-                email = 'dev@docketassist.com'
-        else:
-            firebase_service._initialize_firebase()
-            decoded_token = firebase_auth.verify_id_token(signup_request.id_token)
-            email = decoded_token.get('email')
+        # ALWAYS verify Firebase token - no bypass allowed
+        firebase_service._initialize_firebase()
+        decoded_token = firebase_auth.verify_id_token(signup_request.id_token)
+        email = decoded_token.get('email')
 
         if not email:
             raise HTTPException(
@@ -349,5 +348,5 @@ async def complete_signup(
         logger.debug(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to complete signup: {str(e)}"
+            detail="Failed to complete signup"
         )
