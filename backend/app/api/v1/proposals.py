@@ -181,7 +181,7 @@ def approve_proposal(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Proposal approved but execution failed: {str(e)}"
+            detail="Proposal approved but execution failed"
         )
 
 
@@ -267,15 +267,34 @@ def _execute_proposal_action(proposal: Proposal, current_user: User, db: Session
         )
 
 
+_ALLOWED_DEADLINE_CREATE_FIELDS = {
+    "title", "description", "deadline_date", "deadline_type", "priority",
+    "status", "notes", "rule_basis", "calculation_method", "days_from_trigger",
+    "trigger_type", "trigger_date", "service_method", "service_extension_days",
+    "category", "source", "document_id", "authority_rule_id",
+}
+
+_ALLOWED_DEADLINE_UPDATE_FIELDS = {
+    "title", "description", "deadline_date", "deadline_type", "priority",
+    "status", "notes", "category",
+}
+
+_ALLOWED_CASE_UPDATE_FIELDS = {
+    "title", "case_number", "court", "judge", "jurisdiction_id",
+    "case_type", "status", "notes", "description",
+}
+
+
 def _execute_create_deadline(proposal: Proposal, action_data: dict, current_user: User, db: Session):
     """Execute CREATE_DEADLINE action"""
 
-    # Create deadline from action_data
+    # Filter action_data to only allowed fields to prevent mass assignment
+    safe_data = {k: v for k, v in action_data.items() if k in _ALLOWED_DEADLINE_CREATE_FIELDS}
     deadline = Deadline(
         id=str(uuid.uuid4()),
         case_id=proposal.case_id,
         user_id=str(current_user.id),
-        **action_data  # All deadline fields from proposal
+        **safe_data
     )
 
     db.add(deadline)
@@ -306,13 +325,13 @@ def _execute_update_deadline(proposal: Proposal, action_data: dict, current_user
     if not deadline:
         raise ValueError(f"Deadline {deadline_id} not found")
 
-    # Update fields
+    # Update only allowed fields to prevent mass assignment
     updates = action_data.get("updates", {})
     for key, value in updates.items():
-        if hasattr(deadline, key):
+        if key in _ALLOWED_DEADLINE_UPDATE_FIELDS:
             setattr(deadline, key, value)
 
-    logger.info(f"✅ Updated deadline {deadline_id} from proposal {proposal.id}")
+    logger.info(f"Updated deadline {deadline_id} from proposal {proposal.id}")
 
     return {
         "resource_id": deadline_id,
@@ -396,13 +415,13 @@ def _execute_update_case(proposal: Proposal, action_data: dict, current_user: Us
     if not case:
         raise ValueError(f"Case {case_id} not found")
 
-    # Update fields
+    # Update only allowed fields to prevent mass assignment
     updates = action_data.get("updates", {})
     for key, value in updates.items():
-        if hasattr(case, key):
+        if key in _ALLOWED_CASE_UPDATE_FIELDS:
             setattr(case, key, value)
 
-    logger.info(f"✅ Updated case {case_id} from proposal {proposal.id}")
+    logger.info(f"Updated case {case_id} from proposal {proposal.id}")
 
     return {
         "resource_id": case_id,
