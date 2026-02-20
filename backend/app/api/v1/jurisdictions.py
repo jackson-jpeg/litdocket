@@ -432,7 +432,7 @@ async def seed_jurisdiction_data(
         return {"status": "success", "message": "Seed data created successfully"}
     except Exception as e:
         logger.error(f"Error seeding data: {e}")
-        raise HTTPException(status_code=500, detail=f"Error seeding data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error seeding jurisdiction data")
 
 
 # ============================================================
@@ -672,7 +672,7 @@ async def get_jurisdiction_tree(
         logger.error(f"Attribute error in jurisdiction tree - likely null field: {e}", exc_info=True)
         raise HTTPException(
             status_code=503,
-            detail=f"Data integrity issue in jurisdiction data: {str(e)}"
+            detail="Data integrity issue in jurisdiction data. Please contact support."
         )
     except Exception as e:
         logger.error(f"Failed to load jurisdiction tree: {e}", exc_info=True)
@@ -858,7 +858,7 @@ async def update_case_jurisdiction(
 
         except Exception as e:
             logger.error(f"Error in Retroactive Ripple: {e}")
-            warnings.append(f"Partial recalculation: {str(e)}")
+            warnings.append("Partial recalculation encountered an error")
 
     # Commit changes
     db.commit()

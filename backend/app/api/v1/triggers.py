@@ -1070,7 +1070,7 @@ def get_case_triggers(
         raise
     except Exception as e:
         logger.error(f"Error verifying case {case_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
     try:
         # ============================================================================
@@ -1175,7 +1175,7 @@ def get_case_triggers(
 
     except Exception as e:
         logger.error(f"Error processing triggers for case {case_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error processing triggers: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing triggers")
 
 
 class UpdateTriggerDateRequest(BaseModel):

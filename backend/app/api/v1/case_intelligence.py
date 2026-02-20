@@ -864,7 +864,7 @@ Format your response as JSON:
 
     except Exception as e:
         logger.error(f"Brief generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Brief generation failed")
 
 
 # ============================================================
@@ -1006,7 +1006,7 @@ Provide a comprehensive settlement analysis in JSON format:
         raise HTTPException(status_code=500, detail="Failed to parse settlement analysis")
     except Exception as e:
         logger.error(f"Settlement calculation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Settlement calculation failed")
 
 
 # ============================================================

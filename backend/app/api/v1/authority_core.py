@@ -439,7 +439,8 @@ async def approve_proposal(
         return rule_to_response(rule, jurisdiction)
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
 
 
 @router.post("/proposals/{proposal_id}/reject")
@@ -459,7 +460,8 @@ async def reject_proposal(
         )
         return {"success": True, "message": "Proposal rejected"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
 
 
 @router.post("/proposals/{proposal_id}/request-revision")
@@ -479,7 +481,8 @@ async def request_revision(
         )
         return {"success": True, "message": "Revision requested"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
 
 
 # ============================================================
@@ -887,7 +890,8 @@ async def resolve_conflict(
         )
         return {"success": True, "message": "Conflict resolved"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
 
 
 # ============================================================
@@ -996,7 +1000,8 @@ async def scrape_url_content(
             source_urls=scraped.source_urls
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
         logger.error(f"URL scraping failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to scrape URL content")
@@ -1226,7 +1231,8 @@ async def harvest_rules_from_url(
             job.error_message = f"Failed to scrape URL: {str(e)}"
             job.completed_at = datetime.utcnow()
             db.commit()
-            raise HTTPException(status_code=400, detail=f"Failed to scrape URL: {str(e)}")
+            logger.error(f"Failed to scrape URL {request.url}: {str(e)}")
+            raise HTTPException(status_code=400, detail="Failed to scrape URL")
 
         # Step 2: Extract rules
         job.status = ScrapeStatus.EXTRACTING
@@ -1268,7 +1274,8 @@ async def harvest_rules_from_url(
                         )
                         auto_approved = True
                     except Exception as e:
-                        errors.append(f"Auto-approve failed for {rule_data.rule_code}: {str(e)}")
+                        logger.error(f"Auto-approve failed for {rule_data.rule_code}: {str(e)}")
+                        errors.append(f"Auto-approve failed for {rule_data.rule_code}")
 
                 harvested_rules.append(HarvestedRule(
                     proposal_id=proposal.id,
@@ -1283,8 +1290,8 @@ async def harvest_rules_from_url(
                 ))
 
             except Exception as e:
-                errors.append(f"Failed to create proposal for {rule_data.rule_code}: {str(e)}")
-                logger.warning(f"Failed to create proposal: {e}")
+                logger.warning(f"Failed to create proposal for {rule_data.rule_code}: {e}")
+                errors.append(f"Failed to create proposal for {rule_data.rule_code}")
 
         # Update job with results
         job.status = ScrapeStatus.COMPLETED
@@ -1319,7 +1326,7 @@ async def harvest_rules_from_url(
         job.error_message = str(e)
         job.completed_at = datetime.utcnow()
         db.commit()
-        raise HTTPException(status_code=500, detail=f"Harvest failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Harvest failed")
 
 
 @router.post("/discover-urls", response_model=DiscoverUrlsResponse)
@@ -1434,7 +1441,7 @@ Return ONLY a JSON array, no other text. Example:
 
     except Exception as e:
         logger.error(f"URL discovery failed: {e}")
-        raise HTTPException(status_code=500, detail=f"URL discovery failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="URL discovery failed")
 
 
 @router.post("/harvest-batch", response_model=BatchHarvestResponse)
@@ -1503,7 +1510,7 @@ async def harvest_rules_batch(
                 rules_found=0,
                 proposals_created=0,
                 rules=[],
-                errors=[str(e)],
+                errors=["Harvest failed for this URL"],
                 processing_time_ms=0
             ))
 
@@ -1931,7 +1938,7 @@ async def import_rules(
             results.append(ImportResult(
                 rule_code=rule_data.rule_code,
                 success=False,
-                message=str(e)
+                message="Import failed due to an internal error"
             ))
             failed += 1
 
@@ -2007,7 +2014,7 @@ async def preview_migration(
         raise HTTPException(status_code=500, detail="Migration module not available")
     except Exception as e:
         logger.error(f"Preview migration failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Preview migration failed")
 
 
 @router.post("/migration/execute")
@@ -2054,7 +2061,7 @@ async def execute_migration(
     except Exception as e:
         logger.error(f"Migration failed: {e}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Migration execution failed")
 
 
 @router.get("/migration/status")
@@ -2133,7 +2140,7 @@ async def get_migration_status(
         raise HTTPException(status_code=500, detail="Migration module not available")
     except Exception as e:
         logger.error(f"Migration status check failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Migration status check failed")
 
 
 # ============================================================
@@ -2370,7 +2377,7 @@ Format your response as JSON:
 
     except Exception as e:
         logger.error(f"Rule discovery failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Rule discovery failed")
 
 
 @router.get("/discover/suggestions")
@@ -3142,7 +3149,7 @@ async def run_harvest_schedule_now(
         db.commit()
 
         logger.error(f"Scheduled harvest failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Scheduled harvest failed")
 
 
 @router.get("/schedules/{schedule_id}/runs")
@@ -3457,7 +3464,7 @@ async def manual_watchtower_trigger(
         logger.error(f"Watchtower check failed for {jurisdiction.name}: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Watchtower check failed: {str(e)}"
+            detail="Watchtower check failed"
         )
 
 
@@ -3694,7 +3701,7 @@ async def get_scheduler_status(
         logger.error(f"Error getting scheduler status: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get scheduler status: {str(e)}"
+            detail="Failed to get scheduler status"
         )
 
 
@@ -3767,7 +3774,7 @@ async def onboard_jurisdiction(
         logger.error(f"Jurisdiction onboarding failed: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Onboarding failed: {str(e)}"
+            detail="Onboarding failed"
         )
 
 
@@ -3853,7 +3860,7 @@ async def batch_onboard_jurisdictions(
         logger.error(f"Batch onboarding failed: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Batch onboarding failed: {str(e)}"
+            detail="Batch onboarding failed"
         )
 
 
@@ -3898,5 +3905,5 @@ async def get_onboarding_status(
         logger.error(f"Failed to get onboarding status: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get status: {str(e)}"
+            detail="Failed to get onboarding status"
         )

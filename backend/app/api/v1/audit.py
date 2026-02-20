@@ -15,10 +15,13 @@ from sqlalchemy import text
 from pydantic import BaseModel
 from typing import Optional, List, Any
 from datetime import datetime
+import logging
 
 from app.database import get_db
 from app.utils.auth import get_current_user
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -136,7 +139,8 @@ async def verify_audit_chain(
                 status_code=501,
                 detail="Audit verification not available. Database migration may be needed."
             )
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+        logger.error(f"Audit verification failed for record {record_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Verification failed")
 
 
 @router.get("/history/{record_id}", response_model=List[AuditEntry])
@@ -194,7 +198,8 @@ async def get_record_history(
                 status_code=501,
                 detail="Audit history not available. Database migration may be needed."
             )
-        raise HTTPException(status_code=500, detail=f"Failed to get history: {str(e)}")
+        logger.error(f"Failed to get audit history for record {record_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve audit history")
 
 
 # ============================================
@@ -228,7 +233,8 @@ async def get_pending_actions_count(
         if "does not exist" in str(e):
             # Table doesn't exist yet - return 0
             return {"count": 0}
-        raise HTTPException(status_code=500, detail=f"Failed to get count: {str(e)}")
+        logger.error(f"Failed to get pending actions count: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve pending actions count")
 
 
 @router.get("/pending", response_model=List[PendingAction])
@@ -276,7 +282,8 @@ async def get_pending_actions(
     except Exception as e:
         if "does not exist" in str(e):
             return []
-        raise HTTPException(status_code=500, detail=f"Failed to get pending actions: {str(e)}")
+        logger.error(f"Failed to get pending actions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve pending actions")
 
 
 @router.post("/actions/{action_id}/approve")
@@ -423,13 +430,15 @@ async def approve_pending_action(
                 {"action_id": action_id, "error": str(commit_error)}
             )
             db.commit()
-            raise HTTPException(status_code=500, detail=f"Commit failed: {str(commit_error)}")
+            logger.error(f"Failed to commit approved action {action_id}: {str(commit_error)}")
+            raise HTTPException(status_code=500, detail="Failed to commit approved action")
 
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Approval failed: {str(e)}")
+        logger.error(f"Action approval failed for {action_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Action approval failed")
 
 
 @router.post("/actions/{action_id}/reject")
@@ -484,4 +493,5 @@ async def reject_pending_action(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Rejection failed: {str(e)}")
+        logger.error(f"Action rejection failed for {action_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Action rejection failed")
