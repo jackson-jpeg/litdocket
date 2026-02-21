@@ -148,9 +148,9 @@ class RulesEngine:
         # Legacy hardcoded rules are only loaded if explicitly enabled via LOAD_HARDCODED_RULES=true
         # This ensures Authority Core is used for 100% of deadline calculations
         if self._LOAD_HARDCODED_RULES:
-            logger.warning(
-                "⚠️  LOADING LEGACY HARDCODED RULES - This is NOT RECOMMENDED. "
-                "Authority Core should be used instead. Set LOAD_HARDCODED_RULES=false."
+            logger.info(
+                "Loading hardcoded rules as fallback. Authority Core is primary; "
+                "hardcoded rules ensure deadlines always generate."
             )
             self._load_florida_civil_rules()
             self._load_federal_civil_rules()
@@ -166,9 +166,8 @@ class RulesEngine:
         # Log deprecation notice once per session
         if self._DEPRECATION_WARNING_ENABLED and not RulesEngine._deprecation_warned:
             if self.rule_templates:
-                logger.warning(
-                    "🚨 DEPRECATED: Hardcoded rules in use. "
-                    "Authority Core migration complete. Set LOAD_HARDCODED_RULES=false."
+                logger.info(
+                    f"RulesEngine: {len(self.rule_templates)} hardcoded rule templates loaded as fallback."
                 )
             RulesEngine._deprecation_warned = True
 
