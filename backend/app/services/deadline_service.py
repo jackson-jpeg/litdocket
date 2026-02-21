@@ -651,26 +651,54 @@ LOCAL RULES: Always check district-specific local rules for variations!
         """
 
         # Map trigger event to TriggerType enum
+        # Normalize: replace underscores with spaces for matching, and support both formats
         trigger_mapping = {
             "service of complaint": TriggerType.COMPLAINT_SERVED,
             "complaint served": TriggerType.COMPLAINT_SERVED,
+            "complaint_served": TriggerType.COMPLAINT_SERVED,
             "trial date set": TriggerType.TRIAL_DATE,
             "trial date": TriggerType.TRIAL_DATE,
+            "trial_date": TriggerType.TRIAL_DATE,
             "case filed": TriggerType.CASE_FILED,
+            "case_filed": TriggerType.CASE_FILED,
             "motion filed": TriggerType.MOTION_FILED,
+            "motion_filed": TriggerType.MOTION_FILED,
             "hearing scheduled": TriggerType.HEARING_SCHEDULED,
+            "hearing_scheduled": TriggerType.HEARING_SCHEDULED,
+            "order entered": TriggerType.ORDER_ENTERED,
+            "order_entered": TriggerType.ORDER_ENTERED,
+            "discovery commenced": TriggerType.DISCOVERY_COMMENCED,
+            "discovery_commenced": TriggerType.DISCOVERY_COMMENCED,
+            "appeal filed": TriggerType.APPEAL_FILED,
+            "appeal_filed": TriggerType.APPEAL_FILED,
+            "mediation scheduled": TriggerType.MEDIATION_SCHEDULED,
+            "mediation_scheduled": TriggerType.MEDIATION_SCHEDULED,
+            "service completed": TriggerType.SERVICE_COMPLETED,
+            "service_completed": TriggerType.SERVICE_COMPLETED,
         }
 
         trigger_type = None
-        trigger_lower = trigger_event.lower()
-        for key, value in trigger_mapping.items():
-            if key in trigger_lower:
-                trigger_type = value
-                break
+        trigger_lower = trigger_event.lower().strip()
 
+        # Try exact match first, then substring match
+        if trigger_lower in trigger_mapping:
+            trigger_type = trigger_mapping[trigger_lower]
+        else:
+            for key, value in trigger_mapping.items():
+                if key in trigger_lower:
+                    trigger_type = value
+                    break
+
+        # Last resort: try to match TriggerType enum directly
         if not trigger_type:
-            # No matching rule template
-            return []
+            try:
+                trigger_type = TriggerType(trigger_lower)
+            except ValueError:
+                try:
+                    trigger_type = TriggerType(trigger_lower.replace(' ', '_'))
+                except ValueError:
+                    logger.warning(f"Could not map trigger event '{trigger_event}' to TriggerType enum")
+                    return []
 
         # Find applicable rules from rules engine
         applicable_rules = rules_engine.get_applicable_rules(

@@ -650,8 +650,35 @@ class DocumentService:
             logger.info(f"PATH A: Using rules engine for trigger '{rule_check['trigger_type']}' ({rule_check['rule_set_code']})")
             extraction_method = "trigger"
 
-            # Get trigger date (service date takes precedence over filing date)
-            trigger_date_str = analysis.get('service_date') or analysis.get('filing_date')
+            # Get trigger date — depends on trigger type
+            # For trial_date triggers: extract trial date from key_dates (NOT filing/service date)
+            # For complaint/motion triggers: use service date > filing date
+            trigger_date_str = None
+            trigger_type_str = rule_check.get('trigger_type', '')
+
+            if 'trial' in trigger_type_str.lower():
+                # For trial orders, find the trial date from key_dates
+                key_dates = analysis.get('key_dates', [])
+                for kd in key_dates:
+                    desc = (kd.get('description') or '').lower()
+                    if any(w in desc for w in ['trial', 'trial period', 'trial date', 'trial commenc']):
+                        trigger_date_str = kd.get('date')
+                        logger.info(f"PATH A: Found trial date in key_dates: {trigger_date_str} ('{kd.get('description')}')")
+                        break
+
+                # Also check deadlines_mentioned
+                if not trigger_date_str:
+                    for dm in analysis.get('deadlines_mentioned', []):
+                        desc = (dm.get('description') or dm.get('deadline_type') or '').lower()
+                        if 'trial' in desc:
+                            trigger_date_str = dm.get('date')
+                            logger.info(f"PATH A: Found trial date in deadlines_mentioned: {trigger_date_str}")
+                            break
+
+            if not trigger_date_str:
+                # Default: service date > filing date
+                trigger_date_str = analysis.get('service_date') or analysis.get('filing_date')
+
             if trigger_date_str:
                 try:
                     from datetime import datetime
@@ -739,11 +766,71 @@ class DocumentService:
                         logger.error(f"Error creating chain deadline: {e}")
                         continue
 
+                # ═══════════════════════════════════════════════════════════════
+                # PATH A SUPPLEMENT: Add explicit dates from AI analysis
+                # (calendar call, trial period end, etc.) that rules engine
+                # doesn't generate since they're document-specific, not rule-based
+                # ═══════════════════════════════════════════════════════════════
+                explicit_dates_added = 0
+                for kd in analysis.get('key_dates', []):
+                    kd_date_str = kd.get('date')
+                    kd_desc = kd.get('description', '')
+                    if not kd_date_str:
+                        continue
+
+                    # Skip the trigger date itself (already used as parent)
+                    try:
+                        kd_date = datetime.strptime(kd_date_str, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        continue
+
+                    if kd_date == trigger_date:
+                        continue
+
+                    # Determine priority based on description
+                    desc_lower = kd_desc.lower()
+                    priority = 'important'
+                    if 'calendar call' in desc_lower:
+                        priority = 'critical'
+
+                    explicit_deadline = Deadline(
+                        case_id=document.case_id,
+                        user_id=document.user_id,
+                        document_id=str(document.id),
+                        title=kd_desc or f"Court Date: {kd_date_str}",
+                        description=f"Explicitly stated in {document.document_type}",
+                        deadline_date=kd_date,
+                        deadline_type='court_date',
+                        priority=priority,
+                        status='pending',
+                        party_role='All Parties',
+                        action_required=kd_desc,
+                        trigger_event=rule_check['trigger_type'],
+                        trigger_date=trigger_date,
+                        is_estimated=False,
+                        is_calculated=False,
+                        source_document=document.document_type,
+                        confidence_score=95,
+                        confidence_level='high',
+                        confidence_factors={'explicit_in_document': True},
+                        verification_status='pending',
+                        extraction_method='explicit',
+                        extraction_quality_score=10,
+                        source_text=kd_desc[:500]
+                    )
+                    self.db.add(explicit_deadline)
+                    all_deadlines.append(explicit_deadline)
+                    explicit_dates_added += 1
+
+                if explicit_dates_added > 0:
+                    logger.info(f"PATH A: Added {explicit_dates_added} explicit dates from document")
+
                 # Build chatbot message for PATH A
                 chatbot_message = (
                     f"I identified this as a '{document.document_type}'. "
                     f"This triggers **{rule_check['rule_set_code']} {rule_check['trigger_type']}**. "
-                    f"I have auto-calculated {len(all_deadlines)} deadline(s) using the rules engine. "
+                    f"I have auto-calculated {len(all_deadlines)} deadline(s) using the rules engine "
+                    f"({len(all_deadlines) - explicit_dates_added} from rules, {explicit_dates_added} explicit dates). "
                     f"({rule_check['trigger_description']})"
                 )
 
