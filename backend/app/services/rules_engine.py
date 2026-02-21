@@ -132,9 +132,10 @@ class RulesEngine:
     ==============================================================================
     """
 
-    # Phase 2: Hardcoded rules DISABLED by default
-    # Set LOAD_HARDCODED_RULES=true in .env to enable legacy fallback (not recommended)
-    _LOAD_HARDCODED_RULES = os.environ.get("LOAD_HARDCODED_RULES", "false").lower() == "true"
+    # Phase 2: Hardcoded rules RE-ENABLED as fallback
+    # Authority Core is primary, but hardcoded rules ensure deadlines always generate
+    # Set LOAD_HARDCODED_RULES=false in .env to disable (not recommended)
+    _LOAD_HARDCODED_RULES = os.environ.get("LOAD_HARDCODED_RULES", "true").lower() != "false"
 
     # Deprecation flag - set to True to log warnings when hardcoded rules are used
     _DEPRECATION_WARNING_ENABLED = True

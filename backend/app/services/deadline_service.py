@@ -152,6 +152,37 @@ TRIAL DEADLINES:
 - Exhibit List → varies by local rules
 - Jury Instructions → typically 15 days before trial
 
+CRITICAL - UNIFORM TRIAL ORDER / TRIAL ORDER HANDLING:
+When the document is a "Uniform Trial Order", "Trial Order", "Order Setting Case for Trial",
+or any document that sets a trial date/period, you MUST generate ALL implied countdown deadlines
+calculated backward from the trial date, NOT just the dates explicitly stated in the document.
+
+From the TRIAL DATE (first day of trial period), count BACKWARD and generate deadlines for:
+- Discovery Cutoff: 45 days before trial [CRITICAL]
+- Discovery Responses Due: 30 days before trial [CRITICAL]
+- Plaintiff Expert Disclosure: 90 days before trial [CRITICAL]
+- Defendant Expert Disclosure: 60 days before trial [CRITICAL]
+- Rebuttal Expert Disclosure: 45 days before trial [IMPORTANT]
+- Expert Deposition Cutoff: 30 days before trial [IMPORTANT]
+- Motion for Summary Judgment Deadline: 60 days before trial [IMPORTANT]
+- Final Witness List Due: 30 days before trial [CRITICAL]
+- Final Exhibit List Due: 30 days before trial [CRITICAL]
+- Exchange Trial Exhibits: 21 days before trial [CRITICAL]
+- Motions in Limine Due: 21 days before trial [IMPORTANT]
+- Motions in Limine Response Due: 14 days before trial [IMPORTANT]
+- Pretrial Stipulation Due: 15 days before trial [CRITICAL]
+- Proposed Jury Instructions Due: 14 days before trial [IMPORTANT]
+- Proposed Verdict Form Due: 14 days before trial [IMPORTANT]
+- Deposition Designations Due: 21 days before trial [IMPORTANT]
+- Counter-Designations Due: 14 days before trial [IMPORTANT]
+- Exhibit Objections Due: 14 days before trial [IMPORTANT]
+- Trial Subpoena Deadline: 10 days before trial [IMPORTANT]
+- Trial Brief Due: 7 days before trial [STANDARD]
+- Pretrial Conference: 7 days before trial [CRITICAL]
+- Mediation Deadline: 60-90 days before trial [IMPORTANT]
+
+Calculate actual dates using the trial date from the document.
+
 {rules_section}
 
 DOCUMENT TEXT TO ANALYZE:

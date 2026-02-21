@@ -747,11 +747,25 @@ class DocumentService:
                     f"({rule_check['trigger_description']})"
                 )
 
+                # ═══════════════════════════════════════════════════════════════
+                # PATH A FALLTHROUGH: If rules engine returned 0 deadlines,
+                # fall through to PATH B (AI extraction) instead of silently
+                # returning nothing. This handles cases where the rules engine
+                # matched a trigger but had no rules loaded.
+                # ═══════════════════════════════════════════════════════════════
+                if len(all_deadlines) == 0:
+                    logger.warning(
+                        f"PATH A generated 0 deadlines for trigger '{rule_check['trigger_type']}' — "
+                        f"falling through to PATH B (AI extraction)"
+                    )
+                    extraction_method = "manual_fallthrough"
+                    # Don't return yet — fall through to PATH B below
+
             except Exception as e:
                 logger.error(f"Error generating deadline chains: {e}")
                 chatbot_message = f"Error generating deadlines from trigger: {e}"
 
-        else:
+        if not rule_check['matches_trigger'] or (extraction_method == "manual_fallthrough"):
             # ═══════════════════════════════════════════════════════════════════════
             # PATH B: NO TRIGGER MATCH - Use AI Extraction
             # Extract deadlines manually from document text

@@ -58,6 +58,44 @@ TRIAL DEADLINES:
 - Exhibit List -> varies by local rules
 - Jury Instructions -> typically 15 days before trial
 
+CRITICAL - UNIFORM TRIAL ORDER / TRIAL ORDER HANDLING:
+When the document is a "Uniform Trial Order", "Trial Order", "Order Setting Case for Trial",
+or any document that sets a trial date/period, you MUST generate ALL implied countdown deadlines
+calculated backward from the trial date, NOT just the dates explicitly stated in the document.
+
+A typical Florida Uniform Trial Order only explicitly states 2-3 dates (trial period, calendar call),
+but it IMPLIES 15-25+ countdown deadlines that attorneys must track. Generate ALL of them:
+
+From the TRIAL DATE (first day of trial period), count BACKWARD:
+- Discovery Cutoff: 45 days before trial [CRITICAL] — Fla. R. Civ. P. 1.280; Local Rules
+- Discovery Responses Due: 30 days before trial [CRITICAL]
+- Plaintiff Expert Disclosure: 90 days before trial [CRITICAL] — Fla. R. Civ. P. 1.280(b)(5)
+- Defendant Expert Disclosure: 60 days before trial [CRITICAL] — Fla. R. Civ. P. 1.280(b)(5)
+- Rebuttal Expert Disclosure: 45 days before trial [IMPORTANT]
+- Expert Deposition Cutoff: 30 days before trial [IMPORTANT]
+- Motion for Summary Judgment Deadline: 60 days before trial [IMPORTANT] — Fla. R. Civ. P. 1.510(c)
+- Final Witness List Due: 30 days before trial [CRITICAL] — Local Rules
+- Final Exhibit List Due: 30 days before trial [CRITICAL] — Local Rules
+- Exchange Trial Exhibits: 21 days before trial [CRITICAL]
+- Motions in Limine Due: 21 days before trial [IMPORTANT] — Local Rules
+- Motions in Limine Response Due: 14 days before trial [IMPORTANT]
+- Pretrial Stipulation Due: 15 days before trial [CRITICAL] — Local Rules
+- Proposed Jury Instructions Due: 14 days before trial [IMPORTANT] — Fla. R. Civ. P. 1.470(b)
+- Proposed Verdict Form Due: 14 days before trial [IMPORTANT] — Fla. R. Civ. P. 1.480
+- Deposition Designations Due: 21 days before trial [IMPORTANT]
+- Counter-Designations Due: 14 days before trial [IMPORTANT]
+- Exhibit Objections Due: 14 days before trial [IMPORTANT]
+- Trial Subpoena Deadline (Non-Party): 10 days before trial [IMPORTANT] — Fla. R. Civ. P. 1.410(d)
+- Trial Brief/Memorandum Due: 7 days before trial [STANDARD]
+- Pretrial Conference: 7 days before trial [CRITICAL] — Fla. R. Civ. P. 1.200
+
+For FL-17TH (Broward County), also include AO 2025-24-Civ deadlines if applicable.
+For Mediation: typically must be completed 60-90 days before trial per local rules.
+
+IMPORTANT: Calculate actual dates using the trial date from the document. If trial period is
+"01/04/2027 to 01/29/2027", use 01/04/2027 as the trial date for backward calculations.
+Each countdown deadline must have a calculated deadline_date, not null.
+
 {rules_section}
 
 DOCUMENT TEXT TO ANALYZE:
