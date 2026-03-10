@@ -6,6 +6,7 @@ with interactive tool approval flow.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.middleware.security import limiter
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -27,6 +28,7 @@ router = APIRouter()
 
 
 @router.get("/stream-test")
+@limiter.limit("10/minute")
 async def stream_test() -> EventSourceResponse:
     """
     Simple SSE test endpoint to verify streaming works.
@@ -60,6 +62,7 @@ class ApprovalRequest(BaseModel):
 
 
 @router.get("/stream")
+@limiter.limit("30/minute")
 async def stream_chat(
     request: Request,
     session_id: str = Query(..., description="Unique session ID"),
@@ -192,6 +195,7 @@ async def stream_chat(
 
 
 @router.post("/approve/{approval_id}")
+@limiter.limit("20/minute")
 async def approve_tool_use(
     approval_id: str,
     request: ApprovalRequest,
@@ -254,6 +258,7 @@ async def approve_tool_use(
 
 
 @router.post("/reject/{approval_id}")
+@limiter.limit("20/minute")
 async def reject_tool_use(
     approval_id: str,
     reason: Optional[str] = None,
@@ -311,6 +316,7 @@ async def reject_tool_use(
 
 
 @router.get("/approvals/pending")
+@limiter.limit("60/minute")
 async def get_pending_approvals(
     current_user: User = Depends(get_current_user)
 ) -> dict:
