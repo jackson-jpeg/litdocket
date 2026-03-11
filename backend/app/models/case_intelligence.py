@@ -56,10 +56,13 @@ class CaseHealthScore(Base):
 
     # Timestamps
     calculated_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     case = relationship("Case")
     user = relationship("User")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 class CasePrediction(Base):
@@ -97,10 +100,13 @@ class CasePrediction(Base):
 
     # Timestamps
     predicted_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     case = relationship("Case")
     user = relationship("User")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 class JudgeProfile(Base):
@@ -145,9 +151,12 @@ class JudgeProfile(Base):
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     jurisdiction = relationship("Jurisdiction")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 class CaseEvent(Base):
@@ -210,12 +219,15 @@ class CaseEvent(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     case = relationship("Case")
     user = relationship("User")
     document = relationship("Document")
     deadline = relationship("Deadline")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 class DiscoveryRequest(Base):
@@ -266,11 +278,14 @@ class DiscoveryRequest(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     case = relationship("Case")
     user = relationship("User")
     deadline = relationship("Deadline")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 class CaseFact(Base):
@@ -316,11 +331,14 @@ class CaseFact(Base):
 
     # Timestamps
     extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     case = relationship("Case", foreign_keys=[case_id])
     user = relationship("User", foreign_keys=[user_id])
     source_document = relationship("Document")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
 
 
 class BriefDraft(Base):
@@ -373,9 +391,12 @@ class BriefDraft(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True))
+    updated_by = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"))
 
     # Relationships
     case = relationship("Case")
     user = relationship("User")
     parent_draft = relationship("BriefDraft", remote_side=[id])
     final_document = relationship("Document")
+    updated_by_user = relationship("User", foreign_keys=[updated_by])
